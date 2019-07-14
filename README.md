@@ -1,4 +1,3 @@
-
 # fortnitepy
 Asynchronous library for interacting with Fortnite and EpicGames' API and XMPP services.
 
@@ -46,4 +45,4 @@ client.run()
 ```
 
 # Need help?
-If you need more help feel free to join [this discord server](https://discord.gg/rnk869s).
+If you need more help feel free to join this [discord server](https://discord.gg/rnk869s).
