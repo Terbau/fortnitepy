@@ -24,6 +24,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+__version__ = '0.0.1'
+
 from .client import Client
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
