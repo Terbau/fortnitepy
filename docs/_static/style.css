@@ -1,0 +1,263 @@
+@import url('basic.css');
+
+div.document {
+	margin: 10px auto 0 auto;
+	max-width: 1200px; /* page width */
+	width: 100%;
+}
+
+div.documentwrapper {
+	float: left;
+	width: 100%;
+}
+
+div.body {
+	max-width: 960px;
+	width: 100%;
+}
+
+div.bodywrapper {
+	margin: 0 0 0 240px; /* sidebar width */
+}
+
+div.body {
+	background-color: #ffffff;
+	color: #3e4349;
+	padding: 0 30px 30px 30px;
+}
+
+div.footer {
+	color: #555;
+	font-size: 14px;
+	margin: 20px auto 30px auto;
+	text-align: right;
+	max-width: 1200px; /* page width */
+	width: 100%;
+}
+
+div.footer a {
+	color: #444;
+	text-decoration: underline;
+}
+
+div.related {
+	padding: 10px 10px;
+	width: auto;
+}
+
+div.sphinxsidebar {
+	float: left;
+	font-size: 14px;
+	line-height: 1.5em;
+	margin-left: -100%;
+	width: 240px; /* sidebar width */
+}
+
+div.sphinxsidebarwrapper {
+	font-size: 14px;
+	line-height: 1.5em;
+	padding: 10px 0 10px 10px;
+
+	/* sticky sidebar */
+	position: fixed;
+	width: 240px; /* sidebar width */
+	height: 90%;
+	overflow: hidden;
+}
+
+/* show scrollbar on hover */
+div.sphinxsidebarwrapper:hover {
+	overflow: auto;
+}
+
+div.sphinxsidebar h3,
+div.sphinxsidebar h4 {
+	color: #333;
+	font-size: 24px;
+	font-weight: normal;
+	margin: 0 0 5px 0;
+	padding: 0;
+}
+
+div.sphinxsidebar h4 {
+	font-size: 1.1em;
+}
+
+div.sphinxsidebar h3 a {
+	color: #333;
+}
+
+div.sphinxsidebar p {
+	color: #888;
+}
+
+div.sphinxsidebar p.searchtip {
+	line-height: 1.4em;
+}
+
+div.sphinxsidebar ul {
+	color: #000;
+	margin: 10px 0 20px;
+	padding: 0;
+}
+
+div.sphinxsidebar a {
+	color: #444;
+}
+
+div.sphinxsidebar input {
+	border: 1px solid #ccc;
+	font-family: sans-serif;
+	font-size: 1em;
+	margin-top: 10px;
+}
+
+.active {
+	background-color: #dbdbdb;
+	border-left: 5px solid #dbdbdb;
+}
+
+dl.function > dt,
+dl.attribute > dt,
+dl.classmethod > dt,
+dl.staticmethod > dt,
+dl.method > dt,
+dl.class > dt,
+dl.exception > dt {
+	font-size: 85%;
+	background-color: #f5f5f5;
+	border-radius: 5px;
+	margin: 25px 0 10px 0;
+	padding: 2px 10px;
+}
+
+pre {
+	background-color: #f5f5f5;
+  border: 1px solid #C6C9CB;
+  color: #333131;
+	font-size: 15px;
+	font-weight: normal;
+  line-height: 1.5em;
+  margin: 1.5em 0 1.5em 0;
+  padding: 10px;
+}
+
+a.reference.internal > strong {
+  font-weight: unset;
+  font-family: monospace;
+}
+
+tt, code {
+  background-color: #ecf0f3;
+}
+
+tt.descname, code.descname {
+  font-size: 1.1em;
+}
+
+tt.xref, a tt, code.xref, a code {
+  font-weight: normal;
+}
+
+span.pre {
+  padding: 0 2px;
+}
+
+a.toc-backref {
+  color: #222 !important;
+}
+
+a {
+  color: #125261;
+  text-decoration: none;
+}
+
+a.reference {
+  border-bottom: none !important;
+}
+
+a.xref.pre {
+  font-weight: bold;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #0b3a44;
+  text-decoration: underline;
+}
+
+@media screen and (max-width: 870px) {
+
+  div.document {
+    width: auto;
+    margin: 0;
+  }
+
+  div.documentwrapper {
+    float: none;
+  }
+
+  div.bodywrapper {
+    margin: 0;
+  }
+
+  div.body {
+    min-height: 0;
+    padding: 0 20px 30px 20px;
+  }
+
+  div.footer {
+    background-color: #333;
+    color: #888;
+    margin: 0;
+    padding: 10px 20px 20px;
+    text-align: left;
+    width: auto;
+  }
+
+  div.footer a {
+    color: #bbb;
+  }
+
+  div.footer a:hover {
+    color: #fff;
+  }
+
+  div.sphinxsidebar {
+    background-color: #333;
+    color: #fff;
+    float: none;
+    margin: 0;
+    padding: 10px 20px;
+    width: auto;
+  }
+
+  /* sticky sidebar */
+  div.sphinxsidebarwrapper {
+    position: relative;
+  }
+
+  div.sphinxsidebar h3,
+  div.sphinxsidebar h4,
+  div.sphinxsidebar p,
+  div.sphinxsidebar h3 a {
+    color: #fff;
+  }
+
+  div.sphinxsidebar ul {
+    color: #999;
+  }
+
+  div.sphinxsidebar a {
+    color: #aaa;
+  }
+
+  div.sphinxsidebar a:hover {
+    color: #fff;
+  }
+
+  .active {
+    background-color: transparent;
+    border-left: none;
+  }
+}

@@ -1,0 +1,2 @@
+aiohttp>=3.3
+aioxmpp>=0.10.4
