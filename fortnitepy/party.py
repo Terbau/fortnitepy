@@ -791,8 +791,7 @@ class Party:
         if not isinstance(id, str):
             id = id.id
         del self.members[id]
-        if self.client.auto_update_presence:
-            self.update_presence()
+        self.update_presence()
 
     def update_presence(self, text=None, conf={}):
         perm = self.config['privacy']['presencePermission']
@@ -887,7 +886,7 @@ class Party:
         if found:
             self.config['privacy'] = found
         
-        if self.client.auto_update_presence and self.client.status is not False:
+        if self.client.status is not False:
             self.update_presence()
 
     def _update_revision(self, revision):
@@ -1022,7 +1021,15 @@ class Party:
         Parameters
         ----------
         privacy: :class:`.PartyPrivacy`
+
+        Raises
+        ------
+        PartyPermissionError
+            The client is not the leader of the party.
         """
+        if self.leader.id != self.client.user.id:
+            raise PartyPermissionError('You have to be leader for this action to work.')
+
         updated, deleted = self.meta.set_privacy(privacy)
         await self.patch(updated=updated, deleted=deleted)
     
@@ -1059,7 +1066,15 @@ class Party:
         region: Optional[:class:`str`]
             The region to use.
             *Defaults to 'EU'*
+
+        Raises
+        ------
+        PartyPermissionError
+            The client is not the leader of the party.
         """
+        if self.leader.id != self.client.user.id:
+            raise PartyPermissionError('You have to be leader for this action to work.')
+
         prop = self.meta.set_playlist(
             playlist=playlist,
             tournament=tournament,
@@ -1077,7 +1092,15 @@ class Party:
         ----------
         key: :class:`str`
             The key to set.
+
+        Raises
+        ------
+        PartyPermissionError
+            The client is not the leader of the party.
         """
+        if self.leader.id != self.client.user.id:
+            raise PartyPermissionError('You have to be leader for this action to work.')
+
         prop = self.meta.set_custom_key(
             key=key
         )
@@ -1095,7 +1118,15 @@ class Party:
 
             **True** sets it to 'Fill'
             **False** sets it to 'NoFill'
+
+        Raises
+        ------
+        PartyPermissionError
+            The client is not the leader of the party.
         """
+        if self.leader.id != self.client.user.id:
+            raise PartyPermissionError('You have to be leader for this action to work.')
+
         prop = self.meta.set_fill(val=value)
         await self.patch(updated=prop)
 

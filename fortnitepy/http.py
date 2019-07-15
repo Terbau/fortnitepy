@@ -78,6 +78,11 @@ class HTTPClient:
     def remove_header(self, key):
         return self.headers.pop(key)
 
+    async def close(self):
+        if self.__session:
+            await self.__session.close()
+
+
     async def request(self, method, url, is_json=False, **kwargs):
         headers = {**kwargs.get('headers', {}), **self.headers}
 

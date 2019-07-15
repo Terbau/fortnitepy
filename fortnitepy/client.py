@@ -234,7 +234,9 @@ class Client:
         with :meth:`start`.
         """
         try:
-            self.loop.set_exception_handler(self.exc_handler)
+            # bad way of catching some annoying aioxmpp errors, will rework in the future
+            # self.loop.set_exception_handler(self.exc_handler)
+
             self.loop.run_until_complete(self.start())
             log.debug('Successfully launched')
         except KeyboardInterrupt:
@@ -304,6 +306,8 @@ class Client:
             await self.auth.kill_token(self.auth.access_token)
         except:
             pass
+
+        await self.http.close()
         log.debug('Successfully logged out')
 
     async def initialize_party(self):

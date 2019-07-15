@@ -51,8 +51,12 @@ class PresenceGameplayStats:
     def __init__(self, data):
         self.state = data.get('state')
         self.playlist = data.get('playlist')
-        self.num_kills = int(data.get('numKills'))
-        self.fell_to_death = bool(data.get('bFellToDeath'))
+        self.num_kills = data.get('numKills')
+        if self.num_kills is not None:
+            self.num_kills = int(self.num_kills)
+        self.fell_to_death = data.get('bFellToDeath')
+        if self.fell_to_death is not None:
+            self.fell_to_death = bool(self.fell_to_death)
 
 
 class PresenceParty:
@@ -126,7 +130,9 @@ class PresenceParty:
         self.build_id = data.get('buildId')
         self.party_flags = data.get('partyFlags')
         self.not_accepting_reason = data.get('notAcceptingReason')
-        self.playercount = int(data.get('pc'))
+        self.playercount = data.get('pc')
+        if self.playercount is not None:
+            self.playercount = int(self.playercount)
 
     async def join(self):
         """|coro|
@@ -228,13 +234,23 @@ class Presence:
             self.lfg = True if int(self.raw_properties.get('FortLFG_I')) == 1 else False
 
         self.sub_game = self.raw_properties.get('FortSubGame_i')
-        self.in_unjoinable_match = bool(self.raw_properties.get('InUnjoinableMatch_b'))
+        self.in_unjoinable_match = self.raw_properties.get('InUnjoinableMatch_b')
+        if self.in_unjoinable_match is not None:
+            self.in_unjoinable_match = int(self.in_unjoinable_match)
         self.playlist = self.raw_properties.get('GamePlaylistName_s')
-        self.players_alive = int(self.raw_properties.get('Event_PlayersAlive_s'))
-        self.party_size = int(self.raw_properties.get('Event_PartySize_s'))
-        self.max_party_size = int(self.raw_properties.get('Event_PartyMaxSize_s'))
+        self.players_alive = self.raw_properties.get('Event_PlayersAlive_s')
+        if self.players_alive is not None:
+            self.players_alive = int(self.players_alive)
+        self.party_size = self.raw_properties.get('Event_PartySize_s')
+        if self.party_size is not None:
+            self.party_size = int(self.party_size)
+        self.max_party_size = self.raw_properties.get('Event_PartyMaxSize_s')
+        if self.max_party_size is not None:
+            self.max_party_size = int(self.max_party_size)
         self.game_session_join_key = self.raw_properties.get('GameSessionJoinKey_s')
-        self.server_player_count = int(self.raw_properties.get('ServerPlayerCount_i'))
+        self.server_player_count = self.raw_properties.get('ServerPlayerCount_i')
+        if self.server_player_count is not None:
+            self.server_player_count = int(self.server_player_count)
 
         if 'FortGameplayStats_j' in self.raw_properties.keys():
             self.gameplay_stats = PresenceGameplayStats(self.raw_properties['FortGameplayStats_j'])
