@@ -18,7 +18,7 @@ class MyClient(fortnitepy.Client):
         await request.accept()
 
     async def event_friend_message(self, message):
-        print(f'Received message from {message.author.display_name} | Content: "{message.content}"')
+        print('Received message from {0.author.display_name} | Content: "{0.content}"'.format(message))
         await message.reply('Thanks for your message!')
     
 client = MyClient()
