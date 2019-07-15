@@ -26,7 +26,7 @@ setuptools.setup(
         "Documentation": "https://fortnitepy.readthedocs.io/en/latest/",
         "Issue tracker": "https://github.com/Terbau/fortnitepy/issues",
     },
-    version="0.0.1",
+    version=version,
     author="Terbau",
     description="Library for interacting with fortnite services",
     long_description=long_description,
