@@ -9,9 +9,12 @@ version = ''
 with open('fortnitepy/__init__.py') as f:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read(), re.MULTILINE).group(1)
 
-requirements = []
-with open('requirements.txt') as f:
-  requirements = f.read().splitlines()
+requirements = ['aiohttp>=3.3', 'aioxmpp>=0.10.4']
+try:
+    with open('requirements.txt') as f:
+        requirements = f.read().splitlines()
+except FileNotFoundError:
+    pass
 
 extras_require = {
     'docs': [
