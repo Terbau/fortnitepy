@@ -986,3 +986,31 @@ class Client:
             Status was an invalid type.
         """
         await self.xmpp.send_presence(status=status, to=to)
+
+    async def fetch_lightswitch_status(self, service_id='Fortnite'):
+        """|coro|
+        
+        Fetches the lightswitch status of an epicgames service.
+
+        Parameters
+        ----------
+        service_id: Optional[:class:`str`]
+            The service id to check status for.
+            *Defaults to ``Fortnite``.
+
+        Raises
+        ------
+        ValueError
+            The returned data was empty. Most likely because service_id is not valid.
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if service is up else ``False``
+        """
+        status = await self.http.get_lightswitch_status(service_id=service_id)
+        if len(status) == 0:
+            raise ValueError('emtpy lightswitch response')
+        return True if status[0].get('status') == 'UP' else False

@@ -82,7 +82,6 @@ class HTTPClient:
         if self.__session:
             await self.__session.close()
 
-
     async def request(self, method, url, is_json=False, **kwargs):
         headers = {**kwargs.get('headers', {}), **self.headers}
 
@@ -211,6 +210,15 @@ class HTTPClient:
             'statsv2/account/{0}{1}'.format(user_id, query_parameters),
             self.client.auth.authorization
         )
+
+    async def get_lightswitch_status(self, service_id=None):
+        return await self.get(
+            'https://lightswitch-public-service-prod06.ol.epicgames.com/lightswitch/api/' \
+            'service/bulk/status',
+            self.client.auth.authorization,
+            params={'serviceId': service_id} if service_id else None
+        )
+
 
     ########################################
     # Party
