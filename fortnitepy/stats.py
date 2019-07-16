@@ -142,3 +142,4 @@ class StatsV2:
             
             result[inp][playlist][name] = stat
         self.stats = result
+

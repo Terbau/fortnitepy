@@ -1223,5 +1223,4 @@ class PartyJoinConfirmation:
             Something went wrong when rejecting this user.
         """
         await self.client.http.party_member_reject(self.party.id, self.user.id)
-
-    
+ 
