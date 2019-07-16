@@ -1,4 +1,6 @@
-# fortnitepy
+ # fortnitepy
+
+[Supported py versions](https://img.shields.io/pypi/pyversions/)[Current pypi version](https://img.shields.io/pypi/v/)
 Asynchronous library for interacting with Fortnite and EpicGames' API and XMPP services.
 
 **Some key features:**
