@@ -7,6 +7,7 @@ Welcome to fortnitepy's documentation!
    intro
    api
    faq
+   changelog
 
 
 
