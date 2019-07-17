@@ -219,6 +219,11 @@ class HTTPClient:
             params={'serviceId': service_id} if service_id else None
         )
 
+    async def get_store_catalog(self):
+        return await self.get(
+            'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/storefront/v2/catalog',
+            self.client.auth.authorization
+        )
 
     ########################################
     # Party

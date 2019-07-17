@@ -42,6 +42,7 @@ from .enums import PartyPrivacy
 from .cache import Cache, WeakrefCache
 from .party import Party
 from .stats import StatsV2
+from .store import Store
 
 # logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__) 
@@ -1014,3 +1015,35 @@ class Client:
         if len(status) == 0:
             raise ValueError('emtpy lightswitch response')
         return True if status[0].get('status') == 'UP' else False
+
+    async def fetch_item_shop(self):
+        """|coro|
+        
+        Fetches the current item shop.
+
+        Example: ::
+
+            # fetches all CIDs (character ids) of of the current item shop.
+            async def get_current_item_shop_cids():
+                store = await client.fetch_item_shop()
+
+                cids = []
+                for item in store.featured_items + store.daily_items:
+                    for grant in item.grants:
+                        if grant['type'] == 'AthenaCharacter':
+                            cids.append(grant['asset'])
+
+                return cids
+
+        Raises
+        ------
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`Store`
+            Object representing the data from the current item shop.
+        """
+        data = await self.http.get_store_catalog()
+        return Store(self, data)
