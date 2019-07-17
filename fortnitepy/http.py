@@ -225,6 +225,12 @@ class HTTPClient:
             self.client.auth.authorization
         )
 
+    async def get_fortnite_news(self):
+        return await self.get(
+            'https://fortnitecontent-website-prod07.ol.epicgames.com/content/api/pages/fortnite-game',
+            self.client.auth.authorization
+        )
+
     ########################################
     # Party
     ########################################

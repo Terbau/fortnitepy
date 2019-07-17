@@ -43,6 +43,7 @@ from .cache import Cache, WeakrefCache
 from .party import Party
 from .stats import StatsV2
 from .store import Store
+from .news import BattleRoyaleNewsPost
 
 # logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__) 
@@ -987,7 +988,6 @@ class Client:
             Status was an invalid type.
         """
         await self.xmpp.send_presence(status=status, to=to)
-<<<<<<< Updated upstream
 
     async def fetch_lightswitch_status(self, service_id='Fortnite'):
         """|coro|
@@ -1048,5 +1048,31 @@ class Client:
         """
         data = await self.http.get_store_catalog()
         return Store(self, data)
-=======
->>>>>>> Stashed changes
+
+    async def fetch_br_news(self):
+        """|coro|
+        
+        Fetches news for the Battle Royale gamemode.
+
+        Raises
+        ------
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`list`
+            List[:class:`BattleRoyaleNewsPost`]
+        """
+        raw = await self.http.get_fortnite_news()
+        data = json.loads(raw.encode('utf-8'))
+
+        res = []
+        msg = data['battleroyalenews']['news'].get('message')
+        if msg is not None:
+            res.append(BattleRoyaleNewsPost(msg))
+        else:
+            msgs = data['battleroyalenews']['news']['messages']
+            for msg in msgs:
+                res.append(BattleRoyaleNewsPost(msg))
+        return res
