@@ -37,3 +37,4 @@ from .enums import *
 from .errors import *
 from .store import Store, FeaturedStoreItem, DailyStoreItem
 from .news import BattleRoyaleNewsPost
+from .playlist import Playlist

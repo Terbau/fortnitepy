@@ -44,6 +44,7 @@ from .party import Party
 from .stats import StatsV2
 from .store import Store
 from .news import BattleRoyaleNewsPost
+from .playlist import Playlist
 
 # logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__) 
@@ -1220,3 +1221,57 @@ class Client:
             for msg in msgs:
                 res.append(BattleRoyaleNewsPost(msg))
         return res
+
+    async def fetch_br_playlists(self):
+        """|coro|
+        
+        Fetches all playlists registered on Fortnite. This includes all previous gamemodes
+        that is no longer active.
+        
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        
+        Returns
+        -------
+        List[:class:`Playlist`]
+            List containing all playlists registered on Fortnite.
+        """
+        data = await self.http.get_fortnite_content()
+
+        raw = data['playlistinformation']['playlist_info']['playlists']
+        playlists = []
+        for playlist in raw:
+            try:
+                p = Playlist(playlist)
+                playlists.append(p)
+            except KeyError:
+                pass
+        return playlists
+
+    async def fetch_active_ltms(self, region):
+        """|coro|
+        
+        Fetches active LTMs for a specific region.
+        
+        Parameters
+        ----------
+        :class:`Regions`
+            The region to request active LTMs for.
+            
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+            
+        Returns
+        -------
+        List[:class:`str`]
+            List of internal playlist names.
+        """
+        data = await self.http.get_fortnite_timeline()
+
+        states = data['channels']['client-matchmaking']['states']
+        region_data = states[len(states) - 1]['state']['region'][region.value]
+        return region_data.get('eventFlagsForcedOn', [])

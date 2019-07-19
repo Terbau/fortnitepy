@@ -97,3 +97,13 @@ class V2Inputs(Enum):
     GAMEPAD          = 'gamepad'
     TOUCH            = 'touch'
 
+class Regions(Enum):
+    NAEAST  = 'NAE'
+    NAWEST  = 'NAW'
+    EUROPE  = 'EU'
+    BRAZIL  = 'BR'
+    OCEANIA = 'OCE'
+    ASIA    = 'ASIA'
+    NA      = 'NA'
+    CHINA   = 'CN'
+

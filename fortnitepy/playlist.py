@@ -1,0 +1,84 @@
+# -*- coding: utf-8 -*-
+
+"""
+MIT License
+
+Copyright (c) 2019 Terbau
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+class Playlist:
+    def __init__(self, data):
+        self._image = data['image']
+        self._internal_name = data['playlist_name']
+        self._special_border = data.get('special_border')
+        self._type = data.get('_type')
+        self._violater = data.get('violator')
+        self._display_subname = data.get('display_subname')
+        self._description = data.get('description')
+    
+    @property
+    def image_url(self):
+        """:class:`str`: Image url for the playlist."""
+        return self._image
+
+    @property
+    def internal_name(self):
+        """:class:`str`: The internal name of the playlist."""
+        return self._internal_name
+
+    @property
+    def type(self):
+        """:class:`str`: The type of this playlist object."""
+        return self._type
+
+    @property
+    def special_border(self):
+        """:class:`str`: Special border of the playlist. 
+        *Will be ``None`` if no special border is found for this playlist.*
+        """
+        if self._special_border == 'None':
+            return None
+        return self._special_border
+
+    @property
+    def violator(self):
+        """:class:`str`: The violater displayed for this playlist. This is
+        the little red tag displaying short text on some of the playlists
+        in-game.
+        *Will be ``None`` if no violator is found for this playlist.*
+        """
+        if self._violater == '':
+            return None
+        return self._violater
+
+    @property
+    def display_subname(self):
+        """:class:`str`: The display subname of this playlist.
+        *Will be ``None`` if no display subname is found for this playlist.*
+        """
+        return self._display_subname
+
+    @property
+    def description(self):
+        """:class:`str`: The description of this playlist.
+        *Will be ``None`` if no description is found for this playlist.*
+        """
+        return self._description

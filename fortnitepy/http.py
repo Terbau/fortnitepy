@@ -273,6 +273,19 @@ class HTTPClient:
             self.client.auth.authorization
         )
 
+    async def get_fortnite_content(self):
+        data = await self.get(
+            'https://fortnitecontent-website-prod07.ol.epicgames.com/content/api/pages/fortnite-game',
+            self.client.auth.authorization
+        )
+        return json.loads(data)
+
+    async def get_fortnite_timeline(self):
+        return await self.get(
+            'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/calendar/v1/timeline',
+            self.client.auth.authorization
+        )
+
     ########################################
     # Party
     ########################################
