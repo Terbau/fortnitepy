@@ -207,6 +207,11 @@ class XMPPClient:
             if member is None:
                 return
 
+            if member.id == self.client.user.id:
+                p = await self.client._create_party()
+
+                self.client.user.set_party(p)
+
             party._remove_member(member.id)
             self.client.dispatch_event('party_member_expire', member)
             
