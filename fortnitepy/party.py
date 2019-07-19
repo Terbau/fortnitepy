@@ -1233,16 +1233,13 @@ class PartyInvitation:
         The friend that invited you to the party.
     created_at: :class:`datetime.datetime`
         The time this invite was created at.
-    expires_at: :class:`datetime.datetime`
-        The time this invite expires at.
     """
     def __init__(self, client, party, data):
         self.client = client
         self.party = party
         
-        self.author = self.client.get_friend(data['sent_by'])
+        self.author = self.client.get_friend(data['inviter_id'])
         self.created_at = self.client.from_iso(data['sent_at'])
-        self.expires_at = self.client.from_iso(data['expires_at'])
 
     async def accept(self):
         """|coro|
