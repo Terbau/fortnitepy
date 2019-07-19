@@ -543,7 +543,7 @@ class PartyMember(User):
         
         Example usage: ::
         
-            # set the outfit to soccer skin with Norwegian jerset and
+            # set the outfit to soccer skin with Norwegian jersey and
             # the jersey number set to 99 (max number).
             async def set_soccer_skin():
                 me = client.user.party.me
