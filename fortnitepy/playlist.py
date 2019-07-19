@@ -52,7 +52,7 @@ class Playlist:
     @property
     def special_border(self):
         """:class:`str`: Special border of the playlist. 
-        *Will be ``None`` if no special border is found for this playlist.*
+        Will be ``None`` if no special border is found for this playlist.
         """
         if self._special_border == 'None':
             return None
@@ -63,7 +63,7 @@ class Playlist:
         """:class:`str`: The violater displayed for this playlist. This is
         the little red tag displaying short text on some of the playlists
         in-game.
-        *Will be ``None`` if no violator is found for this playlist.*
+        Will be ``None`` if no violator is found for this playlist.
         """
         if self._violater == '':
             return None
@@ -72,13 +72,13 @@ class Playlist:
     @property
     def display_subname(self):
         """:class:`str`: The display subname of this playlist.
-        *Will be ``None`` if no display subname is found for this playlist.*
+        Will be ``None`` if no display subname is found for this playlist.
         """
         return self._display_subname
 
     @property
     def description(self):
         """:class:`str`: The description of this playlist.
-        *Will be ``None`` if no description is found for this playlist.*
+        Will be ``None`` if no description is found for this playlist.
         """
         return self._description
