@@ -40,7 +40,7 @@ client.
     and not override all upcoming status messages, :meth:`Client.send_status`
     is the function you are looking for.
 
-Alternatively you can change the presence with :meth:`Client.set_presence`.
+Alternatively you can change the presence with :meth:`Client.set_status`.
 
 
 How can I get the CID of skin?
