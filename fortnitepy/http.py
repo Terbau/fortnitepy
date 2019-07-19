@@ -211,6 +211,48 @@ class HTTPClient:
             self.client.auth.authorization
         )
 
+    async def get_multiple_br_stats_v2(self, ids, stats, start_time=None, end_time=None):
+        params = {}
+        if start_time:
+            params['startTime'] = start_time
+        if end_time:
+            params['endTime'] = end_time
+
+        return await self.post(
+            'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/statsv2/query',
+            self.client.auth.authorization,
+            data={
+                'owners': ids,
+                'stats': stats
+            },
+            is_json=True,
+            params=params
+        )
+
+    async def get_br_leaderboard(self, stat, platform, mode, window, page=0, items_per_page=50):
+        return await self.post(
+            'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/' \
+            'leaderboards/type/global/stat/br_{0}_{1}_m0_{2}/window/{3}?ownertype=1'.format(
+                stat,
+                platform.value,
+                mode.value,
+                window.value
+            ),
+            self.client.auth.authorization,
+            is_json=True,
+            params={
+                'pageNumber': page,
+                'itemsPerPage': items_per_page
+            }
+        )
+
+    async def get_br_leaderboard_v2(self, stat):
+        return await self.get(
+            'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/' \
+            'statsv2/leaderboards/{0}'.format(stat),
+            self.client.auth.authorization
+        )
+
     async def get_lightswitch_status(self, service_id=None):
         return await self.get(
             'https://lightswitch-public-service-prod06.ol.epicgames.com/lightswitch/api/' \

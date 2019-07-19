@@ -68,7 +68,6 @@ class PartyPrivacy(Enum):
         'acceptingMembers': False,
     }
 
-
 class DefaultCharacters(Enum):
     CID_001_Athena_Commando_F_Default = 1
     CID_002_Athena_Commando_F_Default = 2
@@ -78,3 +77,23 @@ class DefaultCharacters(Enum):
     CID_006_Athena_Commando_M_Default = 6
     CID_007_Athena_Commando_M_Default = 7
     CID_008_Athena_Commando_M_Default = 8
+
+class V1Gamemodes(Enum):
+    SOLO =  'p2'
+    DUO =   'p10'
+    SQUAD = 'p9'
+
+class V1Platforms(Enum):
+    PC =   'pc'
+    XBOX = 'xb1'
+    PS4 =  'ps4'
+
+class V1Windows(Enum):
+    ALLTIME = 'alltime'
+    WEEKLY =  'weekly'
+
+class V2Inputs(Enum):
+    KEYBOARDANDMOUSE = 'keyboardmouse'
+    GAMEPAD          = 'gamepad'
+    TOUCH            = 'touch'
+

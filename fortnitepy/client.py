@@ -902,18 +902,162 @@ class Client:
             The end time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        
+        Returns
+        -------
+        :class:`StatsV2`
+            An object representing the stats for this user.
         """
         epoch = datetime.datetime.utcfromtimestamp(0)
-        if start_time is not None:
-            if isinstance(start_time, datetime.datetime):
-                start_time = (start_time - epoch).total_seconds()
+        if isinstance(start_time, datetime.datetime):
+            start_time = (start_time - epoch).total_seconds()
 
-        if end_time is not None:
-            if isinstance(end_time, datetime.datetime):
-                end_time = (end_time - epoch).total_seconds()
+        if isinstance(end_time, datetime.datetime):
+            end_time = (end_time - epoch).total_seconds()
 
         data = await self.http.get_br_stats_v2(user_id, start_time=start_time, end_time=end_time)
         return StatsV2(data)
+
+    async def fetch_multiple_br_stats(self, user_ids, stats, start_time=None, end_time=None):
+        """|coro|
+        
+        Gets Battle Royale stats for multiple users at the same time.
+        
+        .. note::
+            
+            This function is not the same as doing :meth:`fetch_br_stats` for multiple users.
+            The expected return for this function would not be all the stats for the specified
+            users but rather the stats you specified.
+
+        Example usage: ::
+
+            async def stat_function():
+                stats = [
+                    fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo')
+                ]
+
+                # get the profiles and create a list of their ids.
+                profiles = await self.fetch_profiles(['Ninja', 'Dark', 'DrLupo'])
+                user_ids = [u.id for u in profiles]
+
+                data = await self.fetch_multiple_br_stats(user_ids=user_ids, stats=stats)
+                for id, res in data.items():
+                    print('ID: {0} | Stats: {1}'.format(id, res.stats))
+            
+            # expected output (ofc the values would be updated):
+            # ID: 463ca9d604524ce38071f512baa9cd70 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 759, 'kills': 28093, 'matchesplayed': 6438}}}
+            # ID: 3900c5958e4b4553907b2b32e86e03f8 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1763, 'kills': 41375, 'matchesplayed': 7944}}}
+            # ID: 4735ce9132924caf8a5b17789b40f79c | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1888, 'kills': 40784, 'matchesplayed': 5775}}}
+
+        Parameters
+        ----------
+        user_ids: List[:class:`str`]
+            A list of ids you are requesting the stats for.
+        stats: List[:class:`str`]
+            A list of stats to get for the users. Use :meth:`StatsV2.create_stat` to create the stats.
+
+            Example: ::
+
+                [
+                    fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo')
+                ]
+
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+            The start time of the time period to get stats from.
+            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+            The end time of the time period to get stats from.
+            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Defaults to None*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        Dict[id: :class:`StatsV2`]
+            A mapping where :class:`StatsV2` is bound to its owners id.
+        """
+        epoch = datetime.datetime.utcfromtimestamp(0)
+        if isinstance(start_time, datetime.datetime):
+            start_time = (start_time - epoch).total_seconds()
+
+        if isinstance(end_time, datetime.datetime):
+            end_time = (end_time - epoch).total_seconds()
+        
+        data = await self.http.get_multiple_br_stats_v2(user_ids, stats)
+
+        res = {}
+        for udata in data:
+            res[udata['accountId']] = StatsV2(udata)
+        return res
+
+    async def fetch_leaderboard(self, stat):
+        """|coro|
+        
+        Fetches the leaderboard for a stat.
+        
+        .. warning::
+        
+            For some weird reason, the only valid stat you can pass is
+            one with ``placetop1`` (``wins`` is also accepted).
+            
+        Example usage: ::
+
+            async def get_leaderboard():
+                stat = fortnitepy.StatsV2.create_stat(
+                    'wins',
+                    fortnitepy.V2Inputs.KEYBOARDANDMOUSE,
+                    'defaultsquad'
+                )
+
+                data = await client.fetch_leaderboard(stat)
+
+                for placement, entry in enumerate(data):
+                    print('[{0}] Id: {1} | Wins: {2}'.format(
+                        placement, entry['account'], entry['value']))
+
+        Parameters
+        ----------
+        stat: :class:`str`
+            The stat you are requesting the leaderboard entries for. You can use 
+            :meth:`StatsV2.create_stat` to create this string.
+            
+        Raises
+        ------
+        ValueError
+            You passed an invalid/non-accepted stat argument. 
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        List[Dict['account': :class:`str`: id, 'value': :class:`int`: The stat value.]]
+            List of dictionaries containing entry data. Example return: ::
+
+                {
+                    'account': '4480a7397f824fe4b407077fb9397fbb',
+                    'value': 5082
+                }
+        """
+        data = await self.http.get_br_leaderboard_v2(stat)
+
+        if len(data['entries']) == 0:
+            raise ValueError('{0} is not a valid stat'.format(stat))
+        
+        return data['entries']
 
     async def _create_party(self, config=None):
         if isinstance(config, dict):
