@@ -106,3 +106,4 @@ venv.bak/
 .vscode
 tests/
 test.py
+output.txt

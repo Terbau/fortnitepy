@@ -167,7 +167,3 @@ class User(UserBase):
     
     def __init__(self, client, data, **kwargs):
         super().__init__(client, data)
-
-
-    
-    

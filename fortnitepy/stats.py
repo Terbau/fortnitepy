@@ -30,6 +30,9 @@ replacers = {
     'placetop1': 'wins'
 }
 
+
+
+
 class StatsV2:
     """Represents a users Battle Royale stats on Fortnite.
     
@@ -50,6 +53,15 @@ class StatsV2:
         # self.end_time = datetime.datetime.fromtimestamp(data['endTime'] / 1000)
 
         self._parse()
+
+    @staticmethod
+    def create_stat(stat, platform, playlist):
+        if stat in replacers.values():
+            for k, v in replacers.items():
+                if v == stat:
+                    stat = k
+
+        return 'br_{0}_{1}_m0_playlist_{2}'.format(stat, platform.value, playlist)
 
     def get_kd(self, data):
         """Gets the kd of a gamemode
@@ -142,3 +154,4 @@ class StatsV2:
             
             result[inp][playlist][name] = stat
         self.stats = result
+

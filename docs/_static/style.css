@@ -254,6 +254,7 @@ a:hover {
 
   div.sphinxsidebar a:hover {
     color: #fff;
+    text-decoration: underline;
   }
 
   .active {

@@ -32,6 +32,56 @@ Enumerations
 
 		Sets privacy to private without the possibility of friends of friends joining.
 
+.. class:: V2Inputs
+
+	An enumeration for valid input types used for stats.
+
+	.. attribute:: KEYBOARDANDMOUSE
+
+		Input type used for all users of keyboard and mouse. This is not only used
+		for pc players but also other platforms where it's possible to use keyboard
+		and mouse.
+	.. attribute:: GAMEPAD
+
+		Input type used for all players using a gamepad/controller. This is not only
+		used for console players but also other platforms where it's possible to use
+		a gamepad/controller.
+	.. attribute:: TOUCH
+
+		Input type used for all players using a touch display as controls. This is not
+		only used for mobile players but also other platforms where it's possible to
+		use a touch display as controls.
+
+.. class:: Regions
+
+	An enumeration for all currently available Fortnite regions.
+
+	.. attribute:: NAEAST
+
+		The North America East region.
+	.. attribute:: NAWEST
+
+		The North America West region.
+	.. attribute:: EUROPE
+
+		The Europe region.
+	.. attribute:: BRAZIL
+
+		The Brazil region.
+	.. attribute:: OCEANIA
+
+		The Oceania region.
+	.. attribute:: ASIA
+
+		The Asia region.
+	.. attribute:: NA
+
+		The North America region.
+	.. attribute:: CHINA
+		
+		The China region.
+
+
 Event Reference
 ---------------
 
@@ -352,6 +402,38 @@ StatsV2
 ~~~~~~~
 
 .. autoclass:: StatsV2()
+	:members:
+
+BattleRoyaleNewsPost
+~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: BattleRoyaleNewsPost()
+	:members:
+
+Store
+~~~~~
+
+.. autoclass:: Store()
+	:members:
+
+FeaturedStoreItem
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: FeaturedStoreItem()
+	:members:
+	:inherited-members:
+
+DailyStoreItem
+~~~~~~~~~~~~~~
+
+.. autoclass:: DailyStoreItem()
+	:members:
+	:inherited-members:
+
+Playlist
+~~~~~~~~
+
+.. autoclass:: Playlist()
 	:members:
 
 

@@ -253,4 +253,5 @@ class PendingFriend(FriendBase):
         
 #         Unblocks this friend."""
 #         await self.client.http.unblock_user(self.id)
+
     

@@ -64,5 +64,3 @@ class WeakrefCache(Cache):
     def __init__(self, loop=None):
         super().__init__(loop=loop)
         self._cache = weakref.WeakValueDictionary()
-
-

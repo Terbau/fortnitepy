@@ -531,6 +531,95 @@ class PartyMember(User):
         )
         await self.patch(updated=prop)
 
+    def create_variants(self, item="AthenaCharacter", particle_config='Emissive', **kwargs):
+        """Creates the variants list by the variants you set.
+
+        .. warning::
+
+            This function is built upon data received from only some of the available outfits
+            with variants. There is little logic behind the variants function therefore there
+            might be some unexpected issues with this function. Please report such issues by
+            creating an issue on the issue tracker or by reporting it to me on discord.
+        
+        Example usage: ::
+        
+            # set the outfit to soccer skin with Norwegian jersey and
+            # the jersey number set to 99 (max number).
+            async def set_soccer_skin():
+                me = client.user.party.me
+
+                variants = me.create_variants(
+                    pattern=0,
+                    numeric=99,
+                    jersey_color='NORWAY'
+                )
+
+                await me.set_outfit(
+                    asset='CID_149_Athena_Commando_F_SoccerGirlB',
+                    variants=variants
+                )
+        
+        Parameters
+        ----------
+        item: :class:`str`
+            The variant item type. This defaults to ``AthenaCharacter`` which
+            is what you want to use if you are changing skin variants.
+        parts_config: :class:`str`
+            The type of parts you want to use. The available types 
+            are ``Emissive`` (default) and ``Mat``.
+        pattern: Optional[:class:`int`]
+            The pattern number you want to use.
+        numeric: Optional[:class:`int`]
+            The numeric number you want to use.
+        clothing_color: Optional[:class:`int`]
+            The clothing color you want to use.
+        jersey_color: Optional[:class:`str`]
+            The jersey color you want to use. For soccer skins this is the country
+            you want the jersey to represent.
+        parts: Optional[:class:`int`]
+            The parts number you want to use.
+        progressive: Optional[:class:`int`]
+            The progressing number you want to use.
+        particle: Optional[:class:`int`]
+            The particle number you want to use.
+        material: Optional[:class:`int`]
+            The material number you want to use.
+        emissive: Optional[:class:`int`]
+            The emissive number you want to use.
+
+        Returns
+        -------
+        List[:class:`dict`]
+            List of dictionaries including all variants data.
+        """
+        config = {
+            'pattern': 'Mat{}',
+            'numeric': 'Numeric.{}',
+            'clothing_color': 'Mat{}',
+            'jersey_color': 'Color.{}',
+            'parts': 'Stage{}',
+            'progressive': 'Stage{}',
+            'particle': '{}{}',
+            'material': 'Mat{}',
+            'emissive': 'Emissive{}'
+        }
+
+        variant = []
+        for channel, value in kwargs.items():
+            v = {
+                'item': item,
+                'channel': '_'.join([x.capitalize() for x in channel.split('_')])
+            }
+
+            if channel == 'particle':
+                v['variant'] = config[channel].format(particle_config, value)
+            elif channel == 'JerseyColor':
+                v['variant'] = config[channel].format(value.upper())
+            else:
+                v['variant'] = config[channel].format(value)
+            variant.append(v)
+        return variant
+
     async def set_outfit(self, asset, key=None, variants=None):
         """|coro|
         
@@ -1144,16 +1233,13 @@ class PartyInvitation:
         The friend that invited you to the party.
     created_at: :class:`datetime.datetime`
         The time this invite was created at.
-    expires_at: :class:`datetime.datetime`
-        The time this invite expires at.
     """
     def __init__(self, client, party, data):
         self.client = client
         self.party = party
         
-        self.author = self.client.get_friend(data['sent_by'])
+        self.author = self.client.get_friend(data['inviter_id'])
         self.created_at = self.client.from_iso(data['sent_at'])
-        self.expires_at = self.client.from_iso(data['expires_at'])
 
     async def accept(self):
         """|coro|
@@ -1223,5 +1309,4 @@ class PartyJoinConfirmation:
             Something went wrong when rejecting this user.
         """
         await self.client.http.party_member_reject(self.party.id, self.user.id)
-
-    
+ 

@@ -42,6 +42,9 @@ from .enums import PartyPrivacy
 from .cache import Cache, WeakrefCache
 from .party import Party
 from .stats import StatsV2
+from .store import Store
+from .news import BattleRoyaleNewsPost
+from .playlist import Playlist
 
 # logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__) 
@@ -900,18 +903,162 @@ class Client:
             The end time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        
+        Returns
+        -------
+        :class:`StatsV2`
+            An object representing the stats for this user.
         """
         epoch = datetime.datetime.utcfromtimestamp(0)
-        if start_time is not None:
-            if isinstance(start_time, datetime.datetime):
-                start_time = (start_time - epoch).total_seconds()
+        if isinstance(start_time, datetime.datetime):
+            start_time = (start_time - epoch).total_seconds()
 
-        if end_time is not None:
-            if isinstance(end_time, datetime.datetime):
-                end_time = (end_time - epoch).total_seconds()
+        if isinstance(end_time, datetime.datetime):
+            end_time = (end_time - epoch).total_seconds()
 
         data = await self.http.get_br_stats_v2(user_id, start_time=start_time, end_time=end_time)
         return StatsV2(data)
+
+    async def fetch_multiple_br_stats(self, user_ids, stats, start_time=None, end_time=None):
+        """|coro|
+        
+        Gets Battle Royale stats for multiple users at the same time.
+        
+        .. note::
+            
+            This function is not the same as doing :meth:`fetch_br_stats` for multiple users.
+            The expected return for this function would not be all the stats for the specified
+            users but rather the stats you specified.
+
+        Example usage: ::
+
+            async def stat_function():
+                stats = [
+                    fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo')
+                ]
+
+                # get the profiles and create a list of their ids.
+                profiles = await self.fetch_profiles(['Ninja', 'Dark', 'DrLupo'])
+                user_ids = [u.id for u in profiles]
+
+                data = await self.fetch_multiple_br_stats(user_ids=user_ids, stats=stats)
+                for id, res in data.items():
+                    print('ID: {0} | Stats: {1}'.format(id, res.stats))
+            
+            # expected output (ofc the values would be updated):
+            # ID: 463ca9d604524ce38071f512baa9cd70 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 759, 'kills': 28093, 'matchesplayed': 6438}}}
+            # ID: 3900c5958e4b4553907b2b32e86e03f8 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1763, 'kills': 41375, 'matchesplayed': 7944}}}
+            # ID: 4735ce9132924caf8a5b17789b40f79c | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1888, 'kills': 40784, 'matchesplayed': 5775}}}
+
+        Parameters
+        ----------
+        user_ids: List[:class:`str`]
+            A list of ids you are requesting the stats for.
+        stats: List[:class:`str`]
+            A list of stats to get for the users. Use :meth:`StatsV2.create_stat` to create the stats.
+
+            Example: ::
+
+                [
+                    fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo')
+                ]
+
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+            The start time of the time period to get stats from.
+            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+            The end time of the time period to get stats from.
+            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Defaults to None*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        Dict[id: :class:`StatsV2`]
+            A mapping where :class:`StatsV2` is bound to its owners id.
+        """
+        epoch = datetime.datetime.utcfromtimestamp(0)
+        if isinstance(start_time, datetime.datetime):
+            start_time = (start_time - epoch).total_seconds()
+
+        if isinstance(end_time, datetime.datetime):
+            end_time = (end_time - epoch).total_seconds()
+        
+        data = await self.http.get_multiple_br_stats_v2(user_ids, stats)
+
+        res = {}
+        for udata in data:
+            res[udata['accountId']] = StatsV2(udata)
+        return res
+
+    async def fetch_leaderboard(self, stat):
+        """|coro|
+        
+        Fetches the leaderboard for a stat.
+        
+        .. warning::
+        
+            For some weird reason, the only valid stat you can pass is
+            one with ``placetop1`` (``wins`` is also accepted).
+            
+        Example usage: ::
+
+            async def get_leaderboard():
+                stat = fortnitepy.StatsV2.create_stat(
+                    'wins',
+                    fortnitepy.V2Inputs.KEYBOARDANDMOUSE,
+                    'defaultsquad'
+                )
+
+                data = await client.fetch_leaderboard(stat)
+
+                for placement, entry in enumerate(data):
+                    print('[{0}] Id: {1} | Wins: {2}'.format(
+                        placement, entry['account'], entry['value']))
+
+        Parameters
+        ----------
+        stat: :class:`str`
+            The stat you are requesting the leaderboard entries for. You can use 
+            :meth:`StatsV2.create_stat` to create this string.
+            
+        Raises
+        ------
+        ValueError
+            You passed an invalid/non-accepted stat argument. 
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        List[Dict['account': :class:`str`: id, 'value': :class:`int`: The stat value.]]
+            List of dictionaries containing entry data. Example return: ::
+
+                {
+                    'account': '4480a7397f824fe4b407077fb9397fbb',
+                    'value': 5082
+                }
+        """
+        data = await self.http.get_br_leaderboard_v2(stat)
+
+        if len(data['entries']) == 0:
+            raise ValueError('{0} is not a valid stat'.format(stat))
+        
+        return data['entries']
 
     async def _create_party(self, config=None):
         if isinstance(config, dict):
@@ -986,3 +1133,145 @@ class Client:
             Status was an invalid type.
         """
         await self.xmpp.send_presence(status=status, to=to)
+
+    async def fetch_lightswitch_status(self, service_id='Fortnite'):
+        """|coro|
+        
+        Fetches the lightswitch status of an epicgames service.
+
+        Parameters
+        ----------
+        service_id: Optional[:class:`str`]
+            The service id to check status for.
+            *Defaults to ``Fortnite``.
+
+        Raises
+        ------
+        ValueError
+            The returned data was empty. Most likely because service_id is not valid.
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if service is up else ``False``
+        """
+        status = await self.http.get_lightswitch_status(service_id=service_id)
+        if len(status) == 0:
+            raise ValueError('emtpy lightswitch response')
+        return True if status[0].get('status') == 'UP' else False
+
+    async def fetch_item_shop(self):
+        """|coro|
+        
+        Fetches the current item shop.
+
+        Example: ::
+
+            # fetches all CIDs (character ids) of of the current item shop.
+            async def get_current_item_shop_cids():
+                store = await client.fetch_item_shop()
+
+                cids = []
+                for item in store.featured_items + store.daily_items:
+                    for grant in item.grants:
+                        if grant['type'] == 'AthenaCharacter':
+                            cids.append(grant['asset'])
+
+                return cids
+
+        Raises
+        ------
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`Store`
+            Object representing the data from the current item shop.
+        """
+        data = await self.http.get_store_catalog()
+        return Store(self, data)
+
+    async def fetch_br_news(self):
+        """|coro|
+        
+        Fetches news for the Battle Royale gamemode.
+
+        Raises
+        ------
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`list`
+            List[:class:`BattleRoyaleNewsPost`]
+        """
+        raw = await self.http.get_fortnite_news()
+        data = json.loads(raw.encode('utf-8'))
+
+        res = []
+        msg = data['battleroyalenews']['news'].get('message')
+        if msg is not None:
+            res.append(BattleRoyaleNewsPost(msg))
+        else:
+            msgs = data['battleroyalenews']['news']['messages']
+            for msg in msgs:
+                res.append(BattleRoyaleNewsPost(msg))
+        return res
+
+    async def fetch_br_playlists(self):
+        """|coro|
+        
+        Fetches all playlists registered on Fortnite. This includes all previous gamemodes
+        that is no longer active.
+        
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        
+        Returns
+        -------
+        List[:class:`Playlist`]
+            List containing all playlists registered on Fortnite.
+        """
+        data = await self.http.get_fortnite_content()
+
+        raw = data['playlistinformation']['playlist_info']['playlists']
+        playlists = []
+        for playlist in raw:
+            try:
+                p = Playlist(playlist)
+                playlists.append(p)
+            except KeyError:
+                pass
+        return playlists
+
+    async def fetch_active_ltms(self, region):
+        """|coro|
+        
+        Fetches active LTMs for a specific region.
+        
+        Parameters
+        ----------
+        :class:`Regions`
+            The region to request active LTMs for.
+            
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+            
+        Returns
+        -------
+        List[:class:`str`]
+            List of internal playlist names.
+        """
+        data = await self.http.get_fortnite_timeline()
+
+        states = data['channels']['client-matchmaking']['states']
+        region_data = states[len(states) - 1]['state']['region'][region.value]
+        return region_data.get('eventFlagsForcedOn', [])

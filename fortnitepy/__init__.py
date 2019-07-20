@@ -24,7 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '0.1.3'
+__version__ = '0.2.0'
 
 from .client import Client
 from .friend import Friend, PendingFriend
@@ -35,3 +35,6 @@ from .user import ClientUser, User
 from .stats import StatsV2
 from .enums import *
 from .errors import *
+from .store import Store, FeaturedStoreItem, DailyStoreItem
+from .news import BattleRoyaleNewsPost
+from .playlist import Playlist
