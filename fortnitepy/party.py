@@ -551,7 +551,7 @@ class PartyMember(User):
                 variants = me.create_variants(
                     pattern=0,
                     numeric=99,
-                    jersey_color='NORWAY'
+                    jersey_color='Norway'
                 )
 
                 await me.set_outfit(
@@ -846,7 +846,7 @@ class Party:
         self.id = data.get('id')
         self.members = {}
         self.applicants = data.get('applicants', [])
-        self.last_raw_presence = None
+        self.last_raw_status = None
 
         self.queue = asyncio.Queue(loop=self.client.loop)
         self.queue_active = False
@@ -935,8 +935,8 @@ class Party:
         else:
             _text = {'Status': str(text)}
         
-        self.last_raw_presence = {**_default_status, **conf, **_text}
-        self.client.xmpp.set_presence(status=self.last_raw_presence)
+        self.last_raw_status = {**_default_status, **conf, **_text}
+        self.client.xmpp.set_presence(status=self.last_raw_status)
         
     def _update(self, data):
         if self.revision < data['revision']:
