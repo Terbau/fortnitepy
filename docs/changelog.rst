@@ -21,8 +21,7 @@ Updates
 v0.2.0
 ------
 
-This is the first major update for fortnitepy. This update includes an issue with
-invites not working after the Fortnite v9.40 as well as a couple of new features.
+This is the first major update for fortnitepy. This update includes a fix for an issue with invites not working after the Fortnite v9.40 as well as a couple of new features.
 
 Thanks to `amrsatrio <https://github.com/Amrsatrio>`_ and `Luc1412 <https://github.com/Luc1412>`_ for suggestions and help with this update.
 
