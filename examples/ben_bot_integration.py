@@ -2,7 +2,6 @@ import aiohttp
 import fortnitepy
 
 class MyClient(fortnitepy.Client):
-
     BEN_BOT_BASE = 'http://benbotfn.tk:8080/api/cosmetics/search'
 
     def __init__(self):
