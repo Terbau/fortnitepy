@@ -46,6 +46,7 @@ class XMPPClient:
 
         self.xmpp_client = None
         self.stream = None
+        self._ping_task = None
         self._task = None
         self.muc_room = None
 
@@ -381,6 +382,16 @@ class XMPPClient:
                     loop=self.client.loop
                 ),
             )
+
+    async def loop_ping(self):
+        while True:
+            await asyncio.sleep(60)
+            iq = aioxmpp.IQ(
+                type_=aioxmpp.IQType.GET,
+                payload=aioxmpp.ping.Ping(),
+                to=None,
+            )
+            await self.stream.send(iq)
     
     async def _run(self, future):
         async with self.xmpp_client.connected() as stream:
@@ -409,6 +420,7 @@ class XMPPClient:
         future = self.client.loop.create_future()
         self._task = asyncio.ensure_future(self._run(future), loop=self.client.loop)
         await future
+        self._ping_task = asyncio.ensure_future(self.loop_ping(), loop=self.client.loop)
 
     async def close(self):
         log.debug('Attempting to close xmpp client')
@@ -421,6 +433,9 @@ class XMPPClient:
             
         if self._task:
             self._task.cancel()
+        if self._ping_task:
+            self._ping_task.cancel()
+        self._ping_task = None
         self.xmpp_client = None
         self.stream = None
         self.muc_service = None
