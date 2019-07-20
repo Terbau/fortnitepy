@@ -5,18 +5,6 @@ Changelog
 
 Detailed version changes.
 
-v0.1.3
-------
-
-Quick update to update new build info that came with the Fortnite v9.40 update.
-
-Updates
-~~~~~~~
-
-- Updated net_cl.
-- Updated engine_build.
-- Updated build.
-
 
 v0.2.0
 ------
@@ -52,3 +40,14 @@ Miscellanious
 - Added some enums and functions to make ready for StatsV1 support coming in a later update.
 
 
+v0.1.3
+------
+
+Quick update to update new build info that came with the Fortnite v9.40 update.
+
+Updates
+~~~~~~~
+
+- Updated net_cl.
+- Updated engine_build.
+- Updated build.
