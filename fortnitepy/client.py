@@ -1079,7 +1079,7 @@ class Client:
         try:
             await self.wait_for('party_member_join', check=check, timeout=3)
         except asyncio.TimeoutError:
-            await party.me.leave()
+            await party.leave()
             return await self._create_party()
 
         await party.set_privacy(config['privacy'])

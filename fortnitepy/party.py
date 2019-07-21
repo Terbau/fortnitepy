@@ -486,8 +486,17 @@ class PartyMember(User):
         ------
         HTTPException
             An error occured while requesting to leave the party.
+
+        Returns
+        -------
+        :class:`Party`
+            The new party the client is connected to after leaving.
         """
         await self.client.http.party_leave(self.party.id)
+        self.client.xmpp_client.muc_room = None
+        p = await self.client._create_party()
+        self.client.user.set_party(p)
+        return p
 
     async def kick(self):
         """|coro|
