@@ -55,4 +55,22 @@ class PartyPermissionError(FortniteException):
 
 class HTTPException(FortniteException):
     """This exception is raised when an error is received by Fortnite services."""
-    pass
+    
+    def __init__(self, response, message):
+        self.response = response
+        self.status = response.status
+        
+        _err = message if isinstance(message, dict) else {}
+        self.message = _err.get('errorMessage')
+        self.message_code = _err.get('errorCode')
+        self.message_vars = _err.get('messageVars')
+        self.code = _err.get('numericErrorCode')
+        self.originating_service = _err.get('originatingService')
+        self.intent = _err.get('intent')
+
+        self.text = 'Code: "{0}" - {1}'.format(
+            self.message_code,
+            self.message
+        )
+
+        super().__init__(self.text)

@@ -1076,7 +1076,12 @@ class Client:
         def check(m):
             return m.id == self.user.id
 
-        await self.wait_for('party_member_join', check=check, timeout=5)
+        try:
+            await self.wait_for('party_member_join', check=check, timeout=3)
+        except asyncio.TimeoutError:
+            await party.me.leave()
+            return await self._create_party()
+
         await party.set_privacy(config['privacy'])
         return party
 

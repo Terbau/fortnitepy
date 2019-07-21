@@ -100,8 +100,8 @@ class HTTPClient:
             data = await self.json_or_text(r)
             try:
                 _data = json.loads(data)
-                if 'errorCode' in _data.keys(): 
-                    raise HTTPException('Code: "{0}" - {1}'.format(_data['errorCode'], _data['errorMessage']))
+                if 'errorCode' in _data.keys():
+                    raise HTTPException(r, _data)
             except (KeyError, TypeError, json.decoder.JSONDecodeError):
                 pass
             return data
@@ -345,7 +345,6 @@ class HTTPClient:
             'connection': {
                 'id': self.client.user.jid,
                 'meta': {
-                    # GET A METHOD OF GETTING PLATFORM SHORT
                     'urn:epic:conn:platform_s': self.client.platform,
                     'urn:epic:conn:type_s': 'game'
                 }

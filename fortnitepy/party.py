@@ -31,7 +31,7 @@ import random
 import weakref
 import aioxmpp
 
-from .errors import FortniteException, PartyError, PartyPermissionError
+from .errors import FortniteException, PartyError, PartyPermissionError, HTTPException
 from .user import User
 from .friend import Friend
 from .enums import PartyPrivacy, DefaultCharacters
@@ -447,7 +447,7 @@ class PartyMember(User):
     
     async def patch(self, updated=None):
         future = self.client.loop.create_future()
-        await self.queue.put((self._patch(updated=updated), future))
+        await self.queue.put((self._patch, future, {'updated': updated}))
 
         if not self.queue_active:
             asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
@@ -457,18 +457,37 @@ class PartyMember(User):
         self.queue_active = True
         try:
             while not self.queue.empty():
-                func, future = await self.queue.get()
+                func, future, kwargs = await self.queue.get()
                 if func is None:
                     break
-                
-                try:
-                    res = await func
-                    future.set_result(res)
-                except FortniteException as exc:
-                    future.set_exception(exc)
+
+                while True:
+                    try:
+                        res = await func(**kwargs)
+                        future.set_result(res)
+                        break
+                    except HTTPException as exc:
+                        self.revision = int(exc.message_vars[1])
+                        continue
+                    except FortniteException as exc:
+                        future.set_exception(exc)
+                        break
+
         except RuntimeError:
             pass
         self.queue_active = False
+
+    async def leave(self):
+        """|coro|
+        
+        Leaves the party.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting to leave the party.
+        """
+        await self.client.http.party_leave(self.party.id)
 
     async def kick(self):
         """|coro|
@@ -1043,7 +1062,7 @@ class Party:
     
     async def patch(self, updated=None, deleted=None):
         future = self.client.loop.create_future()
-        await self.queue.put((self._patch(updated=updated), future))
+        await self.queue.put((self._patch, future, {'updated': updated, 'deleted': deleted}))
 
         if not self.queue_active:
             asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
@@ -1053,15 +1072,22 @@ class Party:
         self.queue_active = True
         try:
             while not self.queue.empty():
-                func, future = await self.queue.get()
+                func, future, kwargs = await self.queue.get()
                 if func is None:
                     break
                 
-                try:
-                    res = await func
-                    future.set_result(res)
-                except FortniteException as exc:
-                    future.set_exception(exc)
+                while True:
+                    try:
+                        res = await func(**kwargs)
+                        future.set_result(res)
+                        break
+                    except HTTPException as exc:
+                        self.revision = int(exc.message_vars[1])
+                        continue
+                    except FortniteException as exc:
+                        future.set_exception(exc)
+                        break
+
         except RuntimeError:
             pass
         self.queue_active = False

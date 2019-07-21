@@ -275,8 +275,12 @@ class XMPPClient:
             if party.id != body.get('party_id'):
                 return
             
-            member = party.members[body.get('account_id')]
+            member = party.members.get(body.get('account_id'))
             if member is None:
+                if body.get('account_id') == self.client.user.id:
+                    await party.me.leave()
+                    p = await self.client._create_party()
+                    self.client.user.set_party(p)
                 return
 
             member.update(body)
