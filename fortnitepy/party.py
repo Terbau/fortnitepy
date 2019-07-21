@@ -31,7 +31,7 @@ import random
 import weakref
 import aioxmpp
 
-from .errors import FortniteException, PartyError, PartyPermissionError
+from .errors import FortniteException, PartyError, PartyPermissionError, HTTPException
 from .user import User
 from .friend import Friend
 from .enums import PartyPrivacy, DefaultCharacters
@@ -447,7 +447,7 @@ class PartyMember(User):
     
     async def patch(self, updated=None):
         future = self.client.loop.create_future()
-        await self.queue.put((self._patch(updated=updated), future))
+        await self.queue.put((self._patch, future, {'updated': updated}))
 
         if not self.queue_active:
             asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
@@ -457,18 +457,46 @@ class PartyMember(User):
         self.queue_active = True
         try:
             while not self.queue.empty():
-                func, future = await self.queue.get()
+                func, future, kwargs = await self.queue.get()
                 if func is None:
                     break
-                
-                try:
-                    res = await func
-                    future.set_result(res)
-                except FortniteException as exc:
-                    future.set_exception(exc)
+
+                while True:
+                    try:
+                        res = await func(**kwargs)
+                        future.set_result(res)
+                        break
+                    except HTTPException as exc:
+                        self.revision = int(exc.message_vars[1])
+                        continue
+                    except FortniteException as exc:
+                        future.set_exception(exc)
+                        break
+
         except RuntimeError:
             pass
         self.queue_active = False
+
+    async def leave(self):
+        """|coro|
+        
+        Leaves the party.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting to leave the party.
+
+        Returns
+        -------
+        :class:`Party`
+            The new party the client is connected to after leaving.
+        """
+        await self.client.http.party_leave(self.party.id)
+        self.client.xmpp_client.muc_room = None
+        p = await self.client._create_party()
+        self.client.user.set_party(p)
+        return p
 
     async def kick(self):
         """|coro|
@@ -551,7 +579,7 @@ class PartyMember(User):
                 variants = me.create_variants(
                     pattern=0,
                     numeric=99,
-                    jersey_color='NORWAY'
+                    jersey_color='Norway'
                 )
 
                 await me.set_outfit(
@@ -846,7 +874,7 @@ class Party:
         self.id = data.get('id')
         self.members = {}
         self.applicants = data.get('applicants', [])
-        self.last_raw_presence = None
+        self.last_raw_status = None
 
         self.queue = asyncio.Queue(loop=self.client.loop)
         self.queue_active = False
@@ -935,8 +963,8 @@ class Party:
         else:
             _text = {'Status': str(text)}
         
-        self.last_raw_presence = {**_default_status, **conf, **_text}
-        self.client.xmpp.set_presence(status=self.last_raw_presence)
+        self.last_raw_status = {**_default_status, **conf, **_text}
+        self.client.xmpp.set_presence(status=self.last_raw_status)
         
     def _update(self, data):
         if self.revision < data['revision']:
@@ -1043,7 +1071,7 @@ class Party:
     
     async def patch(self, updated=None, deleted=None):
         future = self.client.loop.create_future()
-        await self.queue.put((self._patch(updated=updated), future))
+        await self.queue.put((self._patch, future, {'updated': updated, 'deleted': deleted}))
 
         if not self.queue_active:
             asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
@@ -1053,15 +1081,22 @@ class Party:
         self.queue_active = True
         try:
             while not self.queue.empty():
-                func, future = await self.queue.get()
+                func, future, kwargs = await self.queue.get()
                 if func is None:
                     break
                 
-                try:
-                    res = await func
-                    future.set_result(res)
-                except FortniteException as exc:
-                    future.set_exception(exc)
+                while True:
+                    try:
+                        res = await func(**kwargs)
+                        future.set_result(res)
+                        break
+                    except HTTPException as exc:
+                        self.revision = int(exc.message_vars[1])
+                        continue
+                    except FortniteException as exc:
+                        future.set_exception(exc)
+                        break
+
         except RuntimeError:
             pass
         self.queue_active = False

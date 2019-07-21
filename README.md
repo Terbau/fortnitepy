@@ -49,7 +49,7 @@ client.run()
 ```
 
 # Credit
-Thanks to [kysune](https://github.com/SzymonLisowiec), [iXyles](https://github.com/iXyles) and [vrekt](https://github.com/Vrekt) for ideas and/or earlier work that worked as an inspiration while creating this library.
+Thanks to [Kysune](https://github.com/SzymonLisowiec), [iXyles](https://github.com/iXyles), [Vrekt](https://github.com/Vrekt) and [amrsatrio](https://github.com/Amrsatrio) for ideas and/or work that this library is built upon.
 
 Also thanks to [discord.py](https:/github.com/Rapptz/discord.py) for much inspiration code-wise.
 

@@ -54,5 +54,45 @@ class PartyPermissionError(FortniteException):
     pass
 
 class HTTPException(FortniteException):
-    """This exception is raised when an error is received by Fortnite services."""
-    pass
+    """This exception is raised when an error is received by Fortnite services.
+    
+    Attributes
+    ----------
+    response: :class:`aiohttp.ClientResponse`
+        The response from the HTTP request.
+    text: :class:`str`
+        The error message.
+    status: :class:`int`
+        The status code of the HTTP request.
+    message: :class:`str`
+        The raw error message received from Fortnite services.
+    message_code: :class:`str`
+        The raw error message code received from Fortnite services.
+    message_vars: List[:class:`str`]
+        List containing arguments passed to the message.
+    code: :class:`int`
+        The error code received from Fortnite services.
+    originating_service: :class:`str`
+        The originating service this error was received from.
+    intent: :class:`str`
+        The prod this error was received from.
+    """
+    
+    def __init__(self, response, message):
+        self.response = response
+        self.status = response.status
+        
+        _err = message if isinstance(message, dict) else {}
+        self.message = _err.get('errorMessage')
+        self.message_code = _err.get('errorCode')
+        self.message_vars = _err.get('messageVars')
+        self.code = _err.get('numericErrorCode')
+        self.originating_service = _err.get('originatingService')
+        self.intent = _err.get('intent')
+
+        self.text = 'Code: "{0}" - {1}'.format(
+            self.message_code,
+            self.message
+        )
+
+        super().__init__(self.text)

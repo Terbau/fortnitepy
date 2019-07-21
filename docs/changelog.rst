@@ -6,6 +6,27 @@ Changelog
 Detailed version changes.
 
 
+v0.3.0
+------
+
+This update fixes some of the big issues and bugs with this library making it much more stable. It also introduces a couple of missing methods and attributes.
+
+New Features
+~~~~~~~~~~~~
+
+- Added :meth:`PartyMember.leave` for leaving a party and creating a new one.
+- Reworked :exc:`HTTPException` to include more data of the request and exception gotten from Fortnite services.
+- Added attributes ``display_names`` and ``violator`` to :class:`FeaturedStoreItem` and :class:`DailyStoreItem`.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed XMPP service timing out after a while due to pinging not being handled well enough.
+- Fixed :exc:`asyncio.TimeoutError` sometimes occurring when a new party was being made (mainly noticed on startup) which completely shut down the clients party services.
+- Fixed ``stale_revision`` sometimes occurring when party related request happened making the request completely fail.
+- Fixed ``error code -93`` sometimes occurring when trying to join the clients party.
+
+
 v0.2.0
 ------
 

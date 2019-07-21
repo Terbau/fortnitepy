@@ -35,7 +35,7 @@ setuptools.setup(
     long_description=long_description,
     license='MIT',
     long_description_content_type="text/markdown",
-    requirements=requirements,
+    install_requires=requirements,
     extras_require=extras_require,
     packages=setuptools.find_packages(),
     python_requires='>=3.5.3',

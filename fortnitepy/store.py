@@ -126,6 +126,13 @@ class StoreItemBase:
         self._refundable = data['refundable']
         self._items_grants = data['itemGrants']
         self._meta_info = data.get('metaInfo', [])
+        self._meta = data.get('meta', {})
+
+    @property
+    def display_names(self):
+        """List[:class:`str`]: The display names for this item."""
+        match = re.search(r'^\[VIRTUAL][0-9]+ x (.*) for [0-9]+ .*$', self._dev_name)[1]
+        return re.split(r', [0-9]+ x ', match)
 
     @property
     def dev_name(self):
@@ -236,6 +243,16 @@ class StoreItemBase:
             if meta['value'].lower() == 'new':
                 return True
         return False
+
+    @property
+    def violator(self):
+        """:class:`str`: The violator of this item. Violator is the
+        red tag at the top of an item in the shop. Will be ``None``
+        if no violator is found for this item.
+        """
+        unfixed = self._meta.get('BannerOverride')
+        if unfixed:
+            return ' '.join(re.findall(r'[A-Z][^A-Z]*', unfixed))
 
 
 class FeaturedStoreItem(StoreItemBase):
