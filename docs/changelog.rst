@@ -15,7 +15,7 @@ New Features
 ~~~~~~~~~~~~
 
 - Added :meth:`PartyMember.leave` for leaving a party and creating a new one.
-- Reworked :exc`HTTPException` to include more data of the request and exception gotten from Fortnite services.
+- Reworked :exc:`HTTPException` to include more data of the request and exception gotten from Fortnite services.
 - Added attributes ``display_names`` and ``violator`` to :class:`FeaturedStoreItem` and :class:`DailyStoreItem`.
 
 Bug Fixes
