@@ -6,6 +6,19 @@ Changelog
 Detailed version changes.
 
 
+v0.3.1
+------
+
+Minor release to update build info to match the new values changed in v9.41.
+
+Updated
+~~~~~~~
+
+- Updated :attr:`Client.net_cl`.
+- Updated :attr:`Client.build`.
+- Updated :attr:`Client.engine_build`.
+
+
 v0.3.0
 ------
 
