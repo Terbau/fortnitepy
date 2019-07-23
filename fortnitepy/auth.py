@@ -28,8 +28,9 @@ import datetime
 import asyncio
 import logging
 import traceback
+import uuid
 
-from .errors import AuthException
+from .errors import AuthException, HTTPException
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ log = logging.getLogger(__name__)
 class Auth:
     def __init__(self, client):
         self.client = client
+        self.device_id = self.client.device_id or uuid.uuid4().hex
 
     @property
     def launcher_authorization(self):
@@ -53,7 +55,29 @@ class Auth:
                 'username': self.client.email,
                 'password': self.client.password
             }
-            data = await self.grant_session('LAUNCHER', data=data)
+
+            try:
+                data = await self.grant_session('LAUNCHER', data=data)
+            except HTTPException as exc:
+                log.debug('Could not authenticate normally, checking why now.')
+
+                if exc.message_code != 'errors.com.epicgames.common.two_factor_authentication.required':
+                    raise HTTPException(exc.response, exc.raw)
+                
+                log.debug('2fa code required to continue login process. Asking for code now.')
+
+                code = self.client.two_factor_code
+                if code is None:
+                    code = int(input('Please enter the 2fa code:\n'))
+
+                data = {
+                    'grant_type': 'otp',
+                    'otp': str(code),
+                    'challenge': exc.raw['challenge']
+                }
+                data = await self.grant_session('LAUNCHER', data=data)
+                log.debug('Valid 2fa code entered')
+
             self.launcher_access_token = data['access_token']
             await self.exchange_code('bearer {0}'.format(self.launcher_access_token))
         except Exception as e:
@@ -89,10 +113,13 @@ class Auth:
         self._update(data)
 
     async def grant_session(self, auth, **kwargs):
+        headers = {
+            'X-Epic-Device-ID': self.device_id
+        }
         data = await self.client.http.post(
             'https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token',
             auth,
-            **kwargs
+            **{**kwargs, 'headers': headers}
         )
         return data
 

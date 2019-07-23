@@ -64,6 +64,8 @@ class HTTPException(FortniteException):
         The error message.
     status: :class:`int`
         The status code of the HTTP request.
+    raw: Union[:class:`str`, :class:`dict`]
+        The raw message/data received from Fortnite services.
     message: :class:`str`
         The raw error message received from Fortnite services.
     message_code: :class:`str`
@@ -81,6 +83,7 @@ class HTTPException(FortniteException):
     def __init__(self, response, message):
         self.response = response
         self.status = response.status
+        self.raw = message
         
         _err = message if isinstance(message, dict) else {}
         self.message = _err.get('errorMessage')

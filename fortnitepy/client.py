@@ -32,7 +32,7 @@ import signal
 import logging
 import json
 
-from .errors import EventError, PartyError
+from .errors import EventError, PartyError, HTTPException
 from .xmpp import XMPPClient
 from .auth import Auth
 from .http import HTTPClient
@@ -58,6 +58,10 @@ class Client:
         The email of the account you want the client to log in as.
     password: Required[:class:`str`]
         The password of the account you want the client to log in as.
+    two_factor_code: Optional[:class:`int`]
+        The two-factor code to use when authenticating. If no two factor code is set
+        and the passed account has 2fa enabled, you will be asked to enter it through
+        console.
     loop: Optional[:class:`asyncio.AbstractEventLoop`]
         The event loop to use for asynchronous operations.
     status: :class:`str`
@@ -118,8 +122,10 @@ class Client:
         The host used by Fortnite's XMPP services.
     service_domain: :class:`str`
         The domain used by Fortnite's XMPP services.
-    serice_port: :class:`int`
+    serivce_port: :class:`int`
         The port used by Fortnite's XMPP services.
+    device_id: :class:`str`
+        The hardware address of your computer as a 32char hex string.
 
     Attributes
     ----------
@@ -129,9 +135,10 @@ class Client:
         The event loop that client implements.
     """
 
-    def __init__(self, email, password, loop=None, **kwargs):
+    def __init__(self, email, password, two_factor_code=None, loop=None, **kwargs):
         self.email = email
         self.password = password
+        self.two_factor_code = two_factor_code
         self.loop = loop or asyncio.get_event_loop()
 
         self.status = kwargs.get('status', None)
@@ -150,6 +157,7 @@ class Client:
         self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
         self.service_domain = kwargs.get('xmpp_domain', 'xmpp-service-prod.ol.epicgames.com')
         self.service_port = kwargs.get('xmpp_port', 5222)
+        self.device_id = kwargs.get('device_id', None)
 
         self.kill_other_sessions = True
         self.accept_eula = True
@@ -235,6 +243,11 @@ class Client:
         """This function starts the loop and then calls :meth:`start` for you.
         If you have passed an already running event loop to the client, you should start the client
         with :meth:`start`.
+
+        Raises
+        ------
+        AuthException
+            An error occured when attempting to log in.
         """
         try:
             # bad way of catching some annoying aioxmpp errors, will rework in the future
@@ -258,6 +271,11 @@ class Client:
             This functions is blocking and everything after the line calling this function will never run!
             If you are using this function instead of :meth:`run` you should always call it after everything
             else. When the client is ready it will dispatch :meth:`event_ready`. 
+
+        Raises
+        ------
+        AuthException
+            An error occured when attempting to log in.
         """
         await self._login()
 
@@ -291,7 +309,12 @@ class Client:
     async def logout(self):
         """|coro|
         
-        Logs the user out and closes running services
+        Logs the user out and closes running services.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while logging out.
         """
 
         try:
@@ -346,6 +369,11 @@ class Client:
 
                 Setting raw to True does not work with cache set to True.
 
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting the user.
+
         Returns
         -------
         :class:`User`
@@ -355,8 +383,13 @@ class Client:
             for u in self._users.values():
                 if u.display_name.lower() == display_name.lower():
                     return u
+        try:
+            res = await self.http.get_profile_by_display_name(display_name)
+        except HTTPException as exc:
+            if exc.message_code != 'errors.com.epicgames.account.account_not_found':
+                raise HTTPException(exc.response, exc.raw)
+            return None
 
-        res = await self.http.get_profile_by_display_name(display_name)
         if raw:
             return res
         return self.store_user(res)
@@ -387,12 +420,20 @@ class Client:
 
                 Setting raw to True does not work with cache set to True.
 
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting the user.
+
         Returns
         -------
         :class:`User`
             The user requested. If not found it will return ``None``
         """
-        return (await self.fetch_profiles((user,), cache=cache, raw=raw))[0]
+        try:
+            return (await self.fetch_profiles((user,), cache=cache, raw=raw))[0]
+        except IndexError:
+            return None
 
     async def fetch_profiles(self, users, cache=True, raw=False):
         """|coro|
@@ -419,6 +460,11 @@ class Client:
             .. note::
 
                 Setting raw to True does not work with cache set to True.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting user information.
 
         Returns
         -------
@@ -481,11 +527,18 @@ class Client:
 
         for friend in raw_friends:
             if friend['status'] == 'PENDING':
-                f = PendingFriend(self, {**friend, **m[friend['accountId']]})
-                self._pending_friends.set(f.id, f)
+                try:
+                    f = PendingFriend(self, {**friend, **m[friend['accountId']]})
+                    self._pending_friends.set(f.id, f)
+                except KeyError:
+                    continue
+
             elif friend['status'] == 'ACCEPTED':
-                f = Friend(self, {**friend, **m[friend['accountId']]})
-                self._friends.set(f.id, f)
+                try:
+                    f = Friend(self, {**friend, **m[friend['accountId']]})
+                    self._friends.set(f.id, f)
+                except KeyError:
+                    continue
 
     def store_user(self, data):
         try:
@@ -604,6 +657,11 @@ class Client:
         
         Retrieves the blocklist with an api call.
 
+        Raises
+        ------
+        HTTPException
+            An error occured while fetching blocklist.
+
         Returns
         -------
         List[:class:`str`]
@@ -679,6 +737,11 @@ class Client:
         """|coro|
         
         Sends a friend request or accepts a request if found.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting to add this friend.
 
         Parameters
         ----------
