@@ -151,6 +151,16 @@ class Friend(FriendBase):
         """
         return self.client.get_presence(self.id)
 
+    @property
+    def is_online(self):
+        """:class:`bool`: ``True`` if this friend is currently online on 
+        Fortnite else ``False``.
+        """
+        pres = self.client.get_presence(self.id)
+        if pres is None:
+            return False
+        return pres.is_available
+
     async def remove(self):
         """|coro|
         

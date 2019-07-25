@@ -330,6 +330,13 @@ class XMPPClient:
         if presence.from_.localpart == self.client.user.id or not presence.status:
             return
 
+        if '-' in presence.from_.localpart:
+            return
+
+        if presence.type_ not in (aioxmpp.PresenceType.AVAILABLE, 
+                                  aioxmpp.PresenceType.UNAVAILABLE):
+            return
+
         try:
             data = json.loads(presence.status.any())
             if data.get('Status', '') == '':
@@ -338,8 +345,9 @@ class XMPPClient:
             return
 
         _pres = Presence(
-            self.client, 
-            presence.from_.localpart, 
+            self.client,
+            presence.from_.localpart,
+            True if presence.type_ is aioxmpp.PresenceType.AVAILABLE else False,
             data
         )
 
