@@ -14,10 +14,11 @@ This is a small feature update I'm releasing before I go on a small vacation. I 
 New Features
 ~~~~~~~~~~~~
 
-- Added support for two factor auhentication. If you do not pass a 2fa code when initializing the client, you will be asked to enter it into console when that time comes.
 - :func:`event_friend_presence` is now also emitted when a user goes offline on Fortnite.
 - Added :attr:`Presence.is_available` to show if the user that emitted this presence is online or went offline.
 - Added :attr:`Friend.is_online` to show if a friend is currently online on Fortnite.
+- Added support for two factor auhentication. If you do not pass a 2fa code when initializing the client, you will be asked to enter it into console when that time comes.
+- You can now pass :attr:`Client.two_factor_code` and :attr:`Client.device_id` to client when initializing.
 - Added :attr:`HTTPException.raw` to get the raw error received from Fornite services.
 
 Bug Fixes
