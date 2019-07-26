@@ -158,6 +158,9 @@ class Presence:
     ----------
     client: :class:`Client`
         The client.
+    is_available: :class:`bool`
+        The availability of this presence. ``True`` if presence is available,
+        ``False`` if user went unavailable.
     friend: :class:`Friend`
         The friend you received this presence from.
     received_at: :class:`datetime.datetime`
@@ -204,15 +207,16 @@ class Presence:
         The playercount of the friend's server.
     """
 
-    __slots__ = ('client', 'friend', 'received_at', 'status', 'is_playing',
+    __slots__ = ('client', 'is_available', 'friend', 'received_at', 'status', 'is_playing',
                  'is_joinable', 'has_voice_support', 'session_id', 'raw_properties',
                  'has_properties', 'homebase_rating', 'lfg', 'sub_game',
                  'in_unjoinable_match', 'playlist', 'players_alive', 'party_size',
                  'max_party_size', 'game_session_join_key', 'server_player_count',
                  'gameplay_stats', 'party')
 
-    def __init__(self, client, from_id, data):
+    def __init__(self, client, from_id, is_available, data):
         self.client = client
+        self.is_available = is_available
         self.friend = self.client.get_friend(from_id)
         self.received_at = datetime.datetime.now()
 

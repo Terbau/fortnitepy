@@ -142,6 +142,9 @@ this decorator if you are in a subclass of :class:`Client`.
 .. function:: event_friend_presence(presence)
 
 	This event is valled when the client receives a presence from a friend.
+	Presence is received when a user logs into fortnite, closes fortnite or
+	when an user does an action when logged in e.g. joins into a game or joins
+	a party.
 
 	:param presence: Presence object.
 	:type presence:	:class:`Presence`

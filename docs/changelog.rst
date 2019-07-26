@@ -6,6 +6,36 @@ Changelog
 Detailed version changes.
 
 
+v0.4.0
+------
+
+This is a small feature update I'm releasing before I go on a small vacation. I have a couple more features planned that I wished I had time to add to this update that unfortunately didn't make it in. They will be included in the next update.
+
+New Features
+~~~~~~~~~~~~
+
+- :func:`event_friend_presence` is now also emitted when a user goes offline on Fortnite.
+- Added :attr:`Presence.is_available` to show if the user that emitted this presence is online or went offline.
+- Added :attr:`Friend.is_online` to show if a friend is currently online on Fortnite.
+- Added support for two factor auhentication. If you do not pass a 2fa code when initializing the client, you will be asked to enter it into console when that time comes.
+- You can now pass :attr:`Client.two_factor_code` and :attr:`Client.device_id` to client when initializing.
+- Added :attr:`HTTPException.raw` to get the raw error received from Fornite services.
+
+Bug Fixes
+~~~~~~~~~
+
+- :meth:`Client.fetch_profile_by_display_name` and :meth:`Client.fetch_profile` now correctly returns ``None`` when the user was not found.
+- Fixed an issue where the fetching of friends on startup did not work as intended.
+- Fixed an issue where the client would fail to automatically recreate a party in some situations.
+- Fixed an issue where party presences was processed as a user presence.
+
+Miscellanious
+~~~~~~~~~~~~~
+
+- Added missing documentation to some functions.
+- The ``Incompatible build id`` error message will now say ``Incompatible net_cl`` to avoid some confusion around what the problem really is.
+
+
 v0.3.1
 ------
 
