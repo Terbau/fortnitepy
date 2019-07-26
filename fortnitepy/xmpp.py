@@ -158,7 +158,7 @@ class XMPPClient:
         ##############################
         elif _type == 'com.epicgames.social.party.notification.v0.INITIAL_INVITE':
             if body['meta']['urn:epic:cfg:build-id_s'] != self.client.party_build_id:
-                raise PartyError('Incompatible build id')
+                raise PartyError('Incompatible net_cl')
             
             _raw = await self.client.http.party_lookup(body['party_id'])
             new_party = Party(self.client, _raw)
@@ -278,7 +278,9 @@ class XMPPClient:
             member = party.members.get(body.get('account_id'))
             if member is None:
                 if body.get('account_id') == self.client.user.id:
-                    await party.me.leave()
+                    await party.leave()
+                    p = await self.client._create_party()
+                    self.client.user.set_party(p)
                 return
 
             member.update(body)
