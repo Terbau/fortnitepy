@@ -158,7 +158,7 @@ class Presence:
     ----------
     client: :class:`Client`
         The client.
-    available: :class:`bool`
+    is_available: :class:`bool`
         The availability of this presence. ``True`` if presence is available,
         ``False`` if user went unavailable.
     friend: :class:`Friend`
