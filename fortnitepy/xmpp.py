@@ -156,15 +156,32 @@ class XMPPClient:
         ##############################
         # Party
         ##############################
-        elif _type == 'com.epicgames.social.party.notification.v0.INITIAL_INVITE':
-            if body['meta']['urn:epic:cfg:build-id_s'] != self.client.party_build_id:
+        elif _type == 'com.epicgames.social.party.notification.v0.PING':
+            data = await self.client.http.party_lookup_user(self.client.user.id)
+
+            invite = None
+            for inv in data['invites']:
+                if inv['sent_by'] == body['pinger_id'] and inv['status'] == 'SENT':
+                    invite = inv
+
+            if invite is None:
+                pres = self.client.get_presence(body['pinger_id'])
+                if pres is None:
+                    raise PartyError('Invite not found')
+
+                invite = self._create_invite_from_presence(
+                    body['pinger_id'], pres)
+
+            if invite['meta']['urn:epic:cfg:build-id_s'] != self.client.party_build_id:
                 raise PartyError('Incompatible net_cl')
             
-            _raw = await self.client.http.party_lookup(body['party_id'])
+            party_id = invite['party_id']
+            _raw = await self.client.http.party_lookup(party_id)
             new_party = Party(self.client, _raw)
             await new_party._update_members(_raw['members'])
+            print(invite)
             
-            invitation = PartyInvitation(self.client, new_party, body)
+            invitation = PartyInvitation(self.client, new_party, invite)
             self.client.dispatch_event('party_invite', invitation)
         
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_LEFT':
