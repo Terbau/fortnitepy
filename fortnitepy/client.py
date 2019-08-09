@@ -173,6 +173,7 @@ class Client:
         self._users = Cache()
         self._presences = Cache()
         self.event_prefix = 'event'
+        self._ready = asyncio.Event(loop=self.loop)
 
         self.update_default_party_config(
             kwargs.get('default_party_config')
@@ -279,6 +280,7 @@ class Client:
         """
         await self._login()
 
+        self._set_ready()
         self.dispatch_event('ready')
         await self.auth.schedule_token_refresh()
         
@@ -334,7 +336,28 @@ class Client:
             pass
 
         await self.http.close()
+        self._ready.clear()
         log.debug('Successfully logged out')
+
+    def _set_ready(self):
+        self._ready.set()
+
+    def is_ready(self):
+        """Specifies if the internal state of the client is ready.
+        
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if the internal state is ready else ``False``
+        """
+        return self._ready.is_set()
+
+    async def wait_until_ready(self):
+        """|coro|
+        
+        Waits until the internal state of the client is ready.
+        """
+        await self._ready.wait()
 
     async def initialize_party(self):
         data = await self.http.party_lookup_user(self.user.id)
