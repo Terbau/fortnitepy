@@ -99,13 +99,18 @@ class XMPPClient:
         # {'type': 'FRIENDSHIP_REQUEST', 'timestamp': '2019-06-30T22:28:19.248Z', 'from': 'b7af4984a77c468b83d8b16d675d76bc', 'to': '26715168c5944e68b9d2c1e1d134b74e', 'status': 'ACCEPTED'}
         # {'payload': {'accountId': 'b7af4984a77c468b83d8b16d675d76bc', 'status': 'ACCEPTED', 'direction': 'INBOUND', 'created': '2019-06-30T22:28:18.383Z', 'favorite': False}, 'type': 'com.epicgames.friends.core.apiobjects.Friend', 'timestamp': '2019-06-30T22:28:19.248Z'}
         if _type == 'FRIENDSHIP_REQUEST':
-            _from = body['from']
             _status = body['status']
 
+            if body['from'] == self.client.user.id:
+                _id = body['to']
+            else:
+                _id = body['from']
+
             if _status == 'ACCEPTED':
-                data = self.client.get_user(_from)
+
+                data = self.client.get_user(_id)
                 if data is None:
-                    data = await self.client.http.get_profile(_from)
+                    data = await self.client.http.get_profile(_id)
                 else:
                     data = data.get_raw()
 
@@ -123,9 +128,9 @@ class XMPPClient:
                 self.client.dispatch_event('friend_add', f)
 
             elif _status == 'PENDING':
-                data = self.client.get_user(_from)
+                data = self.client.get_user(_id)
                 if data is None:
-                    data = await self.client.http.get_profile(_from)
+                    data = await self.client.http.get_profile(_id)
                 else:
                     data = data.get_raw()
 
@@ -142,13 +147,17 @@ class XMPPClient:
                 self.client.dispatch_event('friend_request', f)
         
         elif _type == 'FRIENDSHIP_REMOVE':
-            _from = body['from']
+            if body['from'] == self.client.user.id:
+                _id = body['to']
+            else:
+                _id = body['from']
+            
             if body['reason'] == 'ABORTED':
-                pf = self.client.get_pending_friend(_from)
+                pf = self.client.get_pending_friend(_id)
                 self.client.store_user(pf.get_raw())
                 self.client._pending_friends.remove(pf.id)
             else:
-                f = self.client.get_friend(_from)
+                f = self.client.get_friend(_id)
                 self.client.store_user(f.get_raw())
                 self.client._friends.remove(f.id)
                 self.client.dispatch_event('friend_removed', f)
