@@ -1,5 +1,6 @@
 import aiohttp
 import fortnitepy
+import asyncio
 
 class MyClient(fortnitepy.Client):
     BEN_BOT_BASE = 'http://benbotfn.tk:8080/api/cosmetics/search'
@@ -9,10 +10,12 @@ class MyClient(fortnitepy.Client):
             email='',
             password=''
         )
-        self.session = aiohttp.ClientSession(loop=self.loop)
+        self.session_event = asyncio.Event(loop=self.loop)
 
     async def event_ready(self):
         print('Client is ready as {0.user.display_name}.'.format(self))
+        self.session = aiohttp.ClientSession(loop=self.loop)
+        self.session_event.set()
 
     async def fetch_cosmetic_id(self, display_name):
         async with self.session.get(self.BEN_BOT_BASE, params={'displayName': display_name}) as r:
@@ -20,6 +23,9 @@ class MyClient(fortnitepy.Client):
             return data.get('id')
 
     async def event_party_message(self, message):
+        # wait until session is set
+        await self.session_event.wait()
+
         split = message.content.split()
         command = split[0].lower()
         args = split[1:]
