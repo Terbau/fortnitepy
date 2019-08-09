@@ -6,6 +6,31 @@ Changelog
 Detailed version changes.
 
 
+v0.4.1
+------
+
+Small update which adds some basic functionality and fixes some important bugs like invites not working.
+
+New Features
+~~~~~~~~~~~~
+
+- Added :meth:`Client.is_ready()` which checks if the internal state of the client is ready.
+- Added :meth:`Client.wait_until_ready()` which waits for the clients internal state to get ready.
+
+Updated
+~~~~~~~
+
+- Updated :attr:`Client.net_cl` to match the value from the Fortnite v10 update.
+- Updated :attr:`Client.build` to match the value from the Fortnite v10 update.
+- Updated :attr:`Client.engine_build` to match the value from the Fortnite v10 update.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed party invites not emitting the :func:`event_party_invite` event.
+- Fixed an issue where :func:`event_friend_add` would in some cases return the clients user instead of the player added.
+
+
 v0.4.0
 ------
 
