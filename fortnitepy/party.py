@@ -1273,7 +1273,7 @@ class PartyInvitation:
         self.client = client
         self.party = party
         
-        self.author = self.client.get_friend(data['inviter_id'])
+        self.author = self.client.get_friend(data['sent_by'])
         self.created_at = self.client.from_iso(data['sent_at'])
 
     async def accept(self):
