@@ -188,7 +188,6 @@ class XMPPClient:
             _raw = await self.client.http.party_lookup(party_id)
             new_party = Party(self.client, _raw)
             await new_party._update_members(_raw['members'])
-            print(invite)
             
             invitation = PartyInvitation(self.client, new_party, invite)
             self.client.dispatch_event('party_invite', invitation)
