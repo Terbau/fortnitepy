@@ -636,7 +636,7 @@ class PartyMember(User):
         for channel, value in kwargs.items():
             v = {
                 'item': item,
-                'channel': '_'.join([x.capitalize() for x in channel.split('_')])
+                'channel': ''.join([x.capitalize() for x in channel.split('_')])
             }
 
             if channel == 'particle':

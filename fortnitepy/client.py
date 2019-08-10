@@ -658,7 +658,7 @@ class Client:
         :class:`bool`
             ``True`` if user is friends with the client else ``False``
         """
-        return self.get_friend(id) is None
+        return self.get_friend(id) is not None
     
     def is_pending(self, id):
         """Checks if the given id is a pending friend of the client.
