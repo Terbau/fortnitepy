@@ -1135,7 +1135,7 @@ class Party:
         """
         self.client.xmpp.muc_room = None
         await self.client.http.party_leave(self.id)
-        self.client.user.remove_party()
+        await self.client._create_party()
 
     async def set_privacy(self, privacy):
         """|coro|
