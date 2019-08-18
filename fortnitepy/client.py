@@ -1193,6 +1193,7 @@ class Client:
         self.user.set_party(party)
 
         await self.http.party_join_request(party_id)
+        await party._update_members_meta()
         asyncio.ensure_future(self.user.party.join_chat(), loop=self.loop)
 
     async def set_status(self, status):

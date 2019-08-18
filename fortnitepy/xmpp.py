@@ -512,7 +512,7 @@ class XMPPClient:
             type_=aioxmpp.MessageType.GROUPCHAT
         )
         msg.body[None] = content
-        await self.muc_room.send_message(msg)
+        self.muc_room.send_message(msg)
 
     async def send_friend_message(self, jid, content):
         if self.stream is None:

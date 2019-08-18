@@ -517,7 +517,7 @@ class PartyMember(User):
         self.queue_active = False
 
         self.joined_at = self.client.from_iso(data['joined_at'])
-        self.meta = PartyMemberMeta(self, data.get('meta'))
+        self.meta = PartyMemberMeta(self, meta=data.get('meta'))
         self._update(data)
 
     def _update(self, data):
@@ -1264,6 +1264,12 @@ class Party:
             
         for id in to_remove:
             self._remove_member(id)
+
+    async def _update_members_meta(self):
+        data = await self.client.http.party_lookup(self.id)
+        for m in data['members']:
+            member = self.members[m['account_id']]
+            member.meta.update(m['meta'], raw=True)
 
     async def join_chat(self):
         await self.client.xmpp.join_muc(self.id)
