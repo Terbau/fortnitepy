@@ -677,7 +677,7 @@ class PartyMember(User):
             The new party the client is connected to after leaving.
         """
         await self.client.http.party_leave(self.party.id)
-        self.client.xmpp_client.muc_room = None
+        self.client.xmpp.muc_room = None
         p = await self.client._create_party()
         self.client.user.set_party(p)
         return p
@@ -948,7 +948,9 @@ class PartyMember(User):
             section=section
         )
         await self.patch(updated=prop)
-        self.client.loop.create_task(self._schedule_clear_emote(run_for))
+
+        if run_for is not None:
+            self.client.loop.create_task(self._schedule_clear_emote(run_for))
 
     async def _schedule_clear_emote(self, seconds):
         await asyncio.sleep(seconds)
