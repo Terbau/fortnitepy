@@ -1169,12 +1169,12 @@ class Party:
                 region='EU'
             )
         
-        Sets the playlist to Arena Duos EU: ::
+        Sets the playlist to Arena Trios EU (Replace ``Trios`` with ``Solo`` for arena solo): ::
 
             await party.set_playlist(
-                playlist='Playlist_ShowdownAlt_Duos',
-                tournament='epicgames_Arena_Duos',
-                event_window='Arena_Division1_Duos',
+                playlist='Playlist_ShowdownAlt_Trios',
+                tournament='epicgames_Arena_S10_Trios',
+                event_window='Arena_S10_Division1_Trios',
                 region='EU'
             )
 
