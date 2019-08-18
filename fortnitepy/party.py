@@ -1123,7 +1123,7 @@ class Party:
         
         await self.client.http.party_send_invite(user_id)
 
-    async def leave(self):
+    async def _leave(self):
         """|coro|
         
         Leaves the party.
@@ -1135,7 +1135,6 @@ class Party:
         """
         self.client.xmpp.muc_room = None
         await self.client.http.party_leave(self.id)
-        await self.client._create_party()
 
     async def set_privacy(self, privacy):
         """|coro|

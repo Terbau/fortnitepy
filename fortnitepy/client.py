@@ -322,7 +322,7 @@ class Client:
 
         try:
             if self.user.party is not None:
-                await self.user.party.leave()
+                await self.user.party._leave()
         except:
             pass
 
@@ -364,7 +364,7 @@ class Client:
         data = await self.http.party_lookup_user(self.user.id)
         if len(data['current']) > 0:
             party = Party(self, data['current'][0])
-            await party.leave()
+            await party._leave()
             log.debug('Left old party')
         await self._create_party()
 
@@ -1177,7 +1177,7 @@ class Client:
         try:
             await self.wait_for('party_member_join', check=check, timeout=3)
         except asyncio.TimeoutError:
-            await party.leave()
+            await party._leave()
             return await self._create_party()
 
         await party.set_privacy(config['privacy'])
@@ -1189,7 +1189,7 @@ class Client:
             party = Party(self, party_data)
             await party._update_members(party_data['members'])
 
-        await self.user.party.leave()
+        await self.user.party._leave()
         self.user.set_party(party)
 
         await self.http.party_join_request(party_id)

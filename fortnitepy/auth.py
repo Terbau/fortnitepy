@@ -192,7 +192,7 @@ class Auth:
         log.debug('Refreshing session')
 
         if self.client.user.party is not None:
-            await self.client.user.party.leave()
+            await self.client.user.party._leave()
 
         data = await self.grant_refresh_token(self.refresh_token)
         self.launcher_access_token = data['access_token']
