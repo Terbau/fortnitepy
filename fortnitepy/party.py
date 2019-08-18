@@ -353,7 +353,7 @@ class PartyMeta(MetaBase):
             privacy['invitePermission'],
         )
 
-        if ['Public', 'FriendsOnly'].index(privacy['partyType']) > -1:
+        if privacy['partyType'] not in ('Public', 'FriendsOnly'):
             deleted.append('urn:epic:cfg:not-accepting-members')
 
         if privacy['partyType'] == 'Private':
@@ -1153,6 +1153,9 @@ class Party:
         """
         if self.leader.id != self.client.user.id:
             raise PartyPermissionError('You have to be leader for this action to work.')
+
+        if not isinstance(privacy, dict):
+            privacy = privacy.value
 
         updated, deleted = self.meta.set_privacy(privacy)
         await self.patch(updated=updated, deleted=deleted)

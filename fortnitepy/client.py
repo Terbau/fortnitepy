@@ -220,9 +220,10 @@ class Client:
             'invite_ttl_seconds': 14400,
             'chat_enabled': True,
         }
+
         try:
             self.default_party_config['privacy'] = self.default_party_config['privacy'].value
-        except KeyError:
+        except (KeyError, AttributeError):
             pass
 
         default_config = {**_default_conf, **self.default_party_config}
@@ -1152,7 +1153,18 @@ class Client:
         else:
             cf = self.default_party_config
 
-        data = await self.http.party_create(cf)
+        while True:
+            try:
+                data = await self.http.party_create(cf)
+                break
+            except HTTPException as exc:
+                print(exc.message_code)
+                if exc.message_code != 'errors.com.epicgames.social.party.user_has_party':
+                    raise HTTPException(exc.response, exc.raw)
+
+                data = await self.http.party_lookup_user(self.user.id)
+                await self.http.party_leave(data['current'][0]['id'])
+
         config = {**cf, **data['config']}
         party = Party(self, data)
         await party._update_members(data['members'])
