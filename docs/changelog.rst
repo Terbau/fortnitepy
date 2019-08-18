@@ -6,6 +6,64 @@ Changelog
 Detailed version changes.
 
 
+v0.5.0
+------
+
+Breaking update removing ``Party.leave()`` and adding many new meta related party features + important bug fixes.
+
+Breaking Changes
+~~~~~~~~~~~~~~~~
+
+- Removed ``Party.leave()``. Use :meth:`PartyMember.leave()` instead.
+
+New Features
+~~~~~~~~~~~~
+
+- Added :attr:`PartyMember.ready` which returns the state of a members readiness.
+- Added :attr:`PartyMember.input` to check what input a party member is using.
+- Added :attr:`PartyMember.assisted_challenge` to get a members currently set party-assisted challenge.
+- Added :attr:`PartyMember.outfit` to get the CID of the current outfit a member has equipped.
+- Added :attr:`PartyMember.outfit_variants` to get the raw variants of the current outfit a member has equipped.
+- Added :attr:`PartyMember.backpack` to get the BID of a members currently equipped backpack.
+- Added :attr:`PartyMember.pickaxe` to get a members currently set pickaxe.
+- Added :attr:`PartyMember.emote` to get a members currently playing emote.
+- Added :attr:`PartyMember.banner` to get a tuple consisting of the members currently set banner.
+- Added :attr:`PartyMember.battlepass_info` to get a tuple consisting of the members battlepass info.
+- Added :attr:`PartyMember.platform` to get a members platform.
+- Added :attr:`Party.playlist_info` to get a tuple consisting of information about the currently set playlist.
+- Added :attr:`Party.squad_fill_allowed` which returns the state of squad fill.
+- Added :attr:`Party.privacy` to get the partys privacy.
+- Added keyword-argument ``run_for`` to :meth:`PartyMember.set_emote()` for setting how long an emote should be playing for in seconds.
+
+Updated
+~~~~~~~
+
+- Updated :attr:`Client.net_cl` to match the value from the Fortnite v10.10 update.
+- Updated :attr:`Client.build` to match the value from the Fortnite v10.10 update.
+- Updated :attr:`Client.engine_build` to match the value from the Fortnite v10.10 update.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed the naming of :func:`event_member_updated` not matching the docs.
+- Fixed :meth:`Client.has_friend()` returning the opposite of the correct value.
+- Fixed :meth:`PartyMember.create_variants()` not working like intended in some situations.
+- Fixed an issue where you would get an error if you tried to initialize the client with a different default party privacy.
+- Fixed an issue where :meth:`Party.set_privacy()` would raise an error causing the function to fail.
+- Fixed an issue where an error were sometimes raised due to attempting to create a new party while already in a another.
+- Fixed :meth:`PartyMember.set_assisted_challenge()` only taking a full path for the quest argument.
+- Fixed an issue where members of a party the client is joining would not have updated metas.
+- Fixed an issue where an unecessary error would be raised when sending a message to a party chat.
+
+Miscellanious
+~~~~~~~~~~~~~
+
+- Added missing :func:`event_party_member_leave` to the event reference.
+- Added "How can I fix the Incompatible net_cl error" to the faq.
+- Updated the faq answer regarding two factor auhentication usage.
+- Updated arena docs example for :meth:`Party.set_privacy()` to match the new arena playlist information introduced in Fortnite v10.
+
+
 v0.4.1
 ------
 
