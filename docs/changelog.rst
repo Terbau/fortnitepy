@@ -6,6 +6,18 @@ Changelog
 Detailed version changes.
 
 
+v5.0.1
+------
+
+Quick update fixing some small bugs.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed :meth:`PartyMember.set_emote()` raising an error if ``run_for`` keyword argument was ``None``.
+- Fixed an internal error where the party chatroom was not overwritten correctly when leaving a party.
+
+
 v0.5.0
 ------
 
