@@ -205,6 +205,13 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member who joined.
 	:type member: :class:`PartyMember`
 
+.. function:: event_party_member_leave(member)
+
+	This event is called when a member leaves the party.
+	
+	:param member: The member who left the party.
+	:type member: :class:`PartyMember`
+
 .. function:: event_party_member_confirmation(confirmation)
 
 	This event is called when a member asks to join the party.
