@@ -30,6 +30,7 @@ import asyncio
 import random
 import weakref
 import aioxmpp
+import re
 
 from .errors import FortniteException, PartyError, PartyPermissionError, HTTPException
 from .user import User
@@ -62,7 +63,7 @@ class MetaBase:
         _t = prop[-1:]
         _v = self.schema.get(prop)
         if _t == 'b':
-            return False if _v is None else bool(_v)
+            return False if _v is None or (isinstance(_v, str) and _v.lower() == 'false') else True
         elif _t == 'j':
             return {} if _v is None else json.loads(_v)
         elif _t == 'U':
@@ -133,13 +134,13 @@ class PartyMemberMeta(MetaBase):
             }),
             'AthenaCosmeticLoadout_j': json.dumps({
                 'AthenaCosmeticLoadout': {
-                    'characterDef': 'AthenaCharacterItemDefinition\'/Game/Athena/Items/Cosmetics/Characters/{0}.{0}\'' \
-                                    ''.format(character),
+                    'characterDef': "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/{0}.{0}'" \
+                                    "".format(character),
                     'characterEKey': '',
                     'backpackDef': 'None',
                     'backpackEKey': '',
-                    'pickaxeDef': 'AthenaPickaxeItemDefinition\'/Game/Athena/Items/Cosmetics/' \
-                                  'Pickaxes/DefaultPickaxe.DefaultPickaxe\'',
+                    'pickaxeDef': "AthenaPickaxeItemDefinition'/Game/Athena/Items/Cosmetics/" \
+                                  "Pickaxes/DefaultPickaxe.DefaultPickaxe'",
                     'pickaxeEKey': '',
                     'variants': [],
                 },
@@ -173,6 +174,80 @@ class PartyMemberMeta(MetaBase):
 
         if meta is not None:
             self.update(meta, raw=True)
+
+    @property
+    def ready(self):
+        base = self.get_prop('GameReadiness_s')
+        return True if base == "Ready" else False
+
+    @property
+    def input(self):
+        return self.get_prop('CurrentInputType_s')
+
+    @property
+    def assisted_challenge(self):
+        base = self.get_prop('AssistedChallengeInfo_j')
+        result = result = re.search(r".*\.(.*)", base['AssistedChallengeInfo']['questItemDef'].strip("'"))
+
+        if result is None or result[1] == 'None':
+            return None
+        return result[1]
+
+    @property
+    def outfit(self):
+        base = self.get_prop('AthenaCosmeticLoadout_j')
+        return re.search(r'.*(CID.*)\..*', base['AthenaCosmeticLoadout']['characterDef'])[1]
+
+    @property
+    def outfit_variants(self):
+        base = self.get_prop('AthenaCosmeticLoadout_j')
+        return base['AthenaCosmeticLoadout']['variants']
+
+    @property
+    def backpack(self):
+        base = self.get_prop('AthenaCosmeticLoadout_j')
+        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['backpackDef'].strip("'"))
+
+        if result is None or result[1] == 'None':
+            return None
+        return result[1]
+
+    @property
+    def pickaxe(self):
+        base = self.get_prop('AthenaCosmeticLoadout_j')
+        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['pickaxeDef'].strip("'"))
+
+        if result is None or result[1] == 'None':
+            return None
+        return result[1]
+
+    @property
+    def emote(self):
+        base = self.get_prop('FrontendEmote_j')
+        result = re.search(r'.*(EID.*)\..*', base['FrontendEmote']['emoteItemDef'])
+
+        if result is None or result[1] == 'None':
+            return None
+        return result[1]
+
+    @property
+    def banner(self):
+        base = self.get_prop('AthenaBannerInfo_j')
+        banner_info = base['AthenaBannerInfo']
+
+        return (banner_info['bannerIconId'], banner_info['bannerColorId'], banner_info['seasonLevel'])
+
+    @property
+    def battlepass_info(self):
+        base = self.get_prop('BattlePassInfo_j')
+        bp_info = base['BattlePassInfo']
+
+        return (bp_info['bHasPurchasedPass'], bp_info['passLevel'], bp_info['selfBoostXp'], bp_info['friendBoostXp'])
+        
+    @property
+    def platform(self):
+        base = self.get_prop('Platform_j')
+        return base['Platform']['platformStr']
 
     def set_readiness(self, val):
         return {'GameReadiness_s': self.set_prop('GameReadiness_s', val)}
@@ -301,6 +376,36 @@ class PartyMeta(MetaBase):
 
         if meta is not None:
             self.update(meta, raw=True)
+    
+    @property
+    def playlist_info(self):
+        base = self.get_prop('PlaylistData_j')
+        info = base['PlaylistData']
+
+        return (info['playlistName'], info['tournamentId'], info['eventWindowId'], info['regionId'])
+
+    @property
+    def squad_fill_enabled(self):
+        return self.get_prop('AthenaSquadFill_b')
+
+    @property
+    def privacy(self):
+        curr_priv = (self.get_prop('PrivacySettings_j'))['PrivacySettings']
+
+        for privacy in PartyPrivacy:
+            if curr_priv['partyType'] != privacy.value['partyType']:
+                continue
+            
+            try:
+                if curr_priv['partyInviteRestriction'] != privacy.value['partyInviteRestriction']:
+                    continue
+
+                if curr_priv['bOnlyLeaderFriendsCanJoin'] != privacy.value['bOnlyLeaderFriendsCanJoin']:
+                    continue
+            except KeyError:
+                pass
+
+            return privacy
 
     def set_playlist(self, playlist=None, tournament=None, event_window=None, region=None):
         data = (self.get_prop('PlaylistData_j'))['PlaylistData']
@@ -353,7 +458,7 @@ class PartyMeta(MetaBase):
             privacy['invitePermission'],
         )
 
-        if ['Public', 'FriendsOnly'].index(privacy['partyType']) > -1:
+        if privacy['partyType'] not in ('Public', 'FriendsOnly'):
             deleted.append('urn:epic:cfg:not-accepting-members')
 
         if privacy['partyType'] == 'Private':
@@ -412,7 +517,7 @@ class PartyMember(User):
         self.queue_active = False
 
         self.joined_at = self.client.from_iso(data['joined_at'])
-        self.meta = PartyMemberMeta(self, data.get('meta'))
+        self.meta = PartyMemberMeta(self, meta=data.get('meta'))
         self._update(data)
 
     def _update(self, data):
@@ -432,8 +537,87 @@ class PartyMember(User):
 
     @property
     def is_leader(self):
-        """:class:`bool`: Returns ``True`` if member is the leader else ``False``"""
+        """:class:`bool`: Returns ``True`` if member is the leader else ``False``."""
         return True if self.role else False
+
+    @property
+    def ready(self):
+        """:class:`bool`: ``True`` if this member is ready else ``False``."""
+        return self.meta.ready
+    
+    @property
+    def input(self):
+        """:class:`str`: The input type this user is currently using."""
+        return self.meta.input
+
+    @property
+    def assisted_challenge(self):
+        """:class:`str`: The current assisted challenge chosen by this member.
+        ``None`` if no assisted challenge is set.
+        """
+        return self.meta.assisted_challenge
+
+    @property
+    def outfit(self):
+        """:class:`str`: The CID of the outfit this user currently has equipped."""
+        return self.meta.outfit
+
+    @property
+    def outfit_variants(self):
+        """:class:`list`: A list containing the raw variants data for the currently equipped
+        outfit.
+        
+        .. warning::
+            
+            Outfit variants doesn't seem to follow much logic. Therefore this returns the raw
+            variants data received from fortnite's service. This can be directly passed with the
+            ``variants`` keyword to :meth:`PartyMember.set_outfit()`.
+        """
+        return self.meta.outfit_variants
+
+    @property
+    def backpack(self):
+        """:class:`str`: The BID of the backpack this member currently has equipped. 
+        ``None`` if no backpack is equipped.
+        """
+        return self.meta.backpack
+    
+    @property
+    def pickaxe(self):
+        """:class:`str`: The pickaxe id of the pickaxe this member currently has equipped."""
+        return self.meta.pickaxe
+
+    @property
+    def emote(self):
+        """:class:`str`: The EID of the emote this member is currenyly playing.
+        ``None`` if no emote is currently playing.
+        """
+        return self.meta.emote
+
+    @property
+    def banner(self):
+        """:class:`tuple`: A tuple consisting of the icon id, color id and the season level.
+        
+        Example output: ::
+
+            ('standardbanner15', 'defaultcolor15', 50)
+        """
+        return self.meta.banner
+
+    @property
+    def battlepass_info(self):
+        """:class:`tuple`: A tuple consisting of has purchased, battlepass level, self boost xp, friends boost xp.
+        
+        Example output: ::
+        
+            (True, 30, 80, 70)    
+        """
+        return self.meta.battlepass_info
+    
+    @property
+    def platform(self):
+        """:class:`str`: The platform this user currently uses."""
+        return self.meta.platform
 
     async def _patch(self, updated=None):
         meta = updated or self.meta.schema
@@ -636,7 +820,7 @@ class PartyMember(User):
         for channel, value in kwargs.items():
             v = {
                 'item': item,
-                'channel': '_'.join([x.capitalize() for x in channel.split('_')])
+                'channel': ''.join([x.capitalize() for x in channel.split('_')])
             }
 
             if channel == 'particle':
@@ -668,8 +852,8 @@ class PartyMember(User):
             The variants to use for this skin.
         """
         if '.' not in asset:
-            asset = 'AthenaCharacterItemDefinition\'/Game/Athena/Items/Cosmetics/Characters/' \
-                    '{0}.{0}\''.format(asset)
+            asset = "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/" \
+                    "{0}.{0}'".format(asset)
 
         prop = self.meta.set_cosmetic_loadout(
             character=asset,
@@ -696,8 +880,8 @@ class PartyMember(User):
             The encyption key to use for this backpack.
         """
         if '.' not in asset:
-            asset = 'AthenaBackpackItemDefinition\'/Game/Athena/Items/Cosmetics/Backpacks/' \
-                    '{0}.{0}\''.format(asset)
+            asset = "AthenaBackpackItemDefinition'/Game/Athena/Items/Cosmetics/Backpacks/" \
+                    "{0}.{0}'".format(asset)
 
         prop = self.meta.set_cosmetic_loadout(
             backpack=asset,
@@ -723,8 +907,8 @@ class PartyMember(User):
             The encyption key to use for this pickaxe.
         """
         if '.' not in asset:
-            asset = 'AthenaPickaxeItemDefinition\'/Game/Athena/Items/Cosmetics/Pickaxes/' \
-                    '{0}.{0}\''.format(asset)
+            asset = "AthenaPickaxeItemDefinition'/Game/Athena/Items/Cosmetics/Pickaxes/" \
+                    "{0}.{0}'".format(asset)
 
         prop = self.meta.set_cosmetic_loadout(
             pickaxe=asset,
@@ -732,15 +916,10 @@ class PartyMember(User):
         )
         await self.patch(updated=prop)
 
-    async def set_emote(self, asset, key=None, section=None):
+    async def set_emote(self, asset, run_for=None, key=None, section=None):
         """|coro|
         
         Sets the emote of the client.
-
-        .. note::
-
-            When setting an emote it will play forever until you clear the emote. You
-            can clear the emote by calling :meth:`clear_emote()`.
 
         Parameters
         ----------
@@ -751,14 +930,17 @@ class PartyMember(User):
 
                 You don't have to include the full path of the asset. The EID is
                 enough.
+        run_for: Optional[:class:`int`]
+            Seconds this emote should run for before being cancelled. ``None`` (default) means 
+            will run infinitely and you can then clear it with :meth:`PartyMember.clear_emote()`.
         key: Optional[:class:`str`]
             The encyption key to use for this emote.
         section: Optional[:class:`int`]
             The section.
         """
         if '.' not in asset:
-            asset = 'AthenaDanceItemDefinition\'/Game/Athena/Items/Cosmetics/Dances/' \
-                    '{0}.{0}\''.format(asset)
+            asset = "AthenaDanceItemDefinition'/Game/Athena/Items/Cosmetics/Dances/" \
+                    "{0}.{0}'".format(asset)
 
         prop = self.meta.set_emote(
             emote=asset,
@@ -766,6 +948,11 @@ class PartyMember(User):
             section=section
         )
         await self.patch(updated=prop)
+        self.client.loop.create_task(self._schedule_clear_emote(run_for))
+
+    async def _schedule_clear_emote(self, seconds):
+        await asyncio.sleep(seconds)
+        await self.clear_emote()
     
     async def clear_emote(self):
         """|coro|
@@ -844,9 +1031,18 @@ class PartyMember(User):
         ----------
         quest: :class:`str`
             The quest to set.
+
+            .. note::
+
+                You don't have to include the full path of the quest. The quest id is
+                enough.
         num_completed: :class:`int`
             How many quests you have completed, I think (didn't test this).
         """
+        if '.' not in quest:
+            quest = "FortQuestItemDefinition'/Game/Athena/Items/Quests/DailyQuests/Quests/" \
+                    "{0}.{0}'".format(quest)
+
         prop = self.meta.set_assisted_challenge(
             quest=quest,
             completed=num_completed
@@ -895,6 +1091,31 @@ class Party:
     def me(self):
         """:class:`PartyMember`: The clients partymember object."""
         return self.members.get(self.client.user.id)
+
+    @property
+    def playlist_info(self):
+        """:class:`tuple`: A tuple containing the name, tournament, event window and region
+        of the currently set playlist.
+        
+        Example output: ::
+
+            # output for default duos
+            ('Playlist_DefaultDuo', '', '', 'EU')
+
+            # output for arena trios
+            ('Playlist_ShowdownAlt_Trios', 'epicgames_Arena_S10_Trios', 'Arena_S10_Division1_Trios', 'EU)
+        """
+        return self.meta.playlist_info
+
+    @property
+    def squad_fill_enabled(self):
+        """:class:`bool`: ``True`` if squad fill is enabled else ``False``."""
+        return self.meta.squad_fill_enabled
+
+    @property
+    def privacy(self):
+        """:class:`PartyPrivacy`: The currently set privacy of this party."""
+        return self.meta.privacy
 
     @property
     def muc_jid(self):
@@ -1044,6 +1265,12 @@ class Party:
         for id in to_remove:
             self._remove_member(id)
 
+    async def _update_members_meta(self):
+        data = await self.client.http.party_lookup(self.id)
+        for m in data['members']:
+            member = self.members[m['account_id']]
+            member.meta.update(m['meta'], raw=True)
+
     async def join_chat(self):
         await self.client.xmpp.join_muc(self.id)
     
@@ -1123,7 +1350,7 @@ class Party:
         
         await self.client.http.party_send_invite(user_id)
 
-    async def leave(self):
+    async def _leave(self):
         """|coro|
         
         Leaves the party.
@@ -1135,7 +1362,6 @@ class Party:
         """
         self.client.xmpp.muc_room = None
         await self.client.http.party_leave(self.id)
-        self.client.user.remove_party()
 
     async def set_privacy(self, privacy):
         """|coro|
@@ -1154,6 +1380,9 @@ class Party:
         if self.leader.id != self.client.user.id:
             raise PartyPermissionError('You have to be leader for this action to work.')
 
+        if not isinstance(privacy, dict):
+            privacy = privacy.value
+
         updated, deleted = self.meta.set_privacy(privacy)
         await self.patch(updated=updated, deleted=deleted)
     
@@ -1169,12 +1398,12 @@ class Party:
                 region='EU'
             )
         
-        Sets the playlist to Arena Duos EU: ::
+        Sets the playlist to Arena Trios EU (Replace ``Trios`` with ``Solo`` for arena solo): ::
 
             await party.set_playlist(
-                playlist='Playlist_ShowdownAlt_Duos',
-                tournament='epicgames_Arena_Duos',
-                event_window='Arena_Division1_Duos',
+                playlist='Playlist_ShowdownAlt_Trios',
+                tournament='epicgames_Arena_S10_Trios',
+                event_window='Arena_S10_Division1_Trios',
                 region='EU'
             )
 

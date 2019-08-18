@@ -188,7 +188,6 @@ class XMPPClient:
             _raw = await self.client.http.party_lookup(party_id)
             new_party = Party(self.client, _raw)
             await new_party._update_members(_raw['members'])
-            print(invite)
             
             invitation = PartyInvitation(self.client, new_party, invite)
             self.client.dispatch_event('party_invite', invitation)
@@ -304,13 +303,13 @@ class XMPPClient:
             member = party.members.get(body.get('account_id'))
             if member is None:
                 if body.get('account_id') == self.client.user.id:
-                    await party.leave()
+                    await party._leave()
                     p = await self.client._create_party()
                     self.client.user.set_party(p)
                 return
 
             member.update(body)
-            self.client.dispatch_event('party_member_state_updated', member)
+            self.client.dispatch_event('party_member_updated', member)
 
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_JOINED':
             party = self.client.user.party
@@ -513,7 +512,7 @@ class XMPPClient:
             type_=aioxmpp.MessageType.GROUPCHAT
         )
         msg.body[None] = content
-        await self.muc_room.send_message(msg)
+        self.muc_room.send_message(msg)
 
     async def send_friend_message(self, jid, content):
         if self.stream is None:
