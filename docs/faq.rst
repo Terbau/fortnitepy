@@ -18,12 +18,14 @@ seems to update their game every week I sometimes don't keep up and you have to 
 with the correct one yourself.
 
 **Guide to find netcl:**
+
 1. Navigate to the folder where you find your fortnite logs. Usually something like this: ``C:\Users\%your_user%\AppData\Local\FortniteGame\Saved\Logs``.
 2. Go into the latest log file (Typically named ``FortniteGame``).
 3. Press ctrl + f and do a search for ``netcl``. You should then find a seven digit number.
 
 **This is how you launch the client with the manual netcl:**
-.. code-block:: python3
+
+.. code-block::
 
     # pass the netcl to with the net_cl keyword when initializing the client.
     client = fortnitepy.Client(
