@@ -6,6 +6,26 @@ Changelog
 Detailed version changes.
 
 
+v0.5.2
+------
+
+Internal changes 99% of you wont ever notice + some small bug fixes.
+
+Refactored
+~~~~~~~~~~
+
+- Reworked :meth:`Client.run()` to use :meth:`asyncio.AbstractEventLoop.run_forever()` and implemented better task cleanup heavily based of discord.py's cleanup method.
+- Reworked :meth:`Client.start()` and :meth:`Client.logout()` a work better together when logging out while running.
+- Changed some internal data body values related to parties to match fortnite's values.
+- The clients XMPP jid will now use a unique id in its resource part.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue with :meth:`Client.fetch_profiles()` where if ``raw`` was ``True`` and some of the profiles were gotten from cache they would not be returned raw.
+- Fixed an issue with :meth:`Client.fetch_profiles()` where if no profiles was retrieved an error would be raised.
+
+
 v5.0.1
 ------
 

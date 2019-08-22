@@ -39,12 +39,9 @@ class HTTPClient:
         self.client = client
         self.connector = connector
         self._jar = aiohttp.CookieJar()
-        self.__session = aiohttp.ClientSession(
-            connector=self.connector, 
-            loop=self.client.loop, 
-            cookie_jar=self._jar
-        )
         self.headers = {}
+
+        self.create_connection()
     
     @classmethod
     async def json_or_text(cls, response):
@@ -79,8 +76,16 @@ class HTTPClient:
         return self.headers.pop(key)
 
     async def close(self):
+        self._jar.clear()
         if self.__session:
             await self.__session.close()
+
+    def create_connection(self):
+        self.__session = aiohttp.ClientSession(
+            connector=self.connector,
+            loop=self.client.loop,
+            cookie_jar=self._jar
+        )
 
     async def request(self, method, url, is_json=False, **kwargs):
         headers = {**kwargs.get('headers', {}), **self.headers}
@@ -378,7 +383,7 @@ class HTTPClient:
                 'urn:epic:member:dn_s': self.client.user.display_name,
                 'urn:epic:member:type_s': 'game',
                 'urn:epic:member:platform_s': self.client.platform,
-                'urn:epic:member:joinrequest_j': '{"CrossplayPreference_i":"1"}',
+                'urn:epic:member:joinrequest_j': '{"CrossplayPreference_i":"1","SubGame_u":"1"}',
             },
         }
 

@@ -80,6 +80,8 @@ class Auth:
 
             self.launcher_access_token = data['access_token']
             await self.exchange_code('bearer {0}'.format(self.launcher_access_token))
+        except asyncio.CancelledError:
+            pass
         except Exception as e:
             traceback.print_exc()
             raise AuthException('Could not authenticate. Error: {}'.format(e))

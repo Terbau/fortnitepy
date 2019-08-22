@@ -55,7 +55,7 @@ class PartyPrivacy(Enum):
         'partyType': 'Private',
         'inviteRestriction': 'AnyMember',
         'onlyLeaderFriendsCanJoin': False,
-        'presencePermission': 'None',
+        'presencePermission': 'Noone',
         'invitePermission': 'AnyMember',
         'acceptingMembers': False,
     }
@@ -63,7 +63,7 @@ class PartyPrivacy(Enum):
         'partyType': 'Private',
         'inviteRestriction': 'LeaderOnly',
         'onlyLeaderFriendsCanJoin': True,
-        'presencePermission': 'None',
+        'presencePermission': 'Noone',
         'invitePermission': 'Leader',
         'acceptingMembers': False,
     }

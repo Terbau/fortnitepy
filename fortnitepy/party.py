@@ -450,7 +450,7 @@ class PartyMeta(MetaBase):
 
         updated['urn:epic:cfg:accepting-members_b'] = self.set_prop(
             'urn:epic:cfg:accepting-members_b',
-            str(bool(privacy['acceptingMembers'])).lower(),
+            str(privacy['acceptingMembers']).lower(),
         )
 
         updated['urn:epic:cfg:invite-perm_s'] = self.set_prop(
@@ -1135,7 +1135,7 @@ class Party:
 
     def update_presence(self, text=None, conf={}):
         perm = self.config['privacy']['presencePermission']
-        if perm == 'None' or (perm == 'Leader' and self.me.is_leader):
+        if perm == 'Noone' or (perm == 'Leader' and (self.me is not None and not self.me.is_leader)):
             join_data = {
                 'bInPrivate': True
             }

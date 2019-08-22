@@ -59,6 +59,9 @@ class Cache:
         except KeyError:
             pass
 
+    def clear(self):
+        self._cache = {}
+
 
 class WeakrefCache(Cache):
     def __init__(self, loop=None):
