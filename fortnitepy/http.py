@@ -383,7 +383,7 @@ class HTTPClient:
                 'urn:epic:member:dn_s': self.client.user.display_name,
                 'urn:epic:member:type_s': 'game',
                 'urn:epic:member:platform_s': self.client.platform,
-                'urn:epic:member:joinrequest_j': '{"CrossplayPreference_i":"1"}',
+                'urn:epic:member:joinrequest_j': '{"CrossplayPreference_i":"1","SubGame_u":"1"}',
             },
         }
 
