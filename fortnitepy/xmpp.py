@@ -30,6 +30,7 @@ import json
 import random
 import logging
 import datetime
+import uuid
 
 from .errors import XMPPError, PartyError
 from .message import FriendMessage, PartyMessage
@@ -438,8 +439,9 @@ class XMPPClient:
                 await asyncio.sleep(1)
 
     async def run(self):
+        resource_id = (uuid.uuid4().hex).upper()
         self.xmpp_client = aioxmpp.PresenceManagedClient(
-            aioxmpp.JID(self.client.user.id, self.client.service_host, 'V2:Fortnite:WIN::E10260E2901443F3ABF26FE50D3466D8'),
+            aioxmpp.JID(self.client.user.id, self.client.service_host, f'V2:Fortnite:WIN::{resource_id}'),
             aioxmpp.make_security_layer(
                 self.client.auth.access_token,
                 no_verify=True
