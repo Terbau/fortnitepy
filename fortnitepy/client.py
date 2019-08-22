@@ -49,6 +49,42 @@ from .playlist import Playlist
 # logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__) 
 
+# all credit for this function goes to discord.py. Great task cancelling.
+def _cancel_tasks(loop):
+    task_retriever = asyncio.Task.all_tasks
+    tasks = {t for t in task_retriever(loop=loop) if not t.done()}
+
+    if not tasks:
+        return
+
+    log.info('Cleaning up after %d tasks.', len(tasks))
+    for task in tasks:
+        task.cancel()
+
+    loop.run_until_complete(asyncio.gather(*tasks, loop=loop, return_exceptions=True))
+    log.info('All tasks finished cancelling.')
+
+    for task in tasks:
+        if task.cancelled():
+            continue
+        if task.exception() is not None:
+            loop.call_exception_handler({
+                'message': 'Unhandled exception during Client.run shutdown.',
+                'exception': task.exception(),
+                'task': task
+            })
+
+
+def _cleanup_loop(loop):
+    try:
+        _cancel_tasks(loop)
+        if sys.version_info >= (3, 6):
+            loop.run_until_complete(loop.shutdown_asyncgens())
+    finally:
+        log.info('Closing the event loop.')
+        loop.close()
+
+
 class Client:
     """Represents the client connected to Fortnite and EpicGames' services.
 
@@ -174,6 +210,11 @@ class Client:
         self._presences = Cache()
         self.event_prefix = 'event'
         self._ready = asyncio.Event(loop=self.loop)
+        self._refresh_task = None
+        self._closed = False
+        self._closing = False
+
+        self.refresh_i = 0
 
         self.update_default_party_config(
             kwargs.get('default_party_config')
@@ -246,22 +287,43 @@ class Client:
         If you have passed an already running event loop to the client, you should start the client
         with :meth:`start`.
 
+        .. warning::
+
+            This function is blocking and should be the last function to run.
+
         Raises
         ------
         AuthException
             An error occured when attempting to log in.
         """
-        try:
-            # bad way of catching some annoying aioxmpp errors, will rework in the future
-            # self.loop.set_exception_handler(self.exc_handler)
+        loop = self.loop
 
-            self.loop.run_until_complete(self.start())
-            log.debug('Successfully launched')
-        except KeyboardInterrupt:
+        try:
+            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+        except NotImplementedError:
             pass
+
+        async def runner():
+            try:
+                await self.start()
+            finally:
+                if not self._closing:
+                    await self.logout()
+
+        asyncio.ensure_future(runner(), loop=loop)
+
+        try:
+            loop.run_forever()
+        except KeyboardInterrupt:
+            log.info('Terminating event loop.')
         finally:
-            self.loop.run_until_complete(self.logout())
-            self.loop.close()
+            if not self._closing:
+                log.info('Client not logged out when terminating loop. Logging out now.')
+                loop.run_until_complete(self.logout())
+
+            log.info('Cleaning up loop')
+            _cleanup_loop(loop)
         
     async def start(self):
         """|coro|
@@ -279,11 +341,20 @@ class Client:
         AuthException
             An error occured when attempting to log in.
         """
+        if self._closed:
+            self.http.create_connection()
+            self._closed = False
+
         await self._login()
 
         self._set_ready()
         self.dispatch_event('ready')
-        await self.auth.schedule_token_refresh()
+
+        self._refresh_task = self.loop.create_task(self.auth.schedule_token_refresh())
+        try:
+            await self._refresh_task
+        except asyncio.CancelledError:
+            pass
         
     async def _login(self):
         self.auth = Auth(self)
@@ -319,6 +390,9 @@ class Client:
         HTTPException
             An error occured while logging out.
         """
+        self._closing = True
+        if self._refresh_task is not None and not self._refresh_task.cancelled():
+            self._refresh_task.cancel()
 
         try:
             if self.user.party is not None:
@@ -336,8 +410,15 @@ class Client:
         except:
             pass
 
-        await self.http.close()
+        self._friends.clear()
+        self._pending_friends.clear()
+        self._users.clear()
+        self._presences.clear()
         self._ready.clear()
+        
+        await self.http.close()
+        self._closed = True
+        self._closing = False
         log.debug('Successfully logged out')
 
     def _set_ready(self):
@@ -1158,7 +1239,6 @@ class Client:
                 data = await self.http.party_create(cf)
                 break
             except HTTPException as exc:
-                print(exc.message_code)
                 if exc.message_code != 'errors.com.epicgames.social.party.user_has_party':
                     raise HTTPException(exc.response, exc.raw)
 
