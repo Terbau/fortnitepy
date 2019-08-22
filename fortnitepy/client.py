@@ -595,7 +595,10 @@ class Client:
                 if cache:
                     p = self.get_user(elem)
                     if p:
-                        profiles.append(p)
+                        if raw:
+                            profiles.append(p.get_raw())
+                        else:
+                            profiles.append(p)
                         continue
                 new.append(elem)
 
@@ -611,14 +614,15 @@ class Client:
             task = self.http.get_profiles(chunk)
             chunk_tasks.append(task)
         
-        d, _ = await asyncio.wait(chunk_tasks)
-        for results in d:
-            for result in results.result():
-                if raw:
-                    profiles.append(result)
-                else:
-                    u = self.store_user(result)
-                    profiles.append(u)
+        if len(chunks) > 0:
+            d, _ = await asyncio.wait(chunk_tasks)
+            for results in d:
+                for result in results.result():
+                    if raw:
+                        profiles.append(result)
+                    else:
+                        u = self.store_user(result)
+                        profiles.append(u)
         return profiles
 
     async def initialize_friends(self):
