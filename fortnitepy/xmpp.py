@@ -91,21 +91,11 @@ class XMPPClient:
         _type = body['type']
         log.debug('XMPP: Received event `{}` with body `{}`'.format(_type, body))
         
-        # [TODO]
-        # Use the other received object (com.epicgames.friends.core.apiobjects.Friend) to process friend action events
-        #
-        # {'payload': {'accountId': 'b7af4984a77c468b83d8b16d675d76bc', 'status': 'PENDING', 'direction': 'INBOUND', 'created': '2019-06-30T22:28:18.383Z', 'favorite': False}, 'type': 'com.epicgames.friends.core.apiobjects.Friend', 'timestamp': '2019-06-30T22:28:18.393Z'}
-        # {'type': 'FRIENDSHIP_REQUEST', 'timestamp': '2019-06-30T22:28:18.393Z', 'from': 'b7af4984a77c468b83d8b16d675d76bc', 'to': '26715168c5944e68b9d2c1e1d134b74e', 'status': 'PENDING'}
-        # 
-        # {'type': 'FRIENDSHIP_REQUEST', 'timestamp': '2019-06-30T22:28:19.248Z', 'from': 'b7af4984a77c468b83d8b16d675d76bc', 'to': '26715168c5944e68b9d2c1e1d134b74e', 'status': 'ACCEPTED'}
-        # {'payload': {'accountId': 'b7af4984a77c468b83d8b16d675d76bc', 'status': 'ACCEPTED', 'direction': 'INBOUND', 'created': '2019-06-30T22:28:18.383Z', 'favorite': False}, 'type': 'com.epicgames.friends.core.apiobjects.Friend', 'timestamp': '2019-06-30T22:28:19.248Z'}
-        if _type == 'FRIENDSHIP_REQUEST':
-            _status = body['status']
+        if _type == 'com.epicgames.friends.core.apiobjects.Friend':
+            _payload = body['payload']
+            _status = _payload['status']
 
-            if body['from'] == self.client.user.id:
-                _id = body['to']
-            else:
-                _id = body['from']
+            _id = _payload['accountId']
 
             if _status == 'ACCEPTED':
 
@@ -117,9 +107,9 @@ class XMPPClient:
 
                 f = Friend(self.client, {
                         **data,
-                        'direction': None,
+                        'direction': _payload['direction'],
                         'status': _status,
-                        'favorite': False,
+                        'favorite': _payload['favorite'],
                         'created': body['timestamp']
                     }
                 )
@@ -137,9 +127,9 @@ class XMPPClient:
 
                 f = PendingFriend(self.client, {
                         **data,
-                        'direction': 'INBOUND',
+                    'direction': _payload['direction'],
                         'status': _status,
-                        'favorite': False,
+                        'favorite': _payload['favorite'],
                         'created': body['timestamp']
                     }
                 )
