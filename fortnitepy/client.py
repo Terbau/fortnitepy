@@ -244,6 +244,27 @@ class Client:
         """
         return dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
+    @property
+    def friends(self):
+        """:class:`dict`: Mapping of current friends. {id (:class:`str`): :class:`Friend`}"""
+        return self._friends._cache
+
+    @property
+    def pending_friends(self):
+        """:class:`dict`: Mapping of currently pending friends. {id (:class:`str`): :class:`PendingFriend`}
+        
+        .. note::
+        
+            Pending friends can be both inbound (pending friend sent the request to the bot) or outgoing 
+            (the bot sent the request to the pending friend).
+        """
+        return self._pending_friends._cache
+
+    @property
+    def presences(self):
+        """:class:`dict`: Mapping of the last presence received from friends. {id (:class:`str`): :class:`Presence`}"""
+        return self._presences._cache
+
     def update_default_party_config(self, config):
         if config is None:
             return
