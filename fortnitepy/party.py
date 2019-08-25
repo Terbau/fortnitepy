@@ -1103,6 +1103,11 @@ class PartyBase:
         return self._members
 
     @property
+    def member_count(self):
+        """:class:`int`: The amount of member currently in this party."""
+        return len(self._members)
+
+    @property
     def applicants(self):
         """:class:`list`: The party's applicants."""
         return self._applicants
