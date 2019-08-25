@@ -490,50 +490,25 @@ class PartyMeta(MetaBase):
         })   
 
 
-class PartyMember(User):
-    """Represents a partymember of the clients' party.
-    
-    Attributes
-    ----------
-    client: :class:`Client`
-        The client.
-    party: :class:`Party`
-        The party this member belongs to.
-    joined_at: :class:`datetime.datetime`
-        The time of when this member joined the party.
-    role: :class:`str`
-        The role of the member. ``CAPTAIN`` if this member is the
-        leader of the party, else ``None``.
-    connections: :class:`list`
-        The member's connections.
-    """
-
+class PartyMemberBase(User):
     def __init__(self, client, party, data):
         super().__init__(client=client, data=data)
-        self.client = client
-        self.party = party
 
-        self.queue = asyncio.Queue(loop=self.client.loop)
-        self.queue_active = False
+        self._party = party
 
-        self.joined_at = self.client.from_iso(data['joined_at'])
+        self._joined_at = self.client.from_iso(data['joined_at'])
         self.meta = PartyMemberMeta(self, meta=data.get('meta'))
         self._update(data)
 
-    def _update(self, data):
-        super()._update(data)
-        self.role = data.get('role')
-        self.revision = data.get('revision', 0)
-        self.connections = data.get('connections', [])
-
-    def update(self, data):
-        if data['revision'] > self.revision:
-            self.revision = data['revision']
-        self.meta.update(data['member_state_updated'], raw=True)
-        self.meta.remove(data['member_state_removed'])
-
-    def update_role(self, role):
-        self.role = role
+    @property
+    def party(self):
+        """Union[:class:`Party`, :class:`ClientParty`]: The party this member is a part of."""
+        return self._party
+    
+    @property
+    def joined_at(self):
+        """:class:`datetime.datetime`: The time of when this member joined its party."""
+        return self._joined_at
 
     @property
     def is_leader(self):
@@ -619,129 +594,20 @@ class PartyMember(User):
         """:class:`str`: The platform this user currently uses."""
         return self.meta.platform
 
-    async def _patch(self, updated=None):
-        meta = updated or self.meta.schema
-        await self.client.http.party_update_member_meta(
-            party_id=self.party.id,
-            user_id=self.id,
-            meta=meta,
-            revision=self.revision
-        )
-        self.revision += 1
-    
-    async def patch(self, updated=None):
-        future = self.client.loop.create_future()
-        await self.queue.put((self._patch, future, {'updated': updated}))
+    def _update(self, data):
+        super()._update(data)
+        self.role = data.get('role')
+        self.revision = data.get('revision', 0)
+        self.connections = data.get('connections', [])
 
-        if not self.queue_active:
-            asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
-        return await future
+    def update(self, data):
+        if data['revision'] > self.revision:
+            self.revision = data['revision']
+        self.meta.update(data['member_state_updated'], raw=True)
+        self.meta.remove(data['member_state_removed'])
 
-    async def _run_queue(self):
-        self.queue_active = True
-        try:
-            while not self.queue.empty():
-                func, future, kwargs = await self.queue.get()
-                if func is None:
-                    break
-
-                while True:
-                    try:
-                        res = await func(**kwargs)
-                        future.set_result(res)
-                        break
-                    except HTTPException as exc:
-                        self.revision = int(exc.message_vars[1])
-                        continue
-                    except FortniteException as exc:
-                        future.set_exception(exc)
-                        break
-
-        except RuntimeError:
-            pass
-        self.queue_active = False
-
-    async def leave(self):
-        """|coro|
-        
-        Leaves the party.
-
-        Raises
-        ------
-        HTTPException
-            An error occured while requesting to leave the party.
-
-        Returns
-        -------
-        :class:`Party`
-            The new party the client is connected to after leaving.
-        """
-        await self.client.http.party_leave(self.party.id)
-        self.client.xmpp.muc_room = None
-        p = await self.client._create_party()
-        self.client.user.set_party(p)
-        return p
-
-    async def kick(self):
-        """|coro|
-        
-        Kicks this member from the party.
-
-        Raises
-        ------
-        PartyPermissionError
-            You are not the leader of the party.
-        PartyError
-            You attempted to kick yourself.
-        HTTPException
-            Something else went wrong when trying to kick this member.
-        """
-        if self.client.user.id != self.party.leader.id:
-            raise PartyPermissionError('You must be partyleader to perform this action')
-        
-        if self.client.user.id == self.id:
-            raise PartyError('You can\'t kick yourself')
-        
-        await self.client.http.party_kick_member(self.party.id, self.id)
-        self.party._remove_member(self.id)
-    
-    async def promote(self):
-        """|coro|
-        
-        Promotes this user to partyleader.
-
-        Raises
-        ------
-        PartyPermissionError
-            You are not the leader of the party.
-        PartyError
-            You are already partyleader.
-        HTTPException
-            Something else went wrong when trying to promote this member.
-        """
-        if self.client.user.id != self.party.leader.id:
-            raise PartyPermissionError('You must be partyleader to perform this action')
-        
-        if self.client.user.id == self.id:
-            raise PartyError('You are already partyleader')
-        
-        await self.client.http.party_promote_member(self.party.id, self.id)
-
-    async def set_ready(self, value):
-        """|coro|
-        
-        Sets the readiness of the client.
-        
-        Parameters
-        ----------
-        value: :class:`bool`
-            **True** to set it to ready.
-            **False** to set it to unready.
-        """
-        prop = self.meta.set_readiness(
-            val='Ready' if value is True else 'NotReady'
-        )
-        await self.patch(updated=prop)
+    def update_role(self, role):
+        self.role = role
 
     def create_variants(self, item="AthenaCharacter", particle_config='Emissive', **kwargs):
         """Creates the variants list by the variants you set.
@@ -831,6 +697,163 @@ class PartyMember(User):
                 v['variant'] = config[channel].format(value)
             variant.append(v)
         return variant
+
+
+class PartyMember(PartyMemberBase):
+    """Represents a party member.
+    
+    Attributes
+    ----------
+    client: :class:`Client`
+        The client.
+    """
+
+    def __init__(self, client, party, data):
+        super().__init__(client, party, data)
+
+    async def kick(self):
+        """|coro|
+        
+        Kicks this member from the party.
+
+        Raises
+        ------
+        PartyPermissionError
+            You are not the leader of the party.
+        PartyError
+            You attempted to kick yourself.
+        HTTPException
+            Something else went wrong when trying to kick this member.
+        """
+        if self.client.user.id != self.party.leader.id:
+            raise PartyPermissionError(
+                'You must be partyleader to perform this action')
+
+        if self.client.user.id == self.id:
+            raise PartyError('You can\'t kick yourself')
+
+        await self.client.http.party_kick_member(self.party.id, self.id)
+        self.party._remove_member(self.id)
+
+    async def promote(self):
+        """|coro|
+        
+        Promotes this user to partyleader.
+
+        Raises
+        ------
+        PartyPermissionError
+            You are not the leader of the party.
+        PartyError
+            You are already partyleader.
+        HTTPException
+            Something else went wrong when trying to promote this member.
+        """
+        if self.client.user.id != self.party.leader.id:
+            raise PartyPermissionError(
+                'You must be partyleader to perform this action')
+
+        if self.client.user.id == self.id:
+            raise PartyError('You are already partyleader')
+
+        await self.client.http.party_promote_member(self.party.id, self.id)
+
+
+class ClientPartyMember(PartyMemberBase):
+    """Represents a the Clients party member object.
+    
+    Attributes
+    ----------
+    client: :class:`Client`
+        The client.
+    """
+
+    def __init__(self, client, party, data):
+        super().__init__(client, party, data)
+
+        self.queue = asyncio.Queue(loop=self.client.loop)
+        self.queue_active = False
+
+    async def _patch(self, updated=None):
+        meta = updated or self.meta.schema
+        await self.client.http.party_update_member_meta(
+            party_id=self.party.id,
+            user_id=self.id,
+            meta=meta,
+            revision=self.revision
+        )
+        self.revision += 1
+    
+    async def patch(self, updated=None):
+        future = self.client.loop.create_future()
+        await self.queue.put((self._patch, future, {'updated': updated}))
+
+        if not self.queue_active:
+            asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
+        return await future
+
+    async def _run_queue(self):
+        self.queue_active = True
+        try:
+            while not self.queue.empty():
+                func, future, kwargs = await self.queue.get()
+                if func is None:
+                    break
+
+                while True:
+                    try:
+                        res = await func(**kwargs)
+                        future.set_result(res)
+                        break
+                    except HTTPException as exc:
+                        if exc.message_code == 'errors.com.epicgames.social.party.stale_revision':
+                            self.revision = int(exc.message_vars[1])
+                            continue
+                        raise HTTPException(exc.response, exc.raw)
+                    except FortniteException as exc:
+                        future.set_exception(exc)
+                        break
+
+        except RuntimeError:
+            pass
+        self.queue_active = False
+
+    async def leave(self):
+        """|coro|
+        
+        Leaves the party.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting to leave the party.
+
+        Returns
+        -------
+        :class:`Party`
+            The new party the client is connected to after leaving.
+        """
+        await self.client.http.party_leave(self.party.id)
+        self.client.xmpp.muc_room = None
+        p = await self.client._create_party()
+        self.client.user.set_party(p)
+        return p
+
+    async def set_ready(self, value):
+        """|coro|
+        
+        Sets the readiness of the client.
+        
+        Parameters
+        ----------
+        value: :class:`bool`
+            **True** to set it to ready.
+            **False** to set it to unready.
+        """
+        prop = self.meta.set_readiness(
+            val='Ready' if value is True else 'NotReady'
+        )
+        await self.patch(updated=prop)
 
     async def set_outfit(self, asset, key=None, variants=None):
         """|coro|
@@ -1052,35 +1075,42 @@ class PartyMember(User):
         await self.patch(updated=prop)    
 
 
-class Party:
-    """Represents a party.
-    
-    Attributes
-    ----------
-    client: :class:`Client`
-        The client.
-    id: :class:`str`
-        The party id.
-    members: :class:`dict`
-        Mapping of the party's members.
-        *Example: {memberid: :class:`PartyMember`}*
-    applicants: :class:`list`
-        The party's applicants.
-    """
-    def __init__(self, client, data):
-        self.client = client
-        self.id = data.get('id')
-        self.members = {}
-        self.applicants = data.get('applicants', [])
-        self.last_raw_status = None
+class PartyBase:
 
-        self.queue = asyncio.Queue(loop=self.client.loop)
-        self.queue_active = False
-        
-        self._update_revision(data.get('revision', 0))
+    def __init__(self, client, data):
+        self._client = client
+        self._id = data.get('id')
+        self._members = {}
+        self._applicants = data.get('applicants', [])
+
         self._update_invites(data.get('invites', []))
         self._update_config(data.get('config'))
         self.meta = PartyMeta(self, data['meta'])
+
+    @property
+    def client(self):
+        """:class:`Client`: The client."""
+        return self._client
+
+    @property
+    def id(self):
+        """:class:`str`: The party's id."""
+        return self._id
+
+    @property
+    def members(self):
+        """:class:`dict`: Mapping of the party's members. *Example: {memberid: :class:`PartyMember`}*"""
+        return self._members
+
+    @property
+    def member_count(self):
+        """:class:`int`: The amount of member currently in this party."""
+        return len(self._members)
+
+    @property
+    def applicants(self):
+        """:class:`list`: The party's applicants."""
+        return self._applicants
 
     @property
     def leader(self):
@@ -1088,11 +1118,6 @@ class Party:
         for member in self.members.values():
             if member.is_leader:
                 return member
-
-    @property
-    def me(self):
-        """:class:`PartyMember`: The clients partymember object."""
-        return self.members.get(self.client.user.id)
 
     @property
     def playlist_info(self):
@@ -1119,13 +1144,126 @@ class Party:
         """:class:`PartyPrivacy`: The currently set privacy of this party."""
         return self.meta.privacy
 
+    def _add_member(self, member):
+        self.members[member.id] = member
+
+    def _remove_member(self, id):
+        if not isinstance(id, str):
+            id = id.id
+        del self.members[id]
+
+    def _update(self, data):
+        try:
+            config = data['config']
+        except KeyError:
+            config = {
+                'joinability': data['party_privacy_type'],
+                'max_size': data['max_number_of_members'],
+                'sub_type': data['party_sub_type'],
+                'type': data['party_type'],
+                'invite_ttl_seconds': data['invite_ttl_seconds']
+            }
+
+        self._update_config({**self.config, **config})
+
+        self.meta.update(data['party_state_updated'], raw=True)
+        self.meta.remove(data['party_state_removed'])
+
+        privacy = self.meta.get_prop('PrivacySettings_j')
+        _p = privacy['PrivacySettings']
+        found = False
+        for d in PartyPrivacy:
+            p = d.value
+            if p['partyType'] != _p['partyType']:
+                continue
+            if p['inviteRestriction'] != _p['partyInviteRestriction']:
+                continue
+            if p['onlyLeaderFriendsCanJoin'] != _p['bOnlyLeaderFriendsCanJoin']:
+                continue
+            found = p
+            break
+
+        if found:
+            self.config['privacy'] = found
+
+    def _update_invites(self, invites):
+        self.invites = invites
+
+    def _update_config(self, config=None):
+        config = config if config is not None else {}
+
+        self.join_confirmation = config['join_confirmation']
+        self.max_size = config['max_size']
+        self.invite_ttl_seconds = config.get('invite_ttl_seconds', config['invite_ttl'])
+        self.sub_type = config['sub_type']
+        self.config = {**self.client.default_party_config, **config}
+
+    async def _update_members(self, raw_members):
+        for raw in raw_members:
+            user_id = raw.get('account_id', raw.get('accountId'))
+            if user_id == self.client.user.id:
+                user = self.client.user
+            else:
+                user = self.client.get_user(user_id)
+                if user is None:
+                    user = await self.client.fetch_profile(user_id)
+            raw = {**raw, **(user.get_raw())}
+
+            member = PartyMember(self.client, self, raw)
+            self._add_member(member)
+
+        ids = map(lambda r: raw.get('account_id', raw.get('accountId')), raw_members)
+        to_remove = []
+        for m in self.members.values():
+            if m.id not in ids:
+                to_remove.append(m.id)
+
+        for id in to_remove:
+            self._remove_member(id)
+
+    async def _update_members_meta(self):
+        data = await self.client.http.party_lookup(self.id)
+        for m in data['members']:
+            member = self.members[m['account_id']]
+            member.meta.update(m['meta'], raw=True)
+
+
+class Party(PartyBase):
+    """Represent a party that the ClientUser is not yet a part of."""
+
+    def __init__(self, client, data):
+        super().__init__(client, data)
+
+
+class ClientParty(PartyBase):
+    """Represents ClientUser's party."""
+
+    def __init__(self, client, data):
+        super().__init__(client, data)
+
+        self.last_raw_status = None
+        self._me = None
+
+        self.queue = asyncio.Queue(loop=self.client.loop)
+        self.queue_active = False
+        
+        self._update_revision(data.get('revision', 0))
+        self._update_invites(data.get('invites', []))
+        self._update_config(data.get('config'))
+        self.meta = PartyMeta(self, data['meta'])
+
+    @property
+    def me(self):
+        """:class:`ClientPartyMember`: The clients partymember object."""
+        return self._me
+
     @property
     def muc_jid(self):
         """:class:`aioxmpp.JID`: The JID of the party MUC."""
         return aioxmpp.JID.fromstr('Party-{}@muc.prod.ol.epicgames.com'.format(self.id))
 
-    def _add_member(self, member):
-        self.members[member.id] = member
+    def _add_clientmember(self, member):
+        self._me = member
 
     def _remove_member(self, id):
         if not isinstance(id, str):
@@ -1175,6 +1313,10 @@ class Party:
                     'numKills': 0,
                     'bFellToDeath': False,
                 },
+                'GamePlaylistName_s': self.meta.playlist_info[0],
+                'Event_PlayersAlive_s': '0',
+                'Event_PartySize_s': str(len(self.members)),
+                'Event_PartyMaxSize_s': str(self.max_size),
             },
         }
 
@@ -1186,8 +1328,9 @@ class Party:
         else:
             _text = {'Status': str(text)}
         
-        self.last_raw_status = {**_default_status, **conf, **_text}
-        self.client.xmpp.set_presence(status=self.last_raw_status)
+        if self.client.status is not False:
+            self.last_raw_status = {**_default_status, **conf, **_text}
+            self.client.xmpp.set_presence(status=self.last_raw_status)
         
     def _update(self, data):
         if self.revision < data['revision']:
@@ -1232,9 +1375,6 @@ class Party:
     def _update_revision(self, revision):
         self.revision = revision
 
-    def _update_invites(self, invites):
-        self.invites = invites
-
     def _update_config(self, config=None):
         config = config if config is not None else {} 
         
@@ -1258,6 +1398,10 @@ class Party:
             member = PartyMember(self.client, self, raw)
             self._add_member(member)
         
+            if member.id == self.client.user.id:
+                clientmember = ClientPartyMember(self.client, self, raw)
+                self._add_clientmember(clientmember)
+
         ids = map(lambda r: raw.get('account_id', raw.get('accountId')), raw_members)
         to_remove = []
         for m in self.members.values():
@@ -1266,12 +1410,6 @@ class Party:
             
         for id in to_remove:
             self._remove_member(id)
-
-    async def _update_members_meta(self):
-        data = await self.client.http.party_lookup(self.id)
-        for m in data['members']:
-            member = self.members[m['account_id']]
-            member.meta.update(m['meta'], raw=True)
 
     async def join_chat(self):
         await self.client.xmpp.join_muc(self.id)
@@ -1320,8 +1458,10 @@ class Party:
                         future.set_result(res)
                         break
                     except HTTPException as exc:
-                        self.revision = int(exc.message_vars[1])
-                        continue
+                        if exc.message_code == 'errors.com.epicgames.social.party.stale_revision':
+                            self.revision = int(exc.message_vars[1])
+                            continue
+                        raise HTTPException(exc.response, exc.raw)
                     except FortniteException as exc:
                         future.set_exception(exc)
                         break
@@ -1517,7 +1657,7 @@ class PartyInvitation:
         HTTPException
             Something went wrong when accepting the invitation.
         """
-        await self.client.join_to_party(self.party.id, party=self.party)
+        await self.client.join_to_party(self.party.id)
 
     async def decline(self):
         """|coro|

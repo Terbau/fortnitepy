@@ -85,6 +85,16 @@ class FriendBase(UserBase):
         return self._direction
 
     @property
+    def inbound(self):
+        """:class:`bool`: ``True`` if this friend was the one to send the friend request else ``False``."""
+        return self._direction == 'INBOUND'
+
+    @property
+    def outgoing(self):
+        """:class:`bool`: ``True`` if the bot was the one to send the friend request else ``False``."""
+        return self._direction == 'OUTGOING'
+
+    @property
     def favorite(self):
         """:class:`bool`: ``True`` if the friend is favorited by :class:`ClientUser`
         else ``False``.

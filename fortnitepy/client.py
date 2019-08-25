@@ -40,7 +40,7 @@ from .user import ClientUser, User
 from .friend import Friend, PendingFriend
 from .enums import PartyPrivacy
 from .cache import Cache, WeakrefCache
-from .party import Party
+from .party import ClientParty
 from .stats import StatsV2
 from .store import Store
 from .news import BattleRoyaleNewsPost
@@ -244,6 +244,27 @@ class Client:
         """
         return dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
+    @property
+    def friends(self):
+        """:class:`dict`: Mapping of current friends. {id (:class:`str`): :class:`Friend`}"""
+        return self._friends._cache
+
+    @property
+    def pending_friends(self):
+        """:class:`dict`: Mapping of currently pending friends. {id (:class:`str`): :class:`PendingFriend`}
+        
+        .. note::
+        
+            Pending friends can be both inbound (pending friend sent the request to the bot) or outgoing 
+            (the bot sent the request to the pending friend).
+        """
+        return self._pending_friends._cache
+
+    @property
+    def presences(self):
+        """:class:`dict`: Mapping of the last presence received from friends. {id (:class:`str`): :class:`Presence`}"""
+        return self._presences._cache
+
     def update_default_party_config(self, config):
         if config is None:
             return
@@ -444,7 +465,7 @@ class Client:
     async def initialize_party(self):
         data = await self.http.party_lookup_user(self.user.id)
         if len(data['current']) > 0:
-            party = Party(self, data['current'][0])
+            party = ClientParty(self, data['current'][0])
             await party._leave()
             log.debug('Left old party')
         await self._create_party()
@@ -1250,7 +1271,7 @@ class Client:
                 await self.http.party_leave(data['current'][0]['id'])
 
         config = {**cf, **data['config']}
-        party = Party(self, data)
+        party = ClientParty(self, data)
         await party._update_members(data['members'])
         asyncio.ensure_future(party.join_chat(), loop=self.loop)
         self.user.set_party(party)
@@ -1270,7 +1291,7 @@ class Client:
     async def join_to_party(self, party_id, party=None):
         if party is None:
             party_data = await self.http.party_lookup(party_id)
-            party = Party(self, party_data)
+            party = ClientParty(self, party_data)
             await party._update_members(party_data['members'])
 
         await self.user.party._leave()

@@ -35,7 +35,7 @@ import uuid
 from .errors import XMPPError, PartyError
 from .message import FriendMessage, PartyMessage
 from .friend import Friend, PendingFriend
-from .party import Party, PartyMember, PartyInvitation, PartyJoinConfirmation
+from .party import Party, PartyMember, ClientPartyMember, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence
 
 log = logging.getLogger(__name__)
@@ -91,21 +91,11 @@ class XMPPClient:
         _type = body['type']
         log.debug('XMPP: Received event `{}` with body `{}`'.format(_type, body))
         
-        # [TODO]
-        # Use the other received object (com.epicgames.friends.core.apiobjects.Friend) to process friend action events
-        #
-        # {'payload': {'accountId': 'b7af4984a77c468b83d8b16d675d76bc', 'status': 'PENDING', 'direction': 'INBOUND', 'created': '2019-06-30T22:28:18.383Z', 'favorite': False}, 'type': 'com.epicgames.friends.core.apiobjects.Friend', 'timestamp': '2019-06-30T22:28:18.393Z'}
-        # {'type': 'FRIENDSHIP_REQUEST', 'timestamp': '2019-06-30T22:28:18.393Z', 'from': 'b7af4984a77c468b83d8b16d675d76bc', 'to': '26715168c5944e68b9d2c1e1d134b74e', 'status': 'PENDING'}
-        # 
-        # {'type': 'FRIENDSHIP_REQUEST', 'timestamp': '2019-06-30T22:28:19.248Z', 'from': 'b7af4984a77c468b83d8b16d675d76bc', 'to': '26715168c5944e68b9d2c1e1d134b74e', 'status': 'ACCEPTED'}
-        # {'payload': {'accountId': 'b7af4984a77c468b83d8b16d675d76bc', 'status': 'ACCEPTED', 'direction': 'INBOUND', 'created': '2019-06-30T22:28:18.383Z', 'favorite': False}, 'type': 'com.epicgames.friends.core.apiobjects.Friend', 'timestamp': '2019-06-30T22:28:19.248Z'}
-        if _type == 'FRIENDSHIP_REQUEST':
-            _status = body['status']
+        if _type == 'com.epicgames.friends.core.apiobjects.Friend':
+            _payload = body['payload']
+            _status = _payload['status']
 
-            if body['from'] == self.client.user.id:
-                _id = body['to']
-            else:
-                _id = body['from']
+            _id = _payload['accountId']
 
             if _status == 'ACCEPTED':
 
@@ -117,9 +107,9 @@ class XMPPClient:
 
                 f = Friend(self.client, {
                         **data,
-                        'direction': None,
+                        'direction': _payload['direction'],
                         'status': _status,
-                        'favorite': False,
+                        'favorite': _payload['favorite'],
                         'created': body['timestamp']
                     }
                 )
@@ -137,9 +127,9 @@ class XMPPClient:
 
                 f = PendingFriend(self.client, {
                         **data,
-                        'direction': 'INBOUND',
+                    'direction': _payload['direction'],
                         'status': _status,
-                        'favorite': False,
+                        'favorite': _payload['favorite'],
                         'created': body['timestamp']
                     }
                 )
@@ -244,7 +234,7 @@ class XMPPClient:
                 m.update_role(None)
             
             member.update_role('CAPTAIN')
-            asyncio.ensure_future(party.update_status(), loop=self.client.loop)
+            asyncio.ensure_future(party.update_presence(), loop=self.client.loop)
             self.client.dispatch_event('party_member_promote', member)
 
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_KICKED':
@@ -324,6 +314,10 @@ class XMPPClient:
             if member is None:
                 member = PartyMember(self.client, party, body)
                 party._add_member(member)
+
+                if member.id == self.client.user.id:
+                    clientmember = ClientPartyMember(self.client, party, body)
+                    party._add_clientmember(clientmember)
 
             asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
             if party.me and party.leader and party.me.id == party.leader.id:

@@ -24,12 +24,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '0.5.2'
+__version__ = '0.6.0'
 
 from .client import Client
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
-from .party import PartyMember, Party, PartyInvitation, PartyJoinConfirmation
+from .party import PartyMember, ClientPartyMember, Party, ClientParty, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence, PresenceGameplayStats, PresenceParty
 from .user import ClientUser, User
 from .stats import StatsV2
