@@ -6,6 +6,40 @@ Changelog
 Detailed version changes.
 
 
+v0.6.0
+------
+
+**BREAKING UPDATE**
+Reworked parties and added some new stuff. This rework has been in my mind for some time but was recently accelerated because of some breaking bugs that required this rework.
+
+Reworked
+~~~~~~~~
+
+- :class:`ClientParty` is the new object for parties the client is a part of.
+- :class:`Party` is now only used for parties the client is not a part of. 
+- :class:`ClientPartyMember` is the new object that represents the client as a partymember.
+- :class:`PartyMember` represents party members like usual but is now mostly read-only with exceptions for some methods.
+
+.. note::
+
+    You can not get the :class:`ClientPartyMember` object from :attr:`ClientParty.me`.
+
+Additions
+~~~~~~~~~
+
+- Added attr ``member_count`` to :class:`Party` and :class:`ClientParty` to get the member count of the party.
+- Added attr ``inbound`` and ``outgoing`` to :class:`Friend` and :class:`PendingFriend`.
+- Added :attr:`Client.friends` to get a mapping of all friends.
+- Added :attr:`Client.pending_friends` to get a mapping of all pending friends.
+- Added :attr:`Client.presences` to get a mapping of friends latest presence received.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue where :attr:`PartyMember.direction` and :attr:`PartyMember.favorite` would be ``None`` in events.
+- Fixed an issue where parties would sometimes break down completely when receiving an invite.
+
+
 v0.5.2
 ------
 
