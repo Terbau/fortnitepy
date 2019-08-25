@@ -372,11 +372,26 @@ PartyMember
 	:members:
 	:inherited-members:
 
+ClientPartyMember
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: ClientPartyMember()
+	:members:
+	:inherited-members:
+
 Party
 ~~~~~
 
 .. autoclass:: Party()
 	:members:
+	:inherited-members:
+
+ClientParty
+~~~~~~~~~~~
+
+.. autoclass:: ClientParty()
+	:members:
+	:inherited-members:
 
 PartyInvitation
 ~~~~~~~~~~~~~~~

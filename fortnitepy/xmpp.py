@@ -35,7 +35,7 @@ import uuid
 from .errors import XMPPError, PartyError
 from .message import FriendMessage, PartyMessage
 from .friend import Friend, PendingFriend
-from .party import Party, PartyMember, PartyInvitation, PartyJoinConfirmation
+from .party import Party, PartyMember, ClientPartyMember, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence
 
 log = logging.getLogger(__name__)
@@ -244,7 +244,7 @@ class XMPPClient:
                 m.update_role(None)
             
             member.update_role('CAPTAIN')
-            asyncio.ensure_future(party.update_status(), loop=self.client.loop)
+            asyncio.ensure_future(party.update_presence(), loop=self.client.loop)
             self.client.dispatch_event('party_member_promote', member)
 
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_KICKED':
@@ -324,6 +324,10 @@ class XMPPClient:
             if member is None:
                 member = PartyMember(self.client, party, body)
                 party._add_member(member)
+
+                if member.id == self.client.user.id:
+                    clientmember = ClientPartyMember(self.client, party, body)
+                    party._add_clientmember(clientmember)
 
             asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
             if party.me and party.leader and party.me.id == party.leader.id:

@@ -29,7 +29,7 @@ __version__ = '0.5.2'
 from .client import Client
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
-from .party import PartyMember, Party, PartyInvitation, PartyJoinConfirmation
+from .party import PartyMember, ClientPartyMember, Party, ClientParty, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence, PresenceGameplayStats, PresenceParty
 from .user import ClientUser, User
 from .stats import StatsV2
