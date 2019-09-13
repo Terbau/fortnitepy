@@ -164,7 +164,7 @@ class Presence:
     friend: :class:`Friend`
         The friend you received this presence from.
     received_at: :class:`datetime.datetime`
-        The time of when the client received this presence.
+        The UTC time of when the client received this presence.
     status: :class:`str`
         The friend's status.
     is_playing: :class:`bool`
@@ -218,7 +218,7 @@ class Presence:
         self.client = client
         self.is_available = is_available
         self.friend = self.client.get_friend(from_id)
-        self.received_at = datetime.datetime.now()
+        self.received_at = datetime.datetime.utcnow()
 
         self.status = data['Status']
         self.is_playing = bool(data['bIsPlaying'])

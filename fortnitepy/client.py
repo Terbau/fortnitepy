@@ -1089,11 +1089,11 @@ class Client:
         user_id: :class:`str`
             The id of the user you want to fetch stats for.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
-            The start time of the time period to get stats from.
+            The UTC start time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
         end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
-            The end time of the time period to get stats from.
+            The UTC end time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
 
@@ -1166,11 +1166,11 @@ class Client:
                 ]
 
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
-            The start time of the time period to get stats from.
+            The UTC start time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
         end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
-            The end time of the time period to get stats from.
+            The UTC end time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
 
@@ -1262,6 +1262,7 @@ class Client:
         while True:
             try:
                 data = await self.http.party_create(cf)
+                # print(json.dumps(data, indent=2))
                 break
             except HTTPException as exc:
                 if exc.message_code != 'errors.com.epicgames.social.party.user_has_party':

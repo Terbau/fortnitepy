@@ -507,7 +507,7 @@ class PartyMemberBase(User):
     
     @property
     def joined_at(self):
-        """:class:`datetime.datetime`: The time of when this member joined its party."""
+        """:class:`datetime.datetime`: The UTC time of when this member joined its party."""
         return self._joined_at
 
     @property
@@ -1638,7 +1638,7 @@ class PartyInvitation:
     author: :class:`Friend`
         The friend that invited you to the party.
     created_at: :class:`datetime.datetime`
-        The time this invite was created at.
+        The UTC time this invite was created at.
     """
     def __init__(self, client, party, data):
         self.client = client
@@ -1684,7 +1684,7 @@ class PartyJoinConfirmation:
     user: :class:`User`
         The user who requested to join the party.
     created_at: :class:`datetime.datetime`
-        The time of when the join confirmation was received.
+        The UTC time of when the join confirmation was received.
     """
     def __init__(self, client, party, data):
         self.client = client

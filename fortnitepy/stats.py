@@ -41,9 +41,9 @@ class StatsV2:
     stats: :class:`dict`
         :class:`dict` including stats.
     start_time: :class:`datetime.datetime`
-        The start time of the stats retrieved.
+        The UTC start time of the stats retrieved.
     end_time: :class:`datetime`
-        The end time of the stats retrieved. 
+        The UTC end time of the stats retrieved. 
     """
     def __init__(self, data):
         self.raw = data
