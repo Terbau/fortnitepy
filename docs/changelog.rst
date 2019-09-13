@@ -22,7 +22,7 @@ Reworked
 
 .. note::
 
-    You can not get the :class:`ClientPartyMember` object from :attr:`ClientParty.me`.
+    You can get the :class:`ClientPartyMember` object from :attr:`ClientParty.me`.
 
 Additions
 ~~~~~~~~~

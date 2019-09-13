@@ -34,7 +34,7 @@ class MessageBase:
         self._client = client
         self._author = author
         self._content = content
-        self._created_at = datetime.datetime.now()
+        self._created_at = datetime.datetime.utcnow()
 
     @property
     def client(self):
@@ -53,7 +53,7 @@ class MessageBase:
 
     @property
     def created_at(self):
-        """:class:`datetime.datetime`: The time of when this message was received."""
+        """:class:`datetime.datetime`: The time of when this message was received in UTC."""
         return self._created_at
 
 

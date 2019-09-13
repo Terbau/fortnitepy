@@ -103,7 +103,7 @@ class FriendBase(UserBase):
 
     @property
     def created_at(self):
-        """:class:`datetime.datetime`: The time of when the friendship was created."""
+        """:class:`datetime.datetime`: The UTC time of when the friendship was created."""
         return self._created_at
 
     async def block(self):
@@ -229,7 +229,7 @@ class PendingFriend(FriendBase):
 
     @property
     def created_at(self):
-        """:class:`datetime.datetime`: The time of when the request was created"""
+        """:class:`datetime.datetime`: The UTC time of when the request was created"""
         return self._created_at
 
     async def accept(self):

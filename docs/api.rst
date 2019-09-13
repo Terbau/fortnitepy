@@ -121,7 +121,7 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param friend: Friend that has been added.
 	:type friend: :class:`Friend`
 
-.. function:: event_friend_remove(friend)
+.. function:: event_friend_removed(friend)
 
 	This event is called when a friend has been removed from the friendlist.
 	

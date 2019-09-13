@@ -186,7 +186,7 @@ class Auth:
         self.in_app_id = data['in_app_id']
     
     async def schedule_token_refresh(self):
-        self.token_timeout = (self.expires_at - datetime.datetime.now()).total_seconds() - 300
+        self.token_timeout = (self.expires_at - datetime.datetime.utcnow()).total_seconds() - 300
         await asyncio.sleep(self.token_timeout)
         await self.do_refresh()
 

@@ -127,7 +127,7 @@ class XMPPClient:
 
                 f = PendingFriend(self.client, {
                         **data,
-                    'direction': _payload['direction'],
+                        'direction': _payload['direction'],
                         'status': _status,
                         'favorite': _payload['favorite'],
                         'created': body['timestamp']

@@ -246,12 +246,12 @@ class Client:
 
     @property
     def friends(self):
-        """:class:`dict`: Mapping of current friends. {id (:class:`str`): :class:`Friend`}"""
+        """:class:`dict`: Mapping of current friends. {id (:class:`str`), :class:`Friend`}"""
         return self._friends._cache
 
     @property
     def pending_friends(self):
-        """:class:`dict`: Mapping of currently pending friends. {id (:class:`str`): :class:`PendingFriend`}
+        """:class:`dict`: Mapping of currently pending friends. {id (:class:`str`), :class:`PendingFriend`}
         
         .. note::
         
@@ -262,7 +262,7 @@ class Client:
 
     @property
     def presences(self):
-        """:class:`dict`: Mapping of the last presence received from friends. {id (:class:`str`): :class:`Presence`}"""
+        """:class:`dict`: Mapping of the last presence received from friends. {id (:class:`str`), :class:`Presence`}"""
         return self._presences._cache
 
     def update_default_party_config(self, config):
@@ -1089,11 +1089,11 @@ class Client:
         user_id: :class:`str`
             The id of the user you want to fetch stats for.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
-            The start time of the time period to get stats from.
+            The UTC start time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
         end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
-            The end time of the time period to get stats from.
+            The UTC end time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
 
@@ -1166,11 +1166,11 @@ class Client:
                 ]
 
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
-            The start time of the time period to get stats from.
+            The UTC start time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
         end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
-            The end time of the time period to get stats from.
+            The UTC end time of the time period to get stats from.
             *Must be seconds since epoch or :class:`datetime.datetime`*
             *Defaults to None*
 
@@ -1262,6 +1262,7 @@ class Client:
         while True:
             try:
                 data = await self.http.party_create(cf)
+                # print(json.dumps(data, indent=2))
                 break
             except HTTPException as exc:
                 if exc.message_code != 'errors.com.epicgames.social.party.user_has_party':

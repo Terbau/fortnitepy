@@ -97,7 +97,7 @@ class ClientUser(UserBase):
     headless: :class:`str`
         COME BACK TO THIS
     last_login: :class:`datetime.datetime`
-        Time of the last login of the user.
+        UTC time of the last login of the user.
     name: :class:`str`
         First name of the user.
     first_name: :class:`str`
