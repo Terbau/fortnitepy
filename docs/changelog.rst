@@ -6,6 +6,21 @@ Changelog
 Detailed version changes.
 
 
+v0.6.1
+
+Hotpatch to make all datetime objects represented in the UTC timezone. 
+
+Changed
+~~~~~~~
+
+- All datetime objects are now represented in the UTC timezone.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue where token refresh would happen at the wrong time.
+
+
 v0.6.0
 ------
 
