@@ -507,8 +507,11 @@ class Client:
         """
         if cache:
             for u in self._users.values():
-                if u.display_name.lower() == display_name.lower():
-                    return u
+                try:
+                    if u.display_name.lower() == display_name.lower():
+                        return u
+                except AttributeError:
+                    pass
         try:
             res = await self.http.get_profile_by_display_name(display_name)
         except HTTPException as exc:
@@ -606,9 +609,12 @@ class Client:
         for elem in users:
             if self.is_display_name(elem):
                 for u in self._users.values():
-                    if u.display_name.lower() == elem.lower():
-                        profiles.append(u)
-                        continue
+                    try:
+                        if u.display_name.lower() == elem.lower():
+                            profiles.append(u)
+                            continue
+                    except AttributeError:
+                        pass
 
                 task = self.http.get_profile_by_display_name(elem)
                 tasks.append(task)

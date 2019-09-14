@@ -7,6 +7,7 @@ Detailed version changes.
 
 
 v0.6.1
+------
 
 Hotpatch to make all datetime objects represented in the UTC timezone. 
 
