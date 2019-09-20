@@ -6,6 +6,23 @@ Changelog
 Detailed version changes.
 
 
+v0.6.3
+------
+
+**HIGHLY IMPORTANT UPDATE**
+Fixed authentication to work with the newest changes fortnite made to their services.
+
+Updated
+~~~~~~~
+
+- Updated net_cl.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed authentication.
+
+
 v0.6.1
 ------
 
