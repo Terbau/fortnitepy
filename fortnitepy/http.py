@@ -100,8 +100,17 @@ class HTTPClient:
         if headers != {}:
             kwargs['headers'] = headers
 
+        raw = False
+        try:
+            raw = kwargs.pop('raw')
+        except KeyError:
+            pass
+
         async with self.__session.request(method, url, **kwargs) as r:
             log.debug(f'{method} {url} has returned {r.status}')
+            if raw:
+                return r
+
             data = await self.json_or_text(r)
             try:
                 _data = json.loads(data)
@@ -113,8 +122,9 @@ class HTTPClient:
 
     async def fn_request(self, method, url, auth, **kwargs):
         headers = kwargs.get('headers', {})
-        headers['User-Agent'] = 'EpicGamesLauncher/9.6.1-4858958+++Portal+Release-Live Windows/10.0.17134.1.768.64bit'
-        headers['Authorization'] = self.get_auth(auth)
+        headers['User-Agent'] = 'EpicGamesLauncher/10.2.3-7092195+++Portal+Release-Live Windows/10.0.17134.1.768.64bit'
+        if auth is not None:
+            headers['Authorization'] = self.get_auth(auth)
         kwargs['headers'] = headers
         
         return await self.request(method, url, **kwargs)

@@ -179,11 +179,12 @@ class Client:
 
         self.status = kwargs.get('status', None)
         self.platform = kwargs.get('platform', 'WIN')
-        self.net_cl = kwargs.get('net_cl', '7605985')
+        self.net_cl = kwargs.get('net_cl', '8371706')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', {})
-        self.build = kwargs.get('build', '++Fortnite+Release-10.10-CL-7955722')
-        self.engine_build = kwargs.get('engine_build', '4.23.0-7955722+++Fortnite+Release-10.10')
+        self.build = kwargs.get('build', '++Fortnite+Release-10.31-CL-8723043')
+        self.engine_build = kwargs.get(
+            'engine_build', '4.23.0-8723043+++Fortnite+Release-10.31')
         self.launcher_token = kwargs.get('launcher_token',
             'MzQ0NmNkNzI2OTRjNGE0NDg1ZDgxYjc3YWRiYjIxNDE6OTIwOWQ0YTVlMjVhNDU3ZmI5YjA3NDg5ZDMxM2I0MWE='
         )
@@ -378,8 +379,9 @@ class Client:
             pass
         
     async def _login(self):
+        log.debug('Starting authenticating')
         self.auth = Auth(self)
-        await self.auth.authenticate()
+        await self.auth.alternative_authenticate()
 
         data = await self.http.get_profile(self.auth.account_id)
         self.user = ClientUser(self, data)

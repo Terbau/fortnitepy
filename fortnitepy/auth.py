@@ -29,7 +29,10 @@ import asyncio
 import logging
 import traceback
 import uuid
+import re
+import json
 
+from bs4 import BeautifulSoup
 from .errors import AuthException, HTTPException
 
 log = logging.getLogger(__name__)
@@ -79,12 +82,166 @@ class Auth:
                 log.debug('Valid 2fa code entered')
 
             self.launcher_access_token = data['access_token']
-            await self.exchange_code('bearer {0}'.format(self.launcher_access_token))
+            await self.exchange_code(self.launcher_authorization)
         except asyncio.CancelledError:
             pass
         except Exception as e:
             traceback.print_exc()
             raise AuthException('Could not authenticate. Error: {}'.format(e))
+
+    async def alternative_authenticate(self):
+        try:
+            grant_data = await self.alternative_grant_session()
+            self.client_id = grant_data['client_id']
+            token = await self.get_xsrf_token('login')
+            
+            data = await self.client.http.post(
+                'https://accounts.launcher-website-prod07.ol.epicgames.com/login/doLauncherLogin',
+                'LAUNCHER',
+                data={
+                    'fromForm': 'yes',
+                    'authType': None,
+                    'linkExtAuth': None,
+                    'client_id': self.client_id,
+                    'redirectUrl': 'https://accounts.launcher-website-prod07.ol.epicgames.com' \
+                                '/login/showPleaseWait?client_id={0.client_id}' \
+                                '&rememberEmail=false'.format(self),
+                    'epic_username': self.client.email,
+                    'password': self.client.password,
+                    'rememberMe': 'NO',
+                },
+                headers={
+                    'X-XSRF-TOKEN': token
+                }
+            )
+
+            # legg til beautifulsoup
+            try:
+                data = json.loads(data)
+            except json.decoder.JSONDecodeError:
+                soup = BeautifulSoup(data, 'html.parser')
+                error_code = soup.find(attrs={'class': 'errorCodes'})
+                if error_code is not None:
+                    raise AuthException('Login form error: {0}'.format((error_code.get_text()).strip()))
+
+                log.debug('2fa code required to continue login process. Asking for code now.')
+
+                two_factor_elem = soup.find(id='twoFactorForm')
+                if two_factor_elem is None:
+                    raise AuthException('Cannot get "please wait" redirection URL')
+
+                data = await self.alternative_2fa_submit(soup)
+                log.debug('Authenticated with correct two factor code.')
+
+            code = await self.alternative_get_exchange_code(data['redirectURL'])
+            res = await self.alternative_exchange_code(code)
+            self.launcher_access_token = res['access_token']
+            await self.exchange_code(self.launcher_authorization)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            traceback.print_exc()
+            raise AuthException('Could not authenticate. Error: {}'.format(e))
+
+    async def alternative_2fa_submit(self, soup, two_factor_code=None):
+        data = {
+            'challenge': soup.find(attrs={'name': 'challenge'}).get('value'),
+            'mfaMethod': soup.find(attrs={'name': 'mfaMethod'}).get('value'),
+            'alternateMfaMethods': soup.find(attrs={'name': 'alternateMfaMethods'}).get('value'),
+            'epic_username': soup.find(attrs={'name': 'epic_username'}).get('value'),
+            'hideMessage': soup.find(attrs={'name': 'hideMessage'}).get('value'),
+            'linkExtAuth': soup.find(attrs={'name': 'linkExtAuth'}).get('value'),
+            'authType': soup.find(attrs={'name': 'authType'}).get('value'),
+            'clientId': soup.find(attrs={'name': 'client_id'}).get('value'),
+            'redirectUrl': soup.find(attrs={'name': 'redirectUrl'}).get('value'),
+            'rememberMe': soup.find(attrs={'name': 'rememberMe'}).get('value'),
+        }
+
+        code = two_factor_code = self.client.two_factor_code
+        if code is None:
+            code = input('Please enter the 2fa code:\n')
+        
+        cookies = self.client.http._jar.filter_cookies(
+            'https://accounts.launcher-website-prod07.ol.epicgames.com/login/doLauncherLogin')
+        token = cookies['XSRF-TOKEN'].value
+
+        data['twoFactorCode'] = code
+        data = await self.client.http.post(
+            'https://accounts.launcher-website-prod07.ol.epicgames.com/login/doTwoFactor',
+            None,
+            data=data,
+            headers={
+                'X-XSRF-TOKEN': token
+            },
+            params={
+                'client_id': self.client_id
+            }
+        )
+
+        _soup = BeautifulSoup(data, 'html.parser')
+        error_code = _soup.find(attrs={'class': 'errorCodes'})
+        incorrect_code = _soup.find(attrs={'for': 'twoFactorCode', 'class': 'fieldValidationError'})
+        if error_code is not None:
+            return await self.alternative_2fa_submit(soup, two_factor_code=code)
+
+        if incorrect_code is not None:
+            raise AuthException(incorrect_code.get_text().strip())
+        
+        return json.loads(data)
+
+    
+    async def alternative_get_exchange_code(self, url):
+        data = await self.client.http.get(
+            url,
+            'LAUNCHER'
+        )
+
+        matches = re.search(
+            r'com\.epicgames\.account\.web\.widgets\.loginWithExchangeCode\(\'(.*)\'(.*?)\)',
+            data
+        )
+
+        if matches is not None:
+            return matches.groups()[0]
+        #error here
+
+    async def alternative_exchange_code(self, code):
+        data = {
+            'grant_type': 'exchange_code',
+            'exchange_code': code,
+            'token_type': 'eg1',
+        }
+
+        return await self.grant_session(
+            'LAUNCHER',
+            data=data
+        )
+
+    async def alternative_grant_session(self):
+        return await self.client.http.post(
+            'https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token',
+            'LAUNCHER',
+            data={
+                'grant_type': 'client_credentials',
+                'token_type': 'eg1'
+            }
+        )
+
+    async def get_xsrf_token(self, location, **kwargs):
+        path = 'login/doLauncherLogin' if location == 'login' else 'register/doLauncherRegister'
+        data = await self.client.http.get(
+            'https://accounts.launcher-website-prod07.ol.epicgames.com/{0}'.format(path),
+            'LAUNCHER',
+            params={
+                'client_id': self.client_id,
+                'redirectUrl': 'https%3A%2F%2Faccounts.launcher-website-prod07.ol.epicgames.com%2Flogin'
+                               '%2FshowPleaseWait%3Fclient_id%3D${0.client_id}%26rememberEmail%3Dfalse'.format(
+                                   self
+                               )
+            },
+            raw=True
+        )
+        return data.cookies['XSRF-TOKEN'].value
 
     async def grant_refresh_token(self, refresh_token):
         data = {
