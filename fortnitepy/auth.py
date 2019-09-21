@@ -114,7 +114,6 @@ class Auth:
                 }
             )
 
-            # legg til beautifulsoup
             try:
                 data = json.loads(data)
             except json.decoder.JSONDecodeError:
@@ -259,15 +258,6 @@ class Auth:
 
                 code = self.client.two_factor_code or input('Please enter the 2fa code:\n')
                 await self.stable_2fa_login(token, code)
-            
-            await self.client.http.get(
-                'https://www.epicgames.com/id/api/redirect',
-                None,
-                headers={
-                    'x-xsrf-token': token,
-                    'Referer': 'https://www.epicgames.com/id/login'
-                }
-            )
 
             log.info('Fetching exchange code.')
             data = await self.client.http.get(
