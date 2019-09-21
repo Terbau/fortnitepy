@@ -6,6 +6,17 @@ Changelog
 Detailed version changes.
 
 
+v0.6.4
+------
+
+Little update to push out a better authentication flow.
+
+Added
+~~~~~
+
+- Added a more stable, faster and more reliable authentication flow. Thanks iXyles and Bad_Mate_Pat.
+
+
 v0.6.3
 ------
 

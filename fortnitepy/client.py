@@ -381,7 +381,7 @@ class Client:
     async def _login(self):
         log.debug('Starting authenticating')
         self.auth = Auth(self)
-        await self.auth.alternative_authenticate()
+        await self.auth.stable_authentication()
 
         data = await self.http.get_profile(self.auth.account_id)
         self.user = ClientUser(self, data)

@@ -86,14 +86,13 @@ class Auth:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            traceback.print_exc()
             raise AuthException('Could not authenticate. Error: {}'.format(e))
 
     async def alternative_authenticate(self):
         try:
             grant_data = await self.alternative_grant_session()
             self.client_id = grant_data['client_id']
-            token = await self.get_xsrf_token('login')
+            token = await self.alternative_get_xsrf_token('login')
             
             data = await self.client.http.post(
                 'https://accounts.launcher-website-prod07.ol.epicgames.com/login/doLauncherLogin',
@@ -140,7 +139,6 @@ class Auth:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            traceback.print_exc()
             raise AuthException('Could not authenticate. Error: {}'.format(e))
 
     async def alternative_2fa_submit(self, soup, two_factor_code=None):
@@ -227,7 +225,7 @@ class Auth:
             }
         )
 
-    async def get_xsrf_token(self, location, **kwargs):
+    async def alternative_get_xsrf_token(self, location, **kwargs):
         path = 'login/doLauncherLogin' if location == 'login' else 'register/doLauncherRegister'
         data = await self.client.http.get(
             'https://accounts.launcher-website-prod07.ol.epicgames.com/{0}'.format(path),
@@ -242,6 +240,103 @@ class Auth:
             raw=True
         )
         return data.cookies['XSRF-TOKEN'].value
+
+    async def stable_authentication(self):
+        try:
+            log.info('Fetching valid xsrf token.')
+            token = await self.stable_get_xsrf_token()
+
+            try:
+                log.info('Logging in.')
+                await self.stable_login(token)
+            except HTTPException as e:
+                if e.message_code != 'errors.com.epicgames.common.two_factor_authentication.required':
+                    raise HTTPException(e.response, e.raw)
+                
+                log.info('Logging in interrupted. 2fa required.')
+                log.info('Fetching new valid xsrf token.')
+                token = await self.stable_get_xsrf_token()
+
+                code = self.client.two_factor_code or input('Please enter the 2fa code:\n')
+                await self.stable_2fa_login(token, code)
+            
+            await self.client.http.get(
+                'https://www.epicgames.com/id/api/redirect',
+                None,
+                headers={
+                    'x-xsrf-token': token,
+                    'Referer': 'https://www.epicgames.com/id/login'
+                }
+            )
+
+            log.info('Fetching exchange code.')
+            data = await self.client.http.get(
+                'https://www.epicgames.com/id/api/exchange',
+                None,
+                headers={
+                    'x-xsrf-token': token
+                }
+            )
+            
+            log.info('Exchanging code.')
+            data = await self.stable_code_exchange((json.loads(data))['code'])
+            self.launcher_access_token = data['access_token']
+
+            log.info('Running fortnite authentication.')
+            await self.exchange_code(self.launcher_authorization)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            raise AuthException('Could not authenticate. Error: {}'.format(e))
+
+    async def stable_get_xsrf_token(self):
+        data = await self.client.http.get(
+            'https://www.epicgames.com/id/api/csrf',
+            None,
+            raw=True
+        )
+        return data.cookies['XSRF-TOKEN'].value
+
+    async def stable_login(self, token):
+        await self.client.http.post(
+            'https://www.epicgames.com/id/api/login',
+            None,
+            headers={
+                'x-xsrf-token': token
+            },
+            data={
+                'email': self.client.email,
+                'password': self.client.password,
+                'rememberMe': False
+            }
+        )
+
+    async def stable_2fa_login(self, token, code):
+        await self.client.http.post(
+            'https://www.epicgames.com/id/api/login/mfa',
+            None,
+            headers={
+                'x-xsrf-token': token
+            },
+            data={
+                'code': code,
+                'method': 'authenticator',
+                'rememberDevice': False
+            }
+        )
+
+    async def stable_code_exchange(self, code):
+        data = {
+            'grant_type': 'exchange_code',
+            'exchange_code': code,
+            'token_type': 'eg1',
+        }
+
+        return await self.client.http.post(
+            'https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token',
+            'LAUNCHER',
+            data=data
+        )
 
     async def grant_refresh_token(self, refresh_token):
         data = {
