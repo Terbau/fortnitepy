@@ -182,9 +182,9 @@ class Client:
         self.net_cl = kwargs.get('net_cl', '8371783')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', {})
-        self.build = kwargs.get('build', '++Fortnite+Release-10.31-CL-8723043')
+        self.build = kwargs.get('build', '++Fortnite+Release-10.40-CL-8970213')
         self.engine_build = kwargs.get(
-            'engine_build', '4.23.0-8723043+++Fortnite+Release-10.31')
+            'engine_build', '4.23.0-8964361+++Fortnite+Release-10.40')
         self.launcher_token = kwargs.get('launcher_token',
             'MzQ0NmNkNzI2OTRjNGE0NDg1ZDgxYjc3YWRiYjIxNDE6OTIwOWQ0YTVlMjVhNDU3ZmI5YjA3NDg5ZDMxM2I0MWE='
         )
