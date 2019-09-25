@@ -179,7 +179,7 @@ class Client:
 
         self.status = kwargs.get('status', None)
         self.platform = kwargs.get('platform', 'WIN')
-        self.net_cl = kwargs.get('net_cl', '8371706')
+        self.net_cl = kwargs.get('net_cl', '8371783')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', {})
         self.build = kwargs.get('build', '++Fortnite+Release-10.31-CL-8723043')
