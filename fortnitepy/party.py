@@ -28,7 +28,6 @@ import datetime
 import json
 import asyncio
 import random
-import weakref
 import aioxmpp
 import re
 
@@ -162,7 +161,7 @@ class PartyMemberMeta(MetaBase):
             }),
             'Platform_j': json.dumps({
                 'Platform': {
-                    'platformStr': self.member.client.platform,
+                    'platformStr': self.member.client.platform.value,
                 },
             }),
             'PlatformUniqueId_s': 'INVALID',
@@ -199,9 +198,21 @@ class PartyMemberMeta(MetaBase):
         return re.search(r'.*(CID.*)\..*', base['AthenaCosmeticLoadout']['characterDef'])[1]
 
     @property
-    def outfit_variants(self):
+    def variants(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['variants']
+
+    @property
+    def outfit_variants(self):
+        return [x for x in self.variants if x['item'] == 'AthenaCharacter']
+
+    @property
+    def backpack_variants(self):
+        return [x for x in self.variants if x['item'] == 'AthenaBackpack']
+
+    @property
+    def pickaxe_variants(self):
+        return [x for x in self.variants if x['item'] == 'AthenaPickaxe']
 
     @property
     def backpack(self):
@@ -544,11 +555,37 @@ class PartyMemberBase(User):
         
         .. warning::
             
-            Outfit variants doesn't seem to follow much logic. Therefore this returns the raw
+            Variants doesn't seem to follow much logic. Therefore this returns the raw
             variants data received from fortnite's service. This can be directly passed with the
             ``variants`` keyword to :meth:`PartyMember.set_outfit()`.
         """
         return self.meta.outfit_variants
+
+    @property
+    def backpack_variants(self):
+        """:class:`list`: A list containing the raw variants data for the currently equipped
+        backpack.
+        
+        .. warning::
+            
+            Variants doesn't seem to follow much logic. Therefore this returns the raw
+            variants data received from fortnite's service. This can be directly passed with the
+            ``variants`` keyword to :meth:`PartyMember.set_backpack()`.
+        """
+        return self.meta.backpack_variants
+
+    @property
+    def pickaxe_variants(self):
+        """:class:`list`: A list containing the raw variants data for the currently equipped
+        pickaxe.
+        
+        .. warning::
+            
+            Variants doesn't seem to follow much logic. Therefore this returns the raw
+            variants data received from fortnite's service. This can be directly passed with the
+            ``variants`` keyword to :meth:`PartyMember.set_pickaxe()`.
+        """
+        return self.meta.pickaxe_variants
 
     @property
     def backpack(self):
@@ -872,11 +909,14 @@ class ClientPartyMember(PartyMemberBase):
         key: Optional[:class:`str`]
             The encyption key to use for this skin.
         variants: Optional[:class:`list`]
-            The variants to use for this skin.
+            The variants to use for this outfit.
         """
         if '.' not in asset:
             asset = "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/" \
                     "{0}.{0}'".format(asset)
+
+        if variants is not None:
+            variants = [x for x in self.meta.variants if x['item'] != 'AthenaCharacter'] + variants
 
         prop = self.meta.set_cosmetic_loadout(
             character=asset,
@@ -885,7 +925,7 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
         
-    async def set_backpack(self, asset, key=None):
+    async def set_backpack(self, asset, key=None, variants=None):
         """|coro|
         
         Sets the backpack of the client.
@@ -901,18 +941,24 @@ class ClientPartyMember(PartyMemberBase):
                 enough.
         key: Optional[:class:`str`]
             The encyption key to use for this backpack.
+        variants: Optional[:class:`list`]
+            The variants to use for this backpack.
         """
         if '.' not in asset:
             asset = "AthenaBackpackItemDefinition'/Game/Athena/Items/Cosmetics/Backpacks/" \
                     "{0}.{0}'".format(asset)
 
+        if variants is not None:
+            variants = [x for x in self.meta.variants if x['item'] != 'AthenaBackpack'] + variants
+
         prop = self.meta.set_cosmetic_loadout(
             backpack=asset,
-            backpack_ekey=key
+            backpack_ekey=key,
+            variants=variants
         )
         await self.patch(updated=prop)
     
-    async def set_pickaxe(self, asset, key=None):
+    async def set_pickaxe(self, asset, key=None, variants=None):
         """|coro|
         
         Sets the pickaxe of the client.
@@ -928,14 +974,20 @@ class ClientPartyMember(PartyMemberBase):
                 enough.
         key: Optional[:class:`str`]
             The encyption key to use for this pickaxe.
+        variants: Optional[:class:`list`]
+            The variants to use for this pickaxe.
         """
         if '.' not in asset:
             asset = "AthenaPickaxeItemDefinition'/Game/Athena/Items/Cosmetics/Pickaxes/" \
                     "{0}.{0}'".format(asset)
 
+        if variants is not None:
+            variants = [x for x in self.meta.variants if x['item'] != 'AthenaPickaxe'] + variants
+
         prop = self.meta.set_cosmetic_loadout(
             pickaxe=asset,
-            pickaxe_ekey=key
+            pickaxe_ekey=key,
+            variants=variants
         )
         await self.patch(updated=prop)
 
@@ -1130,7 +1182,7 @@ class PartyBase:
             ('Playlist_DefaultDuo', '', '', 'EU')
 
             # output for arena trios
-            ('Playlist_ShowdownAlt_Trios', 'epicgames_Arena_S10_Trios', 'Arena_S10_Division1_Trios', 'EU)
+            ('Playlist_ShowdownAlt_Trios', 'epicgames_Arena_S10_Trios', 'Arena_S10_Division1_Trios', 'EU')
         """
         return self.meta.playlist_info
 
@@ -1221,12 +1273,6 @@ class PartyBase:
         for id in to_remove:
             self._remove_member(id)
 
-    async def _update_members_meta(self):
-        data = await self.client.http.party_lookup(self.id)
-        for m in data['members']:
-            member = self.members[m['account_id']]
-            member.meta.update(m['meta'], raw=True)
-
 
 class Party(PartyBase):
     """Represent a party that the ClientUser is not yet a part of."""
@@ -1281,12 +1327,12 @@ class ClientParty(PartyBase):
             join_data = {
                 'sourceId': self.client.user.id,
                 'sourceDisplayName': self.client.user.display_name,
-                'sourcePlatform': self.client.platform,
+                'sourcePlatform': self.client.platform.value,
                 'partyId': self.id,
                 'partyTypeId': 286331153,
                 'key': 'k',
                 'appId': 'Fortnite',
-                'buildId': self.client.net_cl,
+                'buildId': self.client.party_build_id,
                 'partyFlags': -2024557306,
                 'notAcceptingReason': 0,
                 'pc': len(self.members.keys()),
@@ -1410,6 +1456,15 @@ class ClientParty(PartyBase):
             
         for id in to_remove:
             self._remove_member(id)
+
+    async def _update_members_meta(self):
+        data = await self.client.http.party_lookup(self.id)
+        for m in data['members']:
+            try:
+                member = self.members[m['account_id']]
+                member.meta.update(m['meta'], raw=True)
+            except KeyError:
+                pass
 
     async def join_chat(self):
         await self.client.xmpp.join_muc(self.id)
@@ -1558,9 +1613,9 @@ class ClientParty(PartyBase):
             The tournament id.
         event_window: Optional[:class:`str`]
             The event window id.
-        region: Optional[:class:`str`]
+        region: Optional[:class:`Region`]
             The region to use.
-            *Defaults to 'EU'*
+            *Defaults to :attr:`Region.EUROPE`*
 
         Raises
         ------
@@ -1569,6 +1624,9 @@ class ClientParty(PartyBase):
         """
         if self.leader.id != self.client.user.id:
             raise PartyPermissionError('You have to be leader for this action to work.')
+
+        if region is not None:
+            region = region.value
 
         prop = self.meta.set_playlist(
             playlist=playlist,

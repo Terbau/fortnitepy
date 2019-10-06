@@ -32,13 +32,15 @@ import signal
 import logging
 import json
 
-from .errors import EventError, PartyError, HTTPException
+from bs4 import BeautifulSoup
+from OpenSSL.SSL import SysCallError
+from .errors import EventError, PartyError, HTTPException, PurchaseException
 from .xmpp import XMPPClient
 from .auth import Auth
 from .http import HTTPClient
 from .user import ClientUser, User
 from .friend import Friend, PendingFriend
-from .enums import PartyPrivacy
+from .enums import PartyPrivacy, Platform
 from .cache import Cache, WeakrefCache
 from .party import ClientParty
 from .stats import StatsV2
@@ -103,7 +105,7 @@ class Client:
     status: :class:`str`
         The status you want the client to send with its presence to friends.
         Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
-    platform: Optional[:class:`str`]
+    platform: Optional[:class:`.Platform`]
         The platform you want the client to display as its source. 
         Defaults to ``WIN``.
     net_cl: :class:`str`
@@ -134,7 +136,7 @@ class Client:
 
     build: :class:`str`
         The build used by Fortnite. 
-        Defaults to ``++Fortnite+Release-9.21-CL-6922310``
+        Defaults to a valid but maybe outdated value.
 
         .. note::
 
@@ -143,13 +145,17 @@ class Client:
     
     engine_build: :class:`str`
         The engine build used by Fortnite.
-        Defaults to ``4.23.0-6922310+++Fortnite+Release-9.21``
+        Defaults to a valid but maybe outdated value.
 
         .. note::
 
             The build is updated with every major version but is not that important to
             update as netCL.
-    
+
+    os: :class:`str`
+        The os version string to use in the user agent.
+        Defaults to ``Windows/10.0.17134.1.768.64bit`` which is valid no matter which
+        platform you have set.
     launcher_token: :class:`str`
         The token used by EpicGames Launcher.
     fortnite_token: :class:`str`
@@ -178,19 +184,14 @@ class Client:
         self.loop = loop or asyncio.get_event_loop()
 
         self.status = kwargs.get('status', None)
-        self.platform = kwargs.get('platform', 'WIN')
-        self.net_cl = kwargs.get('net_cl', '8371706')
+        self.platform = kwargs.get('platform', Platform.WINDOWS)
+        self.net_cl = kwargs.get('net_cl', '8371783')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', {})
-        self.build = kwargs.get('build', '++Fortnite+Release-10.31-CL-8723043')
-        self.engine_build = kwargs.get(
-            'engine_build', '4.23.0-8723043+++Fortnite+Release-10.31')
-        self.launcher_token = kwargs.get('launcher_token',
-            'MzQ0NmNkNzI2OTRjNGE0NDg1ZDgxYjc3YWRiYjIxNDE6OTIwOWQ0YTVlMjVhNDU3ZmI5YjA3NDg5ZDMxM2I0MWE='
-        )
-        self.fortnite_token = kwargs.get('fortnite_token',
-            'ZWM2ODRiOGM2ODdmNDc5ZmFkZWEzY2IyYWQ4M2Y1YzY6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ='
-        )
+        self.build = kwargs.get('build', '++Fortnite+Release-10.40-CL-9302865')
+        self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
+        self.launcher_token = kwargs.get('launcher_token', 'MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=')
+        self.fortnite_token = kwargs.get('fortnite_token', 'ZWM2ODRiOGM2ODdmNDc5ZmFkZWEzY2IyYWQ4M2Y1YzY6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ=')
         self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
         self.service_domain = kwargs.get('xmpp_domain', 'xmpp-service-prod.ol.epicgames.com')
         self.service_port = kwargs.get('xmpp_port', 5222)
@@ -217,6 +218,7 @@ class Client:
 
         self.refresh_i = 0
 
+        self.setup_internal()
         self.update_default_party_config(
             kwargs.get('default_party_config')
         )
@@ -294,7 +296,7 @@ class Client:
 
     def _check_party_confirmation(self):
         try:
-            getattr(self, '{0.event_prefix}_party_member_confirmation'.format(self))
+            getattr(self, '{0.event_prefix}_party_member_confirm'.format(self))
             val = True
         except AttributeError:
             val = False
@@ -302,7 +304,14 @@ class Client:
         self.update_default_party_config({'join_confirmation': val})
 
     def exc_handler(self, loop, ctx):
-        log.debug('Exception was catched by asyncio exception handler: {}'.format(ctx['message']))
+        exc = ctx.get('exception')
+        message = 'Fatal read error on STARTTLS transport'
+        if not (isinstance(exc, SysCallError) and ctx['message'] == message):
+            loop.default_exception_handler(ctx)
+
+    def setup_internal(self):
+        logger = logging.getLogger('aioxmpp')
+        logger.setLevel(level=logging.ERROR)
 
     def run(self):
         """This function starts the loop and then calls :meth:`start` for you.
@@ -327,25 +336,29 @@ class Client:
             pass
 
         async def runner():
-            try:
-                await self.start()
-            finally:
-                if not self._closing:
-                    await self.logout()
+            await self.start()
+            
+        def stop_loop_on_completion(f):
+            loop.stop()
 
-        asyncio.ensure_future(runner(), loop=loop)
+        future = asyncio.ensure_future(runner(), loop=loop)
+        future.add_done_callback(stop_loop_on_completion)
 
         try:
             loop.run_forever()
         except KeyboardInterrupt:
             log.info('Terminating event loop.')
         finally:
+            future.remove_done_callback(stop_loop_on_completion)
             if not self._closing:
                 log.info('Client not logged out when terminating loop. Logging out now.')
                 loop.run_until_complete(self.logout())
 
             log.info('Cleaning up loop')
             _cleanup_loop(loop)
+        
+        if not future.cancelled():
+            return future.result()
         
     async def start(self):
         """|coro|
@@ -363,6 +376,7 @@ class Client:
         AuthException
             An error occured when attempting to log in.
         """
+        self.loop.set_exception_handler(self.exc_handler)
         if self._closed:
             self.http.create_connection()
             self._closed = False
@@ -377,14 +391,49 @@ class Client:
             await self._refresh_task
         except asyncio.CancelledError:
             pass
+
+    async def account_owns_fortnite(self):
+        entitlements = await self.http.get_launcher_entitlements()
+
+        for ent in entitlements:
+            if ent['entitlementName'] == 'Fortnite_Free' and ent['active'] == True:
+                return True
+        return False
+
+    async def quick_purchase_fortnite(self):
+        data = await self.http.launcher_quickpurchase_fortnite()
+        status = data.get('quickPurchaseStatus', False)
+
+        if status == 'SUCCESS':
+            pass
+
+        elif status == 'CHECKOUT':
+            data = await self.http.launcher_purchase_fortnite()
+            soup = BeautifulSoup(data, 'html.parser')
+
+            token = soup.find(id='purchaseToken')['value']
+            data = json.loads(await self.http.launcher_purchase_preview(token))
+            if 'syncToken' not in data:
+                pass
+
+            await self.http.launcher_purchase_confirm(token, data)
         
+        else:
+            raise PurchaseException(
+                'Could not purchase Fortnite. Reason: Unknown status {0}'.format(
+                    status
+                )
+            )
+        
+        log.debug('Purchase of Fortnite successfully processed.')
+
     async def _login(self):
-        log.debug('Starting authenticating')
+        log.debug('Running authenticating')
         self.auth = Auth(self)
-        await self.auth.stable_authentication()
+        await self.auth.stable_authenticate()
 
         data = await self.http.get_profile(self.auth.account_id)
-        self.user = ClientUser(self, data)
+        self.user = ClientUser(self, data)        
 
         if self.kill_other_sessions:
             await self.auth.kill_other_sessions()
@@ -393,6 +442,9 @@ class Client:
         if self.accept_eula:
             await self.auth.accept_eula(self.auth.account_id)
             log.debug('EULA accepted')
+
+        if not await self.account_owns_fortnite():
+            await self.quick_purchase_fortnite()
 
         await self.initialize_friends()
 
@@ -414,6 +466,9 @@ class Client:
             An error occured while logging out.
         """
         self._closing = True
+
+        await self.dispatch_and_wait_for_event('logout')
+
         if self._refresh_task is not None and not self._refresh_task.cancelled():
             self._refresh_task.cancel()
 
@@ -905,6 +960,19 @@ class Client:
         """
         await self.http.remove_friend(id)
 
+    async def dispatch_and_wait_for_event(self, event, *args, **kwargs):
+        method = '{0.event_prefix}_{1}'.format(self, event)
+
+        coros = self._events.get('logout', [])
+        try:
+            coros.append(getattr(self, method))
+        except AttributeError:
+            pass
+
+        tasks = [coro() for coro in coros]
+        if len(tasks) > 0:
+            await asyncio.wait(tasks)
+
     def dispatch_event(self, event, *args, **kwargs):
         method = '{0.event_prefix}_{1}'.format(self, event)
 
@@ -939,7 +1007,7 @@ class Client:
         
         try:
             coro = getattr(self, method)
-        except AttributeError as e:
+        except AttributeError:
             pass
         else:
             asyncio.ensure_future(coro(*args, **kwargs), loop=self.loop)
@@ -1041,14 +1109,38 @@ class Client:
         return asyncio.wait_for(future, timeout, loop=self.loop)
 
     def add_event_handler(self, event, coro):
+        """Registers a coroutine as an event handler. You can register as many coroutines
+        as you want to a single event.
+        
+        Parameters
+        ----------
+        event: :class:`str`
+            The name of the event you want to register this coro for. 
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine to function as the handler for the specified event.
+
+        Raises
+        ------
+        TypeError
+            The function passed to coro is not a coroutine.
+        """
         if not asyncio.iscoroutinefunction(coro):
             raise TypeError('event registered must be a coroutine function')
 
-        if event not in self._events.keys():
+        if event.strip('event_') not in self._events.keys():
             self._events[event] = []
         self._events[event].append(coro)
     
     def remove_event_handler(self, event, coro):
+        """Removes a coroutine as an event handler.
+        
+        Parameters
+        ----------
+        event: :class:`str`
+            The name of the event you want to remove this coro for. 
+        coro: :ref:`coroutine <coroutine>`
+            The coroutine that already functions as a handler for the specified event.
+        """
         if event not in self._events.keys():
             return
         
@@ -1073,7 +1165,7 @@ class Client:
         Raises
         ------
         TypeError
-            The name of the function does is not prefixed with ``event_``
+            The name of the function is not prefixed with ``event_``
         TypeError
             The decorated function is not a coroutine.
         """
@@ -1140,9 +1232,9 @@ class Client:
 
             async def stat_function():
                 stats = [
-                    fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
-                    fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
-                    fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo')
+                    fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo')
                 ]
 
                 # get the profiles and create a list of their ids.
@@ -1168,9 +1260,9 @@ class Client:
             Example: ::
 
                 [
-                    fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
-                    fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo'),
-                    fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Inputs.KEYBOARDANDMOUSE, 'defaultsolo')
+                    fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo'),
+                    fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo')
                 ]
 
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
@@ -1221,7 +1313,7 @@ class Client:
             async def get_leaderboard():
                 stat = fortnitepy.StatsV2.create_stat(
                     'wins',
-                    fortnitepy.V2Inputs.KEYBOARDANDMOUSE,
+                    fortnitepy.V2Input.KEYBOARDANDMOUSE,
                     'defaultsquad'
                 )
 
@@ -1270,7 +1362,6 @@ class Client:
         while True:
             try:
                 data = await self.http.party_create(cf)
-                # print(json.dumps(data, indent=2))
                 break
             except HTTPException as exc:
                 if exc.message_code != 'errors.com.epicgames.social.party.user_has_party':
@@ -1475,7 +1566,7 @@ class Client:
         
         Parameters
         ----------
-        :class:`Regions`
+        :class:`Region`
             The region to request active LTMs for.
             
         Raises

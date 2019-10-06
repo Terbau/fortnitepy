@@ -51,12 +51,8 @@ class HTTPClient:
         return text
 
     @property
-    def launcher_user_agent(self):
-        return f''
-
-    @property
-    def fortnite_user_agent(self):
-        return f''
+    def user_agent(self):
+        return 'EpicGamesLauncher/{0.client.build} {0.client.os}'.format(self)
 
     def get_auth(self, auth):
         s = 'basic '
@@ -77,7 +73,7 @@ class HTTPClient:
 
     async def close(self):
         self._jar.clear()
-        if self.__session:
+        if self.__session and not self.__session.closed:
             await self.__session.close()
 
     def create_connection(self):
@@ -86,6 +82,10 @@ class HTTPClient:
             loop=self.client.loop,
             cookie_jar=self._jar
         )
+
+    @property
+    def session(self):
+        return self.__session
 
     async def request(self, method, url, is_json=False, **kwargs):
         headers = {**kwargs.get('headers', {}), **self.headers}
@@ -122,7 +122,7 @@ class HTTPClient:
 
     async def fn_request(self, method, url, auth, **kwargs):
         headers = kwargs.get('headers', {})
-        headers['User-Agent'] = 'EpicGamesLauncher/10.2.3-7092195+++Portal+Release-Live Windows/10.0.17134.1.768.64bit'
+        headers['User-Agent'] = self.user_agent
         if auth is not None:
             headers['Authorization'] = self.get_auth(auth)
         kwargs['headers'] = headers
@@ -140,6 +140,89 @@ class HTTPClient:
 
     async def patch(self, url, auth, **kwargs):
         return await self.fn_request('PATCH', url, auth, **kwargs)
+
+    async def get_launcher_entitlements(self):
+        return await self.get(
+            'https://entitlement-public-service-prod08.ol.epicgames.com/entitlement/' \
+            'api/account/{0.client.user.id}/entitlements?start=0&count=5000'.format(self),
+            self.client.auth.launcher_authorization
+        )
+
+    async def launcher_quickpurchase_fortnite(self):
+        return await self.post(
+            'https://orderprocessor-public-service-ecomprod01.ol.epicgames.com/orderprocessor/'
+            'api/shared/accounts/{0.client.user.id}/orders/quickPurchase'.format(self),
+            self.client.auth.launcher_authorization,
+            json={
+                'salesChannel': 'Launcher-purchase-client',
+                'entitlementSource': 'Launcher-purchase-client',
+                'returnSplitPaymentItems': False,
+                'lineOffers': [
+                    {
+                        'offerId': '09176f4ff7564bbbb499bbe20bd6348f',
+                        'quantity': 1,
+                        'namespace': 'fn'
+                    }
+                ]
+            }
+        )
+
+    async def launcher_purchase_fortnite(self):
+        return await self.get(
+            'https://launcher-website-prod07.ol.epicgames.com/purchase' \
+            '?showNavigation=true&namespace=fn&offers=09176f4ff7564bbbb499bbe20bd6348f',
+            None
+        )
+
+    async def launcher_purchase_preview(self, token):
+        return await self.post(
+            'https://payment-website-pci.ol.epicgames.com/purchase/order-preview',
+            self.client.auth.launcher_authorization,
+            headers={
+                'x-requested-with': token
+            },
+            data={
+                'useDefault': True,
+                'setDefault': False,
+                'namespace': 'fn',
+                'country': None,
+                'countryName': None,
+                'orderComplete': None,
+                'orderId': None,
+                'orderError': None,
+                'orderPending': None,
+                'offers': [
+                    '09176f4ff7564bbbb499bbe20bd6348f'
+                ],
+                'offerPrice': ''
+            }
+        )
+
+    async def launcher_purchase_confirm(self, token, order):
+        return await self.post(
+            'https://payment-website-pci.ol.epicgames.com/purchase/confirm-order',
+            self.client.auth.launcher_authorization,
+            headers={
+                'x-requested-with': token
+            },
+            data={
+                'useDefault': True,
+                'setDefault': False,
+                'namespace': order['namespace'],
+                'country': order['country'],
+                'countryName': order['countryName'],
+                'orderId': None,
+                'orderComplete': None,
+                'orderError': None,
+                'orderPending': None,
+                'offers': order['offers'],
+                'includeAccountBalance': False,
+                'totalAmount': order['orderResponse']['totalPrice'],
+                'affiliateId': '',
+                'creatorSource': '',
+                'syncToken': order['syncToken']
+            }
+        )
 
     async def get_profile_by_display_name(self, display_name):
         return await self.get(
@@ -360,14 +443,14 @@ class HTTPClient:
             'connection': {
                 'id': self.client.user.jid,
                 'meta': {
-                    'urn:epic:conn:platform_s': self.client.platform,
+                    'urn:epic:conn:platform_s': self.client.platform.value,
                     'urn:epic:conn:type_s': 'game'
                 }
             },
             'meta': {
                 'urn:epic:member:dn_s': self.client.user.display_name,
                 'urn:epic:member:type_s': 'game',
-                'urn:epic:member:platform_s': self.client.platform,
+                'urn:epic:member:platform_s': self.client.platform.value,
                 'urn:epic:member:joinrequest_j': '{"CrossplayPreference_i":"1"}',
             }
         }
@@ -385,14 +468,14 @@ class HTTPClient:
             'connection': {
                 'id': str(self.client.xmpp.xmpp_client.local_jid),
                 'meta': {
-                    'urn:epic:conn:platform_s': self.client.platform,
+                    'urn:epic:conn:platform_s': self.client.platform.value,
                     'urn:epic:conn:type_s': 'game',
                 },
             },
             'meta': {
                 'urn:epic:member:dn_s': self.client.user.display_name,
                 'urn:epic:member:type_s': 'game',
-                'urn:epic:member:platform_s': self.client.platform,
+                'urn:epic:member:platform_s': self.client.platform.value,
                 'urn:epic:member:joinrequest_j': '{"CrossplayPreference_i":"1","SubGame_u":"1"}',
             },
         }
@@ -430,7 +513,7 @@ class HTTPClient:
                 'connection': {
                     'id': str(self.client.xmpp.xmpp_client.local_jid),
                     'meta': {
-                        'urn:epic:conn:platform_s': self.client.platform,
+                        'urn:epic:conn:platform_s': self.client.platform.value,
                         'urn:epic:conn:type_s': 'game'
                     }
                 }

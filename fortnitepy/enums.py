@@ -78,32 +78,41 @@ class DefaultCharacters(Enum):
     CID_007_Athena_Commando_M_Default = 7
     CID_008_Athena_Commando_M_Default = 8
 
-class V1Gamemodes(Enum):
+class V1Gamemode(Enum):
     SOLO =  'p2'
     DUO =   'p10'
     SQUAD = 'p9'
 
-class V1Platforms(Enum):
+class V1Platform(Enum):
     PC =   'pc'
     XBOX = 'xb1'
     PS4 =  'ps4'
 
-class V1Windows(Enum):
+class V1Window(Enum):
     ALLTIME = 'alltime'
     WEEKLY =  'weekly'
 
-class V2Inputs(Enum):
+class V2Input(Enum):
     KEYBOARDANDMOUSE = 'keyboardmouse'
     GAMEPAD          = 'gamepad'
     TOUCH            = 'touch'
 
-class Regions(Enum):
+class Region(Enum):
     NAEAST  = 'NAE'
     NAWEST  = 'NAW'
     EUROPE  = 'EU'
     BRAZIL  = 'BR'
     OCEANIA = 'OCE'
     ASIA    = 'ASIA'
-    NA      = 'NA'
     CHINA   = 'CN'
+
+class Platform(Enum):
+    WINDOWS     = 'WIN'
+    MAC         = 'MAC'
+    PLAYSTATION = 'PSN'
+    XBOX        = 'XBL'
+    SWITCH      = 'SWT'
+    IOS         = 'IOS'
+    ANDROID     = 'AND'
+    
 

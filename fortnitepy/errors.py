@@ -31,6 +31,9 @@ class FortniteException(Exception):
     """
     pass
 
+class PurchaseException(FortniteException):
+    """This exception is raised if the game could not be purchased on launch."""
+
 class AuthException(FortniteException):
     """This exception is raised when auth fails."""
     pass

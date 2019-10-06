@@ -32,7 +32,7 @@ Enumerations
 
 		Sets privacy to private without the possibility of friends of friends joining.
 
-.. class:: V2Inputs
+.. class:: V2Input
 
 	An enumeration for valid input types used for stats.
 
@@ -52,7 +52,7 @@ Enumerations
 		only used for mobile players but also other platforms where it's possible to
 		use a touch display as controls.
 
-.. class:: Regions
+.. class:: Region
 
 	An enumeration for all currently available Fortnite regions.
 
@@ -81,6 +81,18 @@ Enumerations
 		
 		The China region.
 
+.. class:: Platform
+
+	An enumeration for all currently available platforms.
+
+	..attribute:: WINDOWS
+	..attribute:: MAC
+	..attribute:: PLAYSTATION
+	..attribute:: XBOX
+	..attribute:: SWITCH
+	..attribute:: IOS
+	..attribute:: ANDROID
+
 
 Event Reference
 ---------------
@@ -90,11 +102,19 @@ this decorator if you are in a subclass of :class:`Client`.
 
 .. warning::
 
-    All event must be registered as coroutines!
+    All events must be registered as coroutines!
 
 .. function:: event_ready()
 
     This event is called when the client has been successfully established and connected to all services.
+
+.. function:: event_logout()
+
+	This event is called when the client is beginning to log out. 
+
+	.. note::
+
+		This event behaves differently from the other events. The logout of the account waits until the event handlers for this event is finished processing. This makes it so you are able to do heavy and/or time consuming operations before the client fully logs out. This unfortunately also means that this event is not compatible with :meth:`Client.wait_for()`.
 
 .. function:: event_friend_message(message)
 
@@ -121,7 +141,7 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param friend: Friend that has been added.
 	:type friend: :class:`Friend`
 
-.. function:: event_friend_removed(friend)
+.. function:: event_friend_remove(friend)
 
 	This event is called when a friend has been removed from the friendlist.
 	
@@ -170,28 +190,28 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: Member that was promoted.
 	:type member: :class:`PartyMember`
 	
-.. function:: event_party_member_kicked(member)
+.. function:: event_party_member_kick(member)
 
 	This event is called when a member has been kicked from the party.
 	
 	:param member: The member that was kicked.
 	:type member: :class:`PartyMember`
 
-.. function:: event_party_member_disconnected(member)
+.. function:: event_party_member_disconnect(member)
 
 	This event is called when a member disconnects from the party.
 
 	:param member: The member that disconnected.
 	:type member: :class:`PartyMember`
 
-.. function:: event_party_updated(party)
+.. function:: event_party_update(party)
 
 	This event is called when :class:`ClientUser`'s partymeta is updated. An example of when this is called is when a new custom key has been set.
 
 	:param party: The party that was updated.
 	:type party: :class:`Party`
 
-.. function:: event_party_member_updated(member)
+.. function:: event_party_member_update(member)
 
 	This event is called when the meta of a member of :class:`ClientUser`'s party is updated. An example of when this might get called is when a member changes outfit.
 
@@ -212,7 +232,7 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member who left the party.
 	:type member: :class:`PartyMember`
 
-.. function:: event_party_member_confirmation(confirmation)
+.. function:: event_party_member_confirm(confirmation)
 
 	This event is called when a member asks to join the party.
 
@@ -223,11 +243,11 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param confirmation: Confirmation object with accessible confirmation methods.
 	:type confirmation: :class:`PartyJoinConfirmation`
 
-.. function:: event_party_invite_cancelled()
+.. function:: event_party_invite_cancel()
 
 	This event is called when an invite has been cancelled.
 
-.. function:: event_party_invite_declined()
+.. function:: event_party_invite_decline()
 
 	This event is called when an invite has been declined.
 
@@ -471,6 +491,8 @@ Exceptions
 
 .. autoexception:: HTTPException
 
+.. autoexception:: PurchaseException
+
 .. autoexception:: EventError
 
 .. autoexception:: XMPPError
@@ -478,6 +500,4 @@ Exceptions
 .. autoexception:: PartyError
 
 .. autoexception:: PartyPermissionError
-
-
 
