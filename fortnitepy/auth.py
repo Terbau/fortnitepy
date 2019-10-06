@@ -190,7 +190,8 @@ class Auth:
     async def alternative_get_exchange_code(self, url):
         data = await self.client.http.get(
             url,
-            'LAUNCHER'
+            'LAUNCHER',
+            data={}
         )
 
         matches = re.search(
@@ -206,7 +207,7 @@ class Auth:
         data = {
             'grant_type': 'exchange_code',
             'exchange_code': code,
-            'token_type': 'eg1',
+            'token_type': 'eg1'
         }
 
         return await self.grant_session(
@@ -240,7 +241,7 @@ class Auth:
         )
         return data.cookies['XSRF-TOKEN'].value
 
-    async def stable_authentication(self):
+    async def stable_authenticate(self):
         try:
             log.info('Fetching valid xsrf token.')
             token = await self.stable_get_xsrf_token()
@@ -258,6 +259,14 @@ class Auth:
 
                 code = self.client.two_factor_code or input('Please enter the 2fa code:\n')
                 await self.stable_2fa_login(token, code)
+ 
+            d = await self.client.http.get(
+                'https://www.epicgames.com/id/api/redirect',
+                None,
+                headers={
+                    'x-xsrf-token': token
+                }
+            )
 
             log.info('Fetching exchange code.')
             data = await self.client.http.get(
@@ -385,7 +394,7 @@ class Auth:
         res = await self.client.http.get(
             'https://eulatracking-public-service-prod-m.ol.epicgames.com/eulatracking/' \
             'api/public/agreements/fn/account/{0}'.format(account_id),
-            self.authorization # MIGHT BE fn auth
+            self.authorization
         )
         return res['version'] if isinstance(res, dict) else 0
 
@@ -396,7 +405,15 @@ class Auth:
                 version, 
                 account_id
             ),
-            self.authorization # MIGHT BE fn auth
+            self.authorization
+        )
+
+    async def _grant_access(self, account_id):
+        await self.client.http.post(
+            'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/' \
+            'game/v2/grant_access/{0}'.format(account_id),
+            self.authorization,
+            json={}
         )
 
     async def accept_eula(self, account_id):
@@ -404,13 +421,6 @@ class Auth:
         if version != 0:
             await self._accept_eula(version, account_id)
             await self._grant_access(account_id)
-
-    async def _grant_access(self, account_id):
-        await self.client.http.post(
-            'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/' \
-            'game/v2/grant_access/{0}'.format(account_id),
-            self.authorization
-        )
 
     def _update(self, data):
         self.access_token = data['access_token']

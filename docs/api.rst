@@ -471,6 +471,8 @@ Exceptions
 
 .. autoexception:: HTTPException
 
+.. autoexception:: PurchaseException
+
 .. autoexception:: EventError
 
 .. autoexception:: XMPPError
@@ -478,6 +480,4 @@ Exceptions
 .. autoexception:: PartyError
 
 .. autoexception:: PartyPermissionError
-
-
 

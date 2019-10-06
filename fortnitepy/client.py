@@ -32,7 +32,8 @@ import signal
 import logging
 import json
 
-from .errors import EventError, PartyError, HTTPException
+from bs4 import BeautifulSoup
+from .errors import EventError, PartyError, HTTPException, PurchaseException
 from .xmpp import XMPPClient
 from .auth import Auth
 from .http import HTTPClient
@@ -377,14 +378,49 @@ class Client:
             await self._refresh_task
         except asyncio.CancelledError:
             pass
+
+    async def account_owns_fortnite(self):
+        entitlements = await self.http.get_launcher_entitlements()
+
+        for ent in entitlements:
+            if ent['entitlementName'] == 'Fortnite_Free' and ent['active'] == True:
+                return True
+        return False
+
+    async def quick_purchase_fortnite(self):
+        data = await self.http.launcher_quickpurchase_fortnite()
+        status = data.get('quickPurchaseStatus', False)
+
+        if status == 'SUCCESS':
+            pass
+
+        elif status == 'CHECKOUT':
+            data = await self.http.launcher_purchase_fortnite()
+            soup = BeautifulSoup(data, 'html.parser')
+
+            token = soup.find(id='purchaseToken')['value']
+            data = json.loads(await self.http.launcher_purchase_preview(token))
+            if 'syncToken' not in data:
+                pass
+
+            await self.http.launcher_purchase_confirm(token, data)
         
+        else:
+            raise PurchaseException(
+                'Could not purchase Fortnite. Reason: Unknown status {0}'.format(
+                    status
+                )
+            )
+        
+        log.debug('Purchase of Fortnite successfully processed.')
+
     async def _login(self):
-        log.debug('Starting authenticating')
+        log.debug('Running authenticating')
         self.auth = Auth(self)
-        await self.auth.stable_authentication()
+        await self.auth.stable_authenticate()
 
         data = await self.http.get_profile(self.auth.account_id)
-        self.user = ClientUser(self, data)
+        self.user = ClientUser(self, data)        
 
         if self.kill_other_sessions:
             await self.auth.kill_other_sessions()
@@ -393,6 +429,9 @@ class Client:
         if self.accept_eula:
             await self.auth.accept_eula(self.auth.account_id)
             log.debug('EULA accepted')
+
+        if not await self.account_owns_fortnite():
+            await self.quick_purchase_fortnite()
 
         await self.initialize_friends()
 
@@ -1044,7 +1083,7 @@ class Client:
         if not asyncio.iscoroutinefunction(coro):
             raise TypeError('event registered must be a coroutine function')
 
-        if event not in self._events.keys():
+        if event.strip('event_') not in self._events.keys():
             self._events[event] = []
         self._events[event].append(coro)
     
