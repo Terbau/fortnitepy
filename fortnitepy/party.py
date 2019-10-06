@@ -679,9 +679,9 @@ class PartyMemberBase(User):
         item: :class:`str`
             The variant item type. This defaults to ``AthenaCharacter`` which
             is what you want to use if you are changing skin variants.
-        parts_config: :class:`str`
-            The type of parts you want to use. The available types 
-            are ``Emissive`` (default) and ``Mat``.
+        particle_config: :class:`str`
+            The type of particle you want to use. The available types 
+            are ``Emissive`` (default), ``Mat`` and ``Particle``.
         pattern: Optional[:class:`int`]
             The pattern number you want to use.
         numeric: Optional[:class:`int`]
