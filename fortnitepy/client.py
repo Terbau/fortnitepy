@@ -33,6 +33,7 @@ import logging
 import json
 
 from bs4 import BeautifulSoup
+from OpenSSL.SSL import SysCallError
 from .errors import EventError, PartyError, HTTPException, PurchaseException
 from .xmpp import XMPPClient
 from .auth import Auth
@@ -303,7 +304,10 @@ class Client:
         self.update_default_party_config({'join_confirmation': val})
 
     def exc_handler(self, loop, ctx):
-        log.debug('Exception was catched by asyncio exception handler: {}'.format(ctx['message']))
+        exc = ctx.get('exception')
+        message = 'Fatal read error on STARTTLS transport'
+        if not (isinstance(exc, SysCallError) and ctx['message'] == message):
+            loop.default_exception_handler(ctx)
 
     def setup_internal(self):
         logger = logging.getLogger('aioxmpp')
@@ -372,6 +376,7 @@ class Client:
         AuthException
             An error occured when attempting to log in.
         """
+        self.loop.set_exception_handler(self.exc_handler)
         if self._closed:
             self.http.create_connection()
             self._closed = False

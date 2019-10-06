@@ -28,7 +28,6 @@ import datetime
 import json
 import asyncio
 import random
-import weakref
 import aioxmpp
 import re
 
@@ -1139,8 +1138,6 @@ class PartyBase:
         self._update_invites(data.get('invites', []))
         self._update_config(data.get('config'))
         self.meta = PartyMeta(self, data['meta'])
-        
-        self._member_locks = weakref.WeakValueDictionary()
 
     @property
     def client(self):

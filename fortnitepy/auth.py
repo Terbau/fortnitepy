@@ -260,7 +260,7 @@ class Auth:
                 code = self.client.two_factor_code or input('Please enter the 2fa code:\n')
                 await self.stable_2fa_login(token, code)
  
-            d = await self.client.http.get(
+            await self.client.http.get(
                 'https://www.epicgames.com/id/api/redirect',
                 None,
                 headers={
