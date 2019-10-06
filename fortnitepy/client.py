@@ -332,12 +332,8 @@ class Client:
             pass
 
         async def runner():
-            try:
-                await self.start()
-            finally:
-                if not self._closing:
-                    await self.logout()
-
+            await self.start()
+            
         def stop_loop_on_completion(f):
             loop.stop()
 
@@ -465,6 +461,9 @@ class Client:
             An error occured while logging out.
         """
         self._closing = True
+
+        await self.dispatch_and_wait_for_event('logout')
+
         if self._refresh_task is not None and not self._refresh_task.cancelled():
             self._refresh_task.cancel()
 
@@ -956,6 +955,19 @@ class Client:
         """
         await self.http.remove_friend(id)
 
+    async def dispatch_and_wait_for_event(self, event, *args, **kwargs):
+        method = '{0.event_prefix}_{1}'.format(self, event)
+
+        coros = self._events.get('logout', [])
+        try:
+            coros.append(getattr(self, method))
+        except AttributeError:
+            pass
+
+        tasks = [coro() for coro in coros]
+        if len(tasks) > 0:
+            await asyncio.wait(tasks)
+
     def dispatch_event(self, event, *args, **kwargs):
         method = '{0.event_prefix}_{1}'.format(self, event)
 
@@ -990,7 +1002,7 @@ class Client:
         
         try:
             coro = getattr(self, method)
-        except AttributeError as e:
+        except AttributeError:
             pass
         else:
             asyncio.ensure_future(coro(*args, **kwargs), loop=self.loop)

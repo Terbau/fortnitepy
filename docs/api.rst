@@ -108,6 +108,14 @@ this decorator if you are in a subclass of :class:`Client`.
 
     This event is called when the client has been successfully established and connected to all services.
 
+.. function:: event_logout()
+
+	This event is called when the client is beginning to log out. 
+
+	.. note::
+
+		This event behaves differently from the other events. The logout of the account waits until the event handlers for this event is finished processing. This makes it so you are able to do heavy and/or time consuming operations before the client fully logs out. This unfortunately also means that this event is not compatible with :meth:`Client.wait_for()`.
+
 .. function:: event_friend_message(message)
 
     This event is called when :class:`ClientUser` receives a private message.

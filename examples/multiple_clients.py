@@ -58,10 +58,18 @@ class MyClient(fortnitepy.Client):
 
         tasks = []
         for email, password in credentials.items():
-            tasks.append(self.loop.create_task(self.load_sub_account(email, password)))
+            tasks.append(self.load_sub_account(email, password))
         
         await asyncio.wait(tasks)
         print('All clients ready')
+
+    async def event_logout(self):
+        tasks = []
+        for client in self.instances.values():
+            tasks.append(client.logout())
+
+        await asyncio.wait(tasks)
+        print('Successfully logged out of all sub accounts.')
 
     async def event_friend_request(self, request):
         await request.accept()
