@@ -5,7 +5,7 @@
 
 Asynchronous library for interacting with Fortnite and EpicGames' API and XMPP services.
 
-**Note:** This library is still under constant developement and this might cause breaking changes to the library without notice.
+**Note:** This library is still under developement so breaking changes might happen at any time.
 
 **Some key features:**
 - Full support for Friends.
