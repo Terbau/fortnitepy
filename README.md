@@ -4,6 +4,7 @@
 [![Current pypi version](https://img.shields.io/pypi/v/fortnitepy.svg)](https://pypi.org/project/fortnitepy/)
 
 Asynchronous library for interacting with Fortnite and EpicGames' API and XMPP services.
+**Note:** This library is still under constant developement and this might cause breaking changes to the library without notice.
 
 **Some key features:**
 - Full support for Friends.

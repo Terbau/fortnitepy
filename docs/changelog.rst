@@ -6,6 +6,59 @@ Changelog
 Detailed version changes.
 
 
+v0.7.0
+------
+
+**BREAKING UPDATE**
+Lots of small bug fixes and some added functionality as well.
+
+Breaking Changes
+~~~~~~~~~~~~~~~~
+
+- :class:`Client`'s keyword argument ``platform`` now accepts the new enumerator :class:`Platform` instead of :class:`str`.
+- :meth:`ClientParty.set_playlist()` keyword argument ``region`` now accepts the enumerator :class:`Region` instead of :class:`str`.
+- Renamed :func:`event_friend_remove` from ``event_friend_removed``.
+- Renamed :func:`event_party_member_kick` from ``event_party_member_kicked``.
+- Renamed :func:`event_party_member_disconnect` from ``event_party_member_disconnected``.
+- Renamed :func:`event_party_member_update` from ``event_party_member_updated``.
+- Renamed :func:`event_party_member_confirm` from ``event_party_member_confirmation``.
+- Renamed :func:`event_party_member_cancel` from ``event_party_member_cancelled``.
+- Renamed :func:`event_party_member_decline` from ``event_party_member_declined``.
+- Renamed :class:`V2Input` from ``V2Inputs``.
+- Renamed :class:`Region` from ``Regions``.
+- Removed attribute ``engine_build`` from :class:`Client` since it was not being used.
+
+Added
+~~~~~
+
+- Added :func:`event_logout()` which is called just before the client is about to log out.
+- Fortnite is now automatically bought for free on startup if the account does not already own it.
+- Added an example to showcase how you can have multiple clients running at the same time.
+- Added enumeration :class:`Platform`.
+- Added :attr:`Client.os`. You shouldnt ever need to change this but you could do it by passing a different value with the ``os`` keyword when initialising :class:`Client`.
+- Added :attr:`PartyMember.outfit_variants` to get the raw outfit variants of this member.
+- Added :attr:`PartyMember.backpack_variants` to get the raw backpack variants of this member.
+- Added :attr:`PartyMember.pickaxe_variants` to get the raw pickaxe variants of this member.
+- Added keyword ``variants`` to :meth:`ClientPartyMember.set_backpack()`.
+- Added keyword ``variants`` to :meth:`ClientPartyMember.set_pickaxe()`.
+- Added :attr:`PresenceParty.net_cl` to get the net_cl received with this presence.
+
+Bugs
+~~~~
+
+- Fixed and silenced multiple noisy errors like the OpenSSL error printed on shutdown.
+- The default user-agent used internally is now correctly built by :attr:`Client.build` and :attr:`Client.os`.
+- Removed the annoying message printed to console every time a friend was added or removed.
+- :class:`Client` now successfully shuts down if an error occurs in the login process.
+- You can now try except :meth:`Client.run()`.
+- Outgoing presences now correctly uses :attr:`Client.party_build_id` instead of :attr:`Client.net_cl`.
+- Display names of friends should now always have a value if exists.
+- Fixed an issue where a presence would not be sent if a member was promoted to leader of the party.
+- Fixed an issue where :attr:`Presence.friend` would sometimes be ``None``.
+- Fixed an issue where the platform set would not be visibly changed in-game.
+- Fixed an issue where party chat would sometimes not work.
+
+
 v0.6.4
 ------
 
