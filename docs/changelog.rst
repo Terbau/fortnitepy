@@ -9,8 +9,8 @@ Detailed version changes.
 v0.7.0
 ------
 
-**BREAKING UPDATE**
-Lots of small bug fixes and some added functionality as well.
+| **BREAKING UPDATE**
+| Lots of small bug fixes and some added functionality as well.
 
 Breaking Changes
 ~~~~~~~~~~~~~~~~
@@ -73,8 +73,8 @@ Added
 v0.6.3
 ------
 
-**HIGHLY IMPORTANT UPDATE**
-Fixed authentication to work with the newest changes fortnite made to their services.
+| **HIGHLY IMPORTANT UPDATE**
+| Fixed authentication to work with the newest changes fortnite made to their services.
 
 Updated
 ~~~~~~~
@@ -106,8 +106,8 @@ Bug Fixes
 v0.6.0
 ------
 
-**BREAKING UPDATE**
-Reworked parties and added some new stuff. This rework has been in my mind for some time but was recently accelerated because of some breaking bugs that required this rework.
+| **BREAKING UPDATE**
+| Reworked parties and added some new stuff. This rework has been in my mind for some time but was recently accelerated because of some breaking bugs that required this rework.
 
 Reworked
 ~~~~~~~~
