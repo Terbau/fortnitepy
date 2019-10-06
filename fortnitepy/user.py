@@ -69,6 +69,9 @@ class UserBase:
         except KeyError:
             self._id = data.get('accountId', data.get('account_id'))
 
+    def _update_display_name(self, display_name):
+        self._display_name = display_name
+
     def get_raw(self):
         return {
             'displayName': self.display_name,

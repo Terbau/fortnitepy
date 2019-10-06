@@ -443,14 +443,14 @@ class HTTPClient:
             'connection': {
                 'id': self.client.user.jid,
                 'meta': {
-                    'urn:epic:conn:platform_s': self.client.platform,
+                    'urn:epic:conn:platform_s': self.client.platform.value,
                     'urn:epic:conn:type_s': 'game'
                 }
             },
             'meta': {
                 'urn:epic:member:dn_s': self.client.user.display_name,
                 'urn:epic:member:type_s': 'game',
-                'urn:epic:member:platform_s': self.client.platform,
+                'urn:epic:member:platform_s': self.client.platform.value,
                 'urn:epic:member:joinrequest_j': '{"CrossplayPreference_i":"1"}',
             }
         }
@@ -468,14 +468,14 @@ class HTTPClient:
             'connection': {
                 'id': str(self.client.xmpp.xmpp_client.local_jid),
                 'meta': {
-                    'urn:epic:conn:platform_s': self.client.platform,
+                    'urn:epic:conn:platform_s': self.client.platform.value,
                     'urn:epic:conn:type_s': 'game',
                 },
             },
             'meta': {
                 'urn:epic:member:dn_s': self.client.user.display_name,
                 'urn:epic:member:type_s': 'game',
-                'urn:epic:member:platform_s': self.client.platform,
+                'urn:epic:member:platform_s': self.client.platform.value,
                 'urn:epic:member:joinrequest_j': '{"CrossplayPreference_i":"1","SubGame_u":"1"}',
             },
         }
@@ -513,7 +513,7 @@ class HTTPClient:
                 'connection': {
                     'id': str(self.client.xmpp.xmpp_client.local_jid),
                     'meta': {
-                        'urn:epic:conn:platform_s': self.client.platform,
+                        'urn:epic:conn:platform_s': self.client.platform.value,
                         'urn:epic:conn:type_s': 'game'
                     }
                 }

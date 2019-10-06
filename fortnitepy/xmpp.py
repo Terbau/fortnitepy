@@ -79,12 +79,15 @@ class XMPPClient:
     async def process_message(self, message):
         author = self.client.get_friend(message.from_.localpart)
 
-        m = FriendMessage(
-            client=self.client,
-            author=author,
-            content=message.body.any()
-        )
-        self.client.dispatch_event('friend_message', m)
+        try:
+            m = FriendMessage(
+                client=self.client,
+                author=author,
+                content=message.body.any()
+            )
+            self.client.dispatch_event('friend_message', m)
+        except ValueError:
+            pass
 
     async def process_event_message(self, stanza):
         body = json.loads(stanza.body.any())
@@ -151,7 +154,7 @@ class XMPPClient:
                 f = self.client.get_friend(_id)
                 self.client.store_user(f.get_raw())
                 self.client._friends.remove(f.id)
-                self.client.dispatch_event('friend_removed', f)
+                self.client.dispatch_event('friend_remove', f)
         
         ##############################
         # Party
@@ -169,10 +172,16 @@ class XMPPClient:
                 if pres is None:
                     raise PartyError('Invite not found')
 
-                invite = self._create_invite_from_presence(
-                    body['pinger_id'], pres)
+                invite = self._create_invite_from_presence(body['pinger_id'], pres)
 
-            if invite['meta']['urn:epic:cfg:build-id_s'] != self.client.party_build_id:
+            if invite['meta']['urn:epic:cfg:build-id_s'] not in (self.client.party_build_id,
+                                                                 self.client.net_cl):
+                log.debug(
+                    'Could not match the currently set party_build_id ({0}) to the received one {1}'.format(
+                        self.client.net_cl,
+                        invite['meta']['urn:epic:cfg:build-id_s']
+                    )
+                )
                 raise PartyError('Incompatible net_cl')
             
             party_id = invite['party_id']
@@ -234,7 +243,7 @@ class XMPPClient:
                 m.update_role(None)
             
             member.update_role('CAPTAIN')
-            asyncio.ensure_future(party.update_presence(), loop=self.client.loop)
+            party.update_presence()
             self.client.dispatch_event('party_member_promote', member)
 
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_KICKED':
@@ -255,7 +264,7 @@ class XMPPClient:
                 
                 self.client.user.set_party(p)
             
-            self.client.dispatch_event('party_member_kicked', member)
+            self.client.dispatch_event('party_member_kick', member)
 
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_DISCONNECTED':
             party = self.client.user.party
@@ -270,7 +279,7 @@ class XMPPClient:
                 return
 
             party._remove_member(member.id)
-            self.client.dispatch_event('party_member_disconnected', member)
+            self.client.dispatch_event('party_member_disconnect', member)
 
         elif _type == 'com.epicgames.social.party.notification.v0.PARTY_UPDATED':
             party = self.client.user.party
@@ -300,7 +309,7 @@ class XMPPClient:
                 return
 
             member.update(body)
-            self.client.dispatch_event('party_member_updated', member)
+            self.client.dispatch_event('party_member_update', member)
 
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_JOINED':
             party = self.client.user.party
@@ -340,19 +349,20 @@ class XMPPClient:
                 'id': body['account_id'],
                 'displayName': body['account_dn']
             })
-            self.client.dispatch_event('party_member_confirmation', confirmation)
+            self.client.dispatch_event('party_member_confirm', confirmation)
         
         elif _type == 'com.epicgames.social.party.notification.v0.INVITE_CANCELLED':
-            self.client.dispatch_event('party_invite_cancelled')
+            self.client.dispatch_event('party_invite_cancel')
 
         elif _type == 'com.epicgames.social.party.notification.v0.INVITE_DECLINED':
-            self.client.dispatch_event('party_invite_declined')
+            self.client.dispatch_event('party_invite_decline')
 
     async def process_presence(self, presence):
-        if presence.from_.localpart == self.client.user.id or not presence.status:
+        user_id = presence.from_.localpart
+        if user_id == self.client.user.id or not presence.status:
             return
 
-        if '-' in presence.from_.localpart:
+        if '-' in user_id:
             return
 
         if presence.type_ not in (aioxmpp.PresenceType.AVAILABLE, 
@@ -366,14 +376,28 @@ class XMPPClient:
         except ValueError:
             return
 
+        if not self.client.has_friend(user_id):
+            try:
+                await self.client.wait_for('friend_add', check=lambda f: f.id == user_id, timeout=10)
+            except asyncio.TimeoutError:
+                return
+
         _pres = Presence(
             self.client,
-            presence.from_.localpart,
+            user_id,
             True if presence.type_ is aioxmpp.PresenceType.AVAILABLE else False,
             data
         )
 
-        self.client._presences.set(presence.from_.localpart, _pres)
+        if _pres.party is not None:
+            try:
+                display_name = _pres.party.raw['sourceDisplayName']
+                if display_name != _pres.friend.display_name:
+                    _pres.friend._update_display_name(display_name)
+            except (KeyError, AttributeError):
+                pass
+
+        self.client._presences.set(user_id, _pres)
         self.client.dispatch_event('friend_presence', _pres)
 
     def setup_callbacks(self, messages=True, process_messages=True, presences=True):
@@ -435,7 +459,11 @@ class XMPPClient:
     async def run(self):
         resource_id = (uuid.uuid4().hex).upper()
         self.xmpp_client = aioxmpp.PresenceManagedClient(
-            aioxmpp.JID(self.client.user.id, self.client.service_host, f'V2:Fortnite:WIN::{resource_id}'),
+            aioxmpp.JID(
+                self.client.user.id, 
+                self.client.service_host, 
+                'V2:Fortnite:{0.client.platform.value}::{1}'.format(self, resource_id)
+            ),
             aioxmpp.make_security_layer(
                 self.client.auth.access_token,
                 no_verify=True
@@ -492,8 +520,8 @@ class XMPPClient:
         room, fut = self.muc_service.join(muc_jid, nick)
 
         room.on_message.connect(self.muc_on_message)
-        await fut
         self.muc_room = room
+        await fut
 
     async def leave_muc(self):
         if self.muc_room is not None:

@@ -105,7 +105,9 @@ class PresenceParty:
     app_id: :class:`str`
         The party's app id.
     build_id: :class:`str`
-        The party's build id.
+        The party's build id. Similar format to :attr:`Client.party_build_id`.
+    net_cl: :class:`str`
+        The party's net_cl. Similar format to :attr:`Client.net_cl`.
     party_flags: :class:`str`
         The party's flags.
     not_accepting_reason: :class:`str`
@@ -114,12 +116,13 @@ class PresenceParty:
         The party's playercount.
     """
 
-    __slots__ = ('client', 'is_private', 'platform', 'id', 'party_type_id',
-                 'key', 'app_id', 'build_id', 'party_flags', 'not_accepting_reason',
-                 'playercount')
+    __slots__ = ('client', 'raw', 'is_private', 'platform', 'id', 'party_type_id',
+                 'key', 'app_id', 'build_id', 'net_cl', 'party_flags', 
+                 'not_accepting_reason', 'playercount')
 
     def __init__(self, client, data):
         self.client = client
+        self.raw = data
         self.is_private = data.get('bIsPrivate', False)
 
         self.platform = data.get('sourcePlatform')
@@ -128,6 +131,7 @@ class PresenceParty:
         self.key = data.get('key')
         self.app_id = data.get('appId')
         self.build_id = data.get('buildId')
+        self.net_cl = self.build_id[4:]
         self.party_flags = data.get('partyFlags')
         self.not_accepting_reason = data.get('notAcceptingReason')
         self.playercount = data.get('pc')
@@ -207,15 +211,16 @@ class Presence:
         The playercount of the friend's server.
     """
 
-    __slots__ = ('client', 'is_available', 'friend', 'received_at', 'status', 'is_playing',
-                 'is_joinable', 'has_voice_support', 'session_id', 'raw_properties',
-                 'has_properties', 'homebase_rating', 'lfg', 'sub_game',
+    __slots__ = ('client', 'raw', 'is_available', 'friend', 'received_at', 'status', 
+                 'is_playing', 'is_joinable', 'has_voice_support', 'session_id', 
+                 'raw_properties', 'has_properties', 'homebase_rating', 'lfg', 'sub_game',
                  'in_unjoinable_match', 'playlist', 'players_alive', 'party_size',
                  'max_party_size', 'game_session_join_key', 'server_player_count',
                  'gameplay_stats', 'party')
 
     def __init__(self, client, from_id, is_available, data):
         self.client = client
+        self.raw = data
         self.is_available = is_available
         self.friend = self.client.get_friend(from_id)
         self.received_at = datetime.datetime.utcnow()
