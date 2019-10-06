@@ -42,6 +42,7 @@ Added
 - Added keyword ``variants`` to :meth:`ClientPartyMember.set_backpack()`.
 - Added keyword ``variants`` to :meth:`ClientPartyMember.set_pickaxe()`.
 - Added :attr:`PresenceParty.net_cl` to get the net_cl received with this presence.
+- Updated net_cl and build info.
 
 Bugs
 ~~~~
