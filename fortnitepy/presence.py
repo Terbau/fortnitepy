@@ -131,7 +131,12 @@ class PresenceParty:
         self.key = data.get('key')
         self.app_id = data.get('appId')
         self.build_id = data.get('buildId')
-        self.net_cl = self.build_id[4:]
+        
+        if self.build_id is not None and self.build_id.startswith('1:1:'):
+            self.net_cl = self.build_id[4:]
+        else:
+            self.net_cl = None
+
         self.party_flags = data.get('partyFlags')
         self.not_accepting_reason = data.get('notAcceptingReason')
         self.playercount = data.get('pc')
