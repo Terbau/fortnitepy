@@ -85,13 +85,13 @@ Enumerations
 
 	An enumeration for all currently available platforms.
 
-	..attribute:: WINDOWS
-	..attribute:: MAC
-	..attribute:: PLAYSTATION
-	..attribute:: XBOX
-	..attribute:: SWITCH
-	..attribute:: IOS
-	..attribute:: ANDROID
+	.. attribute:: WINDOWS
+	.. attribute:: MAC
+	.. attribute:: PLAYSTATION
+	.. attribute:: XBOX
+	.. attribute:: SWITCH
+	.. attribute:: IOS
+	.. attribute:: ANDROID
 
 
 Event Reference
