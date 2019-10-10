@@ -70,7 +70,7 @@ class XMPPClient:
                 'urn:epic:conn:type_s': 'game',
                 'urn:epic:conn:platform_s': presence.party.platform,
                 'urn:epic:member:dn_s': presence.friend.display_name,
-                'urn:epic:cfg:build-id_s': presence.party.build_id,
+                'urn:epic:cfg:build-id_s': presence.party.build_id or self.client.party_build_id,
                 'urn:epic:invite:platformdata_s': '',
             },
         }
@@ -175,15 +175,16 @@ class XMPPClient:
 
                 invite = self._create_invite_from_presence(body['pinger_id'], pres)
 
-            if invite['meta']['urn:epic:cfg:build-id_s'] not in (self.client.party_build_id,
-                                                                 self.client.net_cl):
-                log.debug(
-                    'Could not match the currently set party_build_id ({0}) to the received one {1}'.format(
-                        self.client.net_cl,
-                        invite['meta']['urn:epic:cfg:build-id_s']
+            if len(invite['meta']) > 0:
+                if invite['meta']['urn:epic:cfg:build-id_s'] not in (self.client.party_build_id,
+                                                                     self.client.net_cl):
+                    log.debug(
+                        'Could not match the currently set party_build_id ({0}) to the received one {1}'.format(
+                            self.client.net_cl,
+                            invite['meta']['urn:epic:cfg:build-id_s']
+                        )
                     )
-                )
-                raise PartyError('Incompatible net_cl')
+                    raise PartyError('Incompatible net_cl')
             
             party_id = invite['party_id']
             _raw = await self.client.http.party_lookup(party_id)
