@@ -886,9 +886,10 @@ class ClientPartyMember(PartyMemberBase):
         value: :class:`bool`
             **True** to set it to ready.
             **False** to set it to unready.
+            **None** to set it to sitting out.
         """
         prop = self.meta.set_readiness(
-            val='Ready' if value is True else 'NotReady'
+            val='Ready' if value is True else ('NotReady' if value is False else 'SittingOut')
         )
         await self.patch(updated=prop)
 
