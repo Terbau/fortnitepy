@@ -159,6 +159,13 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param request: Request object.
 	:type request: :class:`PendingFriend`
 
+.. function:: event_friend_request_abort(friend)
+
+	This event is called when a friend request is aborted. Aborted means that the friend request was deleted before the receiving user managed to accept it.
+
+	:param request: Request object.
+	:type request: :class:`PendingFriend`
+
 .. function:: event_friend_presence(presence)
 
 	This event is valled when the client receives a presence from a friend.
