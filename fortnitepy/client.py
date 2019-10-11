@@ -268,6 +268,28 @@ class Client:
         """:class:`dict`: Mapping of the last presence received from friends. {id (:class:`str`), :class:`Presence`}"""
         return self._presences._cache
 
+    async def update_net_cl(self, net_cl, leave_party=True):
+        """|coro|
+        
+        Parameters
+        ----------
+        net_cl: :class:`str`
+            The net_cl you want to set.
+        leave_party: :class:`bool`
+            Set to ``False`` if you don't want the bot to leave its current party. Defaults to ``True`` since a party
+            created with the old net_cl won't work.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting to leave the party.
+        """
+        self.net_cl = net_cl
+        self.party_build_id = '1:1:{0.net_cl}'.format(net_cl)
+
+        if leave_party:
+            await self.user.party.me.leave()
+
     def update_default_party_config(self, config):
         if config is None:
             return
