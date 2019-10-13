@@ -32,6 +32,7 @@ import uuid
 import re
 import json
 
+from aioconsole import ainput
 from bs4 import BeautifulSoup
 from .errors import AuthException, HTTPException
 
@@ -71,7 +72,7 @@ class Auth:
 
                 code = self.client.two_factor_code
                 if code is None:
-                    code = int(input('Please enter the 2fa code:\n'))
+                    code = int(await ainput('Please enter the 2fa code:\n', loop=self.client.loop))
 
                 data = {
                     'grant_type': 'otp',
@@ -156,7 +157,7 @@ class Auth:
 
         code = two_factor_code = self.client.two_factor_code
         if code is None:
-            code = input('Please enter the 2fa code:\n')
+            code = await ainput('Please enter the 2fa code:\n', loop=self.client.loop)
         
         cookies = self.client.http._jar.filter_cookies(
             'https://accounts.launcher-website-prod07.ol.epicgames.com/login/doLauncherLogin')
@@ -257,7 +258,7 @@ class Auth:
                 log.info('Fetching new valid xsrf token.')
                 token = await self.stable_get_xsrf_token()
 
-                code = self.client.two_factor_code or input('Please enter the 2fa code:\n')
+                code = self.client.two_factor_code or await ainput('Please enter the 2fa code:\n', loop=self.client.loop)
                 await self.stable_2fa_login(token, code)
  
             await self.client.http.get(
