@@ -177,7 +177,7 @@ class Client:
         The event loop that client implements.
     """
 
-    def __init__(self, email, password, two_factor_code=None, loop=None, **kwargs):
+    def __init__(self, email, password, *, two_factor_code=None, loop=None, **kwargs):
         self.email = email
         self.password = password
         self.two_factor_code = two_factor_code
@@ -268,7 +268,7 @@ class Client:
         """:class:`dict`: Mapping of the last presence received from friends. {id (:class:`str`), :class:`Presence`}"""
         return self._presences._cache
 
-    async def update_net_cl(self, net_cl, leave_party=True):
+    async def update_net_cl(self, net_cl, *, leave_party=True):
         """|coro|
         
         Parameters
@@ -549,7 +549,7 @@ class Client:
             log.debug('Left old party')
         await self._create_party()
 
-    async def fetch_profile_by_display_name(self, display_name, cache=True, raw=False):
+    async def fetch_profile_by_display_name(self, display_name, *, cache=False, raw=False):
         """|coro|
         
         Fetches a profile from the passed display name
@@ -602,7 +602,7 @@ class Client:
             return res
         return self.store_user(res)
 
-    async def fetch_profile(self, user, cache=True, raw=False):
+    async def fetch_profile(self, user, *, cache=False, raw=False):
         """|coro|
         
         Fetches a single profile by the given id/displayname
@@ -643,7 +643,7 @@ class Client:
         except IndexError:
             return None
 
-    async def fetch_profiles(self, users, cache=True, raw=False):
+    async def fetch_profiles(self, users, *, cache=False, raw=False):
         """|coro|
         
         Fetches multiple profiles at once by the given ids/displaynames
@@ -1201,7 +1201,7 @@ class Client:
         log.debug('{} has been registered as an event'.format(coro.__name__))
         return coro
 
-    async def fetch_br_stats(self, user_id, start_time=None, end_time=None):
+    async def fetch_br_stats(self, user_id, *, start_time=None, end_time=None):
         """|coro|
         
         Gets Battle Royale stats the specified user.
@@ -1239,7 +1239,7 @@ class Client:
         data = await self.http.get_br_stats_v2(user_id, start_time=start_time, end_time=end_time)
         return StatsV2(data)
 
-    async def fetch_multiple_br_stats(self, user_ids, stats, start_time=None, end_time=None):
+    async def fetch_multiple_br_stats(self, user_ids, stats, *, start_time=None, end_time=None):
         """|coro|
         
         Gets Battle Royale stats for multiple users at the same time.
@@ -1410,7 +1410,7 @@ class Client:
         await party.set_privacy(config['privacy'])
         return party
 
-    async def join_to_party(self, party_id, party=None):
+    async def join_to_party(self, party_id, *, party=None):
         if party is None:
             party_data = await self.http.party_lookup(party_id)
             party = ClientParty(self, party_data)
@@ -1445,7 +1445,7 @@ class Client:
         self.status = status
         await self.xmpp.send_presence(status=status)
 
-    async def send_status(self, status, to=None):
+    async def send_status(self, status, *, to=None):
         """|coro|
         
         Sends this status to all or one single friend.

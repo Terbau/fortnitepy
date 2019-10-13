@@ -246,7 +246,7 @@ class HTTPClient:
             self.client.auth.authorization
         )
     
-    async def get_friends(self, include_pending=False):
+    async def get_friends(self, *, include_pending=False):
         _incl = True if include_pending else False
         return await self.get(
             'https://friends-public-service-prod06.ol.epicgames.com/friends/api/' \
@@ -296,7 +296,7 @@ class HTTPClient:
             self.client.auth.authorization
         )
 
-    async def get_br_stats_v2(self, user_id, start_time=None, end_time=None):
+    async def get_br_stats_v2(self, user_id, *, start_time=None, end_time=None):
         query_parameters = ''
         if start_time:
             query_parameters += '&startTime={}'.format(start_time)
@@ -309,7 +309,7 @@ class HTTPClient:
             self.client.auth.authorization
         )
 
-    async def get_multiple_br_stats_v2(self, ids, stats, start_time=None, end_time=None):
+    async def get_multiple_br_stats_v2(self, ids, stats, *, start_time=None, end_time=None):
         params = {}
         if start_time:
             params['startTime'] = start_time
@@ -327,7 +327,7 @@ class HTTPClient:
             params=params
         )
 
-    async def get_br_leaderboard(self, stat, platform, mode, window, page=0, items_per_page=50):
+    async def get_br_leaderboard(self, stat, platform, mode, window, *, page=0, items_per_page=50):
         return await self.post(
             'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/' \
             'leaderboards/type/global/stat/br_{0}_{1}_m0_{2}/window/{3}?ownertype=1'.format(
