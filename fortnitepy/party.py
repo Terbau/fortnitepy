@@ -1731,6 +1731,8 @@ class PartyInvitation:
 
         Raises
         ------
+        PartyError
+            The clients net_cl is not compatible with the received net_cl.
         HTTPException
             Something went wrong when declining the invitation.
         """
