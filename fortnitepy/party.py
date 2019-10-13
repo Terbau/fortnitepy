@@ -1694,15 +1694,18 @@ class PartyInvitation:
         The client.
     party: :class:`Party`
         The party the invitation belongs to.
+    net_cl: :class:`str`
+        The net_cl received by the sending client.
     author: :class:`Friend`
         The friend that invited you to the party.
     created_at: :class:`datetime.datetime`
         The UTC time this invite was created at.
     """
-    def __init__(self, client, party, data):
+    def __init__(self, client, party, net_cl, data):
         self.client = client
         self.party = party
-        
+        self.net_cl = net_cl
+
         self.author = self.client.get_friend(data['sent_by'])
         self.created_at = self.client.from_iso(data['sent_at'])
 
@@ -1716,6 +1719,9 @@ class PartyInvitation:
         HTTPException
             Something went wrong when accepting the invitation.
         """
+        if self.net_cl != self.client.net_cl:
+            raise PartyError('Incompatible net_cl')
+
         await self.client.join_to_party(self.party.id)
 
     async def decline(self):

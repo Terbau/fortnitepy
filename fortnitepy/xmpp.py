@@ -175,23 +175,30 @@ class XMPPClient:
 
                 invite = self._create_invite_from_presence(body['pinger_id'], pres)
 
-            if len(invite['meta']) > 0:
-                if invite['meta']['urn:epic:cfg:build-id_s'] not in (self.client.party_build_id,
-                                                                     self.client.net_cl):
-                    log.debug(
-                        'Could not match the currently set party_build_id ({0}) to the received one {1}'.format(
-                            self.client.net_cl,
-                            invite['meta']['urn:epic:cfg:build-id_s']
-                        )
+            if 'urn:epic:cfg:build-id_s' not in invite['meta']:
+                pres = self.client.get_presence(body['pinger_id'])
+                if pres is not None and pres.party is not None and not pres.party.is_private:
+                    net_cl = pres.party.net_cl
+                else:
+                    net_cl = self.client.net_cl
+            else:
+                s = invite['meta']['urn:epic:cfg:build-id_s']
+                net_cl = s[4:] if s.startswith('1:1:') else s
+
+            if net_cl != self.client.net_cl:
+                log.debug(
+                    'Could not match the currently set net_cl ({0}) to the received value ({1})'.format(
+                        self.client.net_cl,
+                        net_cl
                     )
-                    raise PartyError('Incompatible net_cl')
+                )
             
             party_id = invite['party_id']
             _raw = await self.client.http.party_lookup(party_id)
             new_party = Party(self.client, _raw)
             await new_party._update_members(_raw['members'])
             
-            invitation = PartyInvitation(self.client, new_party, invite)
+            invitation = PartyInvitation(self.client, new_party, net_cl, invite)
             self.client.dispatch_event('party_invite', invitation)
         
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_LEFT':
