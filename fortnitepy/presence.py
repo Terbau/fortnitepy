@@ -56,7 +56,7 @@ class PresenceGameplayStats:
             self.num_kills = int(self.num_kills)
         self.fell_to_death = data.get('bFellToDeath')
         if self.fell_to_death is not None:
-            self.fell_to_death = bool(self.fell_to_death)
+            self.fell_to_death = True if self.fell_to_death.lower() == 'true' else False
 
 
 class PresenceParty:

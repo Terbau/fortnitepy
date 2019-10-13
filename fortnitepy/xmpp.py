@@ -497,7 +497,7 @@ class XMPPClient:
         if self.xmpp_client.running:
             self.xmpp_client.stop()
             
-            # wait for client to shut down
+            # let the loop run one more time so the xmpp client can stop
             while self.xmpp_client.running:
                 await asyncio.sleep(0)
             
@@ -505,6 +505,7 @@ class XMPPClient:
             self._task.cancel()
         if self._ping_task:
             self._ping_task.cancel()
+            
         self._ping_task = None
         self.xmpp_client = None
         self.stream = None
