@@ -1227,7 +1227,8 @@ class Client:
         Returns
         -------
         :class:`StatsV2`
-            An object representing the stats for this user.
+            An object representing the stats for this user. If the user was not found
+            ``None`` is returned.
         """
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
@@ -1236,8 +1237,16 @@ class Client:
         if isinstance(end_time, datetime.datetime):
             end_time = (end_time - epoch).total_seconds()
 
-        data = await self.http.get_br_stats_v2(user_id, start_time=start_time, end_time=end_time)
-        return StatsV2(data)
+        tasks = [
+            self.fetch_profile(user_id, cache=True),
+            self.http.get_br_stats_v2(user_id, start_time=start_time, end_time=end_time)
+        ]
+        d, _ = await asyncio.wait(tasks)
+        results = [r.result() for r in d]
+        if isinstance(results[0], dict):
+            results = list(reversed(results))
+
+        return StatsV2(*results) if results[0] is not None else None
 
     async def fetch_multiple_br_stats(self, user_ids, stats, *, start_time=None, end_time=None):
         """|coro|
@@ -1248,7 +1257,7 @@ class Client:
             
             This function is not the same as doing :meth:`fetch_br_stats` for multiple users.
             The expected return for this function would not be all the stats for the specified
-            users but rather the stats you specified.
+            users but rather the stats you specify.
 
         Example usage: ::
 
@@ -1261,16 +1270,20 @@ class Client:
 
                 # get the profiles and create a list of their ids.
                 profiles = await self.fetch_profiles(['Ninja', 'Dark', 'DrLupo'])
-                user_ids = [u.id for u in profiles]
+                user_ids = [u.id for u in profiles] + ['NonValidUserIdForTesting']
 
                 data = await self.fetch_multiple_br_stats(user_ids=user_ids, stats=stats)
                 for id, res in data.items():
-                    print('ID: {0} | Stats: {1}'.format(id, res.stats))
+                    if res is not None:
+                        print('ID: {0} | Stats: {1}'.format(id, res.get_stats()))
+                    else:
+                        print('ID: {0} not found.'.format(id))
             
             # expected output (ofc the values would be updated):
             # ID: 463ca9d604524ce38071f512baa9cd70 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 759, 'kills': 28093, 'matchesplayed': 6438}}}
             # ID: 3900c5958e4b4553907b2b32e86e03f8 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1763, 'kills': 41375, 'matchesplayed': 7944}}}
             # ID: 4735ce9132924caf8a5b17789b40f79c | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1888, 'kills': 40784, 'matchesplayed': 5775}}}
+            # ID: NonValidUserIdForTesting not found.
 
         Parameters
         ----------
@@ -1304,7 +1317,8 @@ class Client:
         Returns
         -------
         Dict[id: :class:`StatsV2`]
-            A mapping where :class:`StatsV2` is bound to its owners id.
+            A mapping where :class:`StatsV2` is bound to its owners id. If a userid was not found then the value bound to 
+            that userid will be ``None``.
         """
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
@@ -1313,11 +1327,20 @@ class Client:
         if isinstance(end_time, datetime.datetime):
             end_time = (end_time - epoch).total_seconds()
         
-        data = await self.http.get_multiple_br_stats_v2(user_ids, stats)
+        tasks = [
+            self.fetch_profiles(user_ids, cache=True),
+            self.http.get_multiple_br_stats_v2(user_ids, stats)
+        ]
+        d, _ = await asyncio.wait(tasks)
+        results = [r.result() for r in d]
+        if len(results[0]) > 0 and isinstance(results[0][0], dict):
+            results = list(reversed(results))
 
         res = {}
-        for udata in data:
-            res[udata['accountId']] = StatsV2(udata)
+        for udata in results[1]:
+            r = [x for x in results[0] if x.id == udata['accountId']]
+            user = r[0] if len(r) != 0 else None
+            res[udata['accountId']] = StatsV2(user, udata) if user is not None else None
         return res
 
     async def fetch_leaderboard(self, stat):
