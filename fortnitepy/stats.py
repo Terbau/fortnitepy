@@ -207,8 +207,7 @@ class StatsV2:
         self._combined_stats = result
                     
     def get_stats(self):
-        """Gets the stats for this user. This function returns the users stats
-        .
+        """Gets the stats for this user. This function returns the users stats.
         
         Returns
         -------

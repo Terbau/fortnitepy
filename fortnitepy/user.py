@@ -101,8 +101,7 @@ class UserBase:
         Returns
         -------
         :class:`float`
-            | The battlepass level.
-            | ``0`` = user hasn't played any games yet this season.
+            The users battlepass level.
         """
         return await self.client.fetch_battlepass_level(self.id)
 
