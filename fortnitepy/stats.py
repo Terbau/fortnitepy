@@ -27,8 +27,12 @@ SOFTWARE.
 import datetime
 
 replacers = {
-    'placetop1': 'wins'
+    'placetop1': 'wins',
 }
+
+skips = (
+    's11_social_bp_level',
+)
 
 
 class StatsV2:
@@ -140,6 +144,9 @@ class StatsV2:
     def _parse(self):
         result = {}
         for fullname, stat in self.raw['stats'].items():
+            if fullname in skips:
+                continue
+
             parts = fullname.split('_')
 
             name = parts[1]

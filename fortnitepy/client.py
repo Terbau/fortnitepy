@@ -1343,6 +1343,45 @@ class Client:
             res[udata['accountId']] = StatsV2(user, udata) if user is not None else None
         return res
 
+    async def fetch_multiple_battlepass_levels(self, users):
+        """|coro|
+        
+        Fetches multiple users battlepass level.
+        
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+            
+        Returns
+        -------
+        Dict[id: :class:`float`]
+            Users battlepass level mapped to their account id.
+        """
+        data = await self.http.get_multiple_br_stats_v2(
+            users,
+            ('s11_social_bp_level',)
+        )
+        return {e['accountId']: e['stats'].get('s11_social_bp_level', 100) for e in data}
+
+    async def fetch_battlepass_level(self, user_id):
+        """|coro|
+        
+        Fetches a users battlepass level.
+        
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        :class:`float`
+            The users battlepass level.
+        """
+        data = await self.fetch_multiple_battlepass_levels((user_id,))
+        return data[user_id]
+
     async def fetch_leaderboard(self, stat):
         """|coro|
         

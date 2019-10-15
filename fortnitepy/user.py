@@ -88,6 +88,24 @@ class UserBase:
         """
         return await self.client.fetch_br_stats(self.id, start_time=start_time, end_time=end_time)
 
+    async def fetch_battlepass_level(self):
+        """|coro|
+        
+        Fetches this users battlepass level.
+        
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        :class:`float`
+            | The battlepass level.
+            | ``0`` = user hasn't played any games yet this season.
+        """
+        return await self.client.fetch_battlepass_level(self.id)
+
     def _update(self, data):
         self._display_name = data.get('displayName', data.get('account_dn'))
         self._external_auths = data.get('external_auths', [])
