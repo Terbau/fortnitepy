@@ -25,12 +25,16 @@ SOFTWARE.
 """
 
 class Playlist:
+
+    __slots__ = ('_image', '_internal_name', '_special_border', '_type',
+                 '_violator', '_display_subname', '_description')
+
     def __init__(self, data):
         self._image = data['image']
         self._internal_name = data['playlist_name']
         self._special_border = data.get('special_border')
         self._type = data.get('_type')
-        self._violater = data.get('violator')
+        self._violator = data.get('violator')
         self._display_subname = data.get('display_subname')
         self._description = data.get('description')
     
@@ -65,9 +69,9 @@ class Playlist:
         in-game.
         Will be ``None`` if no violator is found for this playlist.
         """
-        if self._violater == '':
+        if self._violator == '':
             return None
-        return self._violater
+        return self._violator
 
     @property
     def display_subname(self):

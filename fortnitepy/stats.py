@@ -43,6 +43,10 @@ class StatsV2:
     end_time: :class:`datetime`
         The UTC end time of the stats retrieved. 
     """
+
+    __slots__ = ('raw', 'user', '_stats', '_platform_specific_combined_stats',
+                 '_combined_stats', 'start_time', 'end_time', )
+
     def __init__(self, user, data):
         self.raw = data
         self.user = user
@@ -147,8 +151,8 @@ class StatsV2:
             except KeyError:
                 pass
 
-            # if name == 'lastmodified':
-            #     stat = datetime.datetime.fromtimestamp(stat)
+            if name == 'lastmodified':
+                stat = datetime.datetime.fromtimestamp(stat)
             
             if inp not in result:
                 result[inp] = {}
@@ -168,7 +172,11 @@ class StatsV2:
             for stats in values.values():
                 for stat, value in stats.items():
                     try:
-                        result[platform][stat] += value
+                        try:
+                            result[platform][stat] += value
+                        except TypeError:
+                            if value > result[platform][stat]:
+                                result[platform][stat] = value
                     except KeyError:
                         result[platform][stat] = value
         
@@ -181,7 +189,11 @@ class StatsV2:
             for stats in values.values():
                 for stat, value in stats.items():
                     try:
-                        result[stat] += value
+                        try:
+                            result[stat] += value
+                        except TypeError:
+                            if value > result[stat]:
+                                result[stat] = value
                     except KeyError:
                         result[stat] = value
 

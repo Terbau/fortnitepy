@@ -61,7 +61,9 @@ class UserBase:
         return aioxmpp.JID.fromstr('{0.id}@{0.client.service_host}'.format(self))
 
     async def fetch_br_stats(self, *, start_time=None, end_time=None):
-        """Fetches this users stats.
+        """|coro|
+        
+        Fetches this users stats.
         
         Parameters
         ----------
