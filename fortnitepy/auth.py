@@ -259,7 +259,7 @@ class Auth:
                 token = await self.stable_get_xsrf_token()
 
                 code = self.client.two_factor_code or await ainput('Please enter the 2fa code:\n', loop=self.client.loop)
-                await self.stable_2fa_login(token, code)
+                await self.stable_2fa_login(e.raw['metadata']['twoFactorMethod'], token, code)
  
             await self.client.http.get(
                 'https://www.epicgames.com/id/api/redirect',
@@ -311,7 +311,7 @@ class Auth:
             }
         )
 
-    async def stable_2fa_login(self, token, code):
+    async def stable_2fa_login(self, method, token, code):
         await self.client.http.post(
             'https://www.epicgames.com/id/api/login/mfa',
             None,

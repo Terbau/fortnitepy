@@ -107,7 +107,7 @@ class Client:
         Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
     platform: Optional[:class:`.Platform`]
         The platform you want the client to display as its source. 
-        Defaults to ``WIN``.
+        Defaults to :attr:`Platform.WINDOWS`.
     net_cl: :class:`str`
         The current buildid used by the current Fortnite build. Named *netCL* in official logs.
         Defaults to the current buildid but doesn't get updated automatically. 
