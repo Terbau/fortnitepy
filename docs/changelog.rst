@@ -6,6 +6,54 @@ Changelog
 Detailed version changes.
 
 
+v0.8.0
+------
+
+| **BREAKING UPDATE**
+| This update reworks and adds a couple of stats functions, adds some new features that came with Fortnite 2 season 1 and fixes some important bugs.
+
+Breaking Changes
+~~~~~~~~~~~~~~~~
+
+- Most functions with keyword arguments now uses strict kwargs. This means you must specify the argument as a keyword. If you've used keyword arguments correctly before, this will not be an issue.
+- The new correct way to get stats from the object :class:`StatsV2` is now with the :meth:`StatsV2.get_stats()` method. Up until this version the way to get the stats from the object was to call ``StatsV2.stats``.
+- :meth:`Client.fetch_br_stats()` now returns ``None`` if the user was not found. An empty :class:`StatsV2` is still returned if a valid user doesn't have any recorded stats.
+- :meth:`Client.fetch_multiple_br_stats()` now returns ``None`` mapped to the passed userid if the user was not found. An empty :class:`StatsV2` is still returned if a valid user doesn't have any recorded stats for the stats you requested.
+- The cache keyword argument in :meth:`Client.fetch_profile`, :meth:`Client.fetch_profiles` and :meth:`Client.fetch_profile_by_display_name` now defaults to ``False`` which means the client will not attempt to get any of the requested users from the cache.
+- :attr:`Playlist.violator` was renamed from `violater` because of the typo.
+- :attr:`PresenceGameplayStats.players_alive` was moved from :class:`Presence` to :class:`PresenceGameplayStats`.
+
+Added
+~~~~~
+
+- Added a new event :func:`event_friend_request_abort` which emits when a sent friend request is aborted before the receiving user has accepted it.
+- Added :meth:`Client.update_net_cl()` which updated the current net_cl and party_build_id while the client is running.
+- Added :meth:`Client.fetch_multiple_battleapss_levels` which fetches multiple userids battlepass levels at once.
+- Added :meth:`Client.fetch_battlepass_level` which fetches a userid's battlepass level.
+- You can now pass ``None`` to :meth:`ClientPartyMember.set_ready()` to make the client go into the Sitting Out state.
+- Added :attr:`PartyInvitation.net_cl` which returnes the net_cl that was sent with a party invitation.
+- Added :attr:`Presence.avatar` to get the cid of the friends Kairos avatar.
+- Added :attr:`Presence.avatar_colors` to get the background colors of the friends Kairos avatar.
+- Added :meth:`StatsV2.get_stats()` which is now the correct approach to getting the users stats mapped to platforms and gamemodes from the object. 
+- Added :meth:`StatsV2.get_combined_stats()` to get the users combined stats mapped to platforms. There is also an option to combine stats across all platforms.
+- Added :meth:`User.fetch_br_stats()` to get a users stats directly from the object. (Function exists for :class:`Friend` too since it inherits from :class:`User`)
+- Added :meth:`User.fetch_battlepass_levels()` to get a users battlepass level directly from the object. (Function exists for :class:`Friend` too since it inherits from :class:`User`)
+- Updated net_cl and build info.
+
+Bug Fixes
+~~~~~~~~~
+
+- :attr:`StatsV2.start_time` and :attr:`StatsV2.end_time` now actually works.
+- Removed the new stat ``s11_social_bp_level`` from :class:`StatsV2`.
+- Moved the check invalid net_cl check to method :meth:`PartyInvitation.accept()` so it is possible to catch the exception.
+- Renamed :attr:`Playlist.violator` from ``violater`` because of the typo.
+- Waiting for the 2fa code to be entered into console is no longer blocking.
+- :class:`Playlist` now uses __slots__ to reduce its memory footprint.
+- Fixed another issue that lead to ``Incompatible net_cl`` being incorrectly raised.
+- Attempted to fix `issue #38 <https://github.com/Terbau/fortnitepy/issues/38>`_.
+- Fixed some issues in the docs.
+
+
 v0.7.0
 ------
 
@@ -44,7 +92,7 @@ Added
 - Added :attr:`PresenceParty.net_cl` to get the net_cl received with this presence.
 - Updated net_cl and build info.
 
-Bugs
+Bug Fixes
 ~~~~
 
 - Fixed and silenced multiple noisy errors like the OpenSSL error printed on shutdown.
