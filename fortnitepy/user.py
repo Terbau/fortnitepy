@@ -60,6 +60,52 @@ class UserBase:
         """:class:`aioxmpp.JID`: The JID of the user."""
         return aioxmpp.JID.fromstr('{0.id}@{0.client.service_host}'.format(self))
 
+    async def fetch_br_stats(self, *, start_time=None, end_time=None):
+        """|coro|
+        
+        Fetches this users stats.
+        
+        Parameters
+        ----------
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+            The UTC start time of the time period to get stats from.
+            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+            The UTC end time of the time period to get stats from.
+            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Defaults to None*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        
+        Returns
+        -------
+        :class:`StatsV2`
+            An object representing the stats for this user.
+        """
+        return await self.client.fetch_br_stats(self.id, start_time=start_time, end_time=end_time)
+
+    async def fetch_battlepass_level(self):
+        """|coro|
+        
+        Fetches this users battlepass level.
+        
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        :class:`float`
+            The users battlepass level. ``None`` is returned if the user has not played any
+            real matches this season.
+        """
+        return await self.client.fetch_battlepass_level(self.id)
+
     def _update(self, data):
         self._display_name = data.get('displayName', data.get('account_dn'))
         self._external_auths = data.get('external_auths', [])

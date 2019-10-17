@@ -177,7 +177,7 @@ class Client:
         The event loop that client implements.
     """
 
-    def __init__(self, email, password, two_factor_code=None, loop=None, **kwargs):
+    def __init__(self, email, password, *, two_factor_code=None, loop=None, **kwargs):
         self.email = email
         self.password = password
         self.two_factor_code = two_factor_code
@@ -185,10 +185,10 @@ class Client:
 
         self.status = kwargs.get('status', None)
         self.platform = kwargs.get('platform', Platform.WINDOWS)
-        self.net_cl = kwargs.get('net_cl', '8371783')
+        self.net_cl = kwargs.get('net_cl', '9403777')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', {})
-        self.build = kwargs.get('build', '++Fortnite+Release-10.40-CL-9302865')
+        self.build = kwargs.get('build', '++Fortnite+Release-11.00-CL-9603448')
         self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
         self.launcher_token = kwargs.get('launcher_token', 'MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=')
         self.fortnite_token = kwargs.get('fortnite_token', 'ZWM2ODRiOGM2ODdmNDc5ZmFkZWEzY2IyYWQ4M2Y1YzY6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ=')
@@ -267,6 +267,28 @@ class Client:
     def presences(self):
         """:class:`dict`: Mapping of the last presence received from friends. {id (:class:`str`), :class:`Presence`}"""
         return self._presences._cache
+
+    async def update_net_cl(self, net_cl, *, leave_party=True):
+        """|coro|
+        
+        Parameters
+        ----------
+        net_cl: :class:`str`
+            The net_cl you want to set.
+        leave_party: :class:`bool`
+            Set to ``False`` if you don't want the bot to leave its current party. Defaults to ``True`` since a party
+            created with the old net_cl won't work.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting to leave the party.
+        """
+        self.net_cl = net_cl
+        self.party_build_id = '1:1:{0.net_cl}'.format(net_cl)
+
+        if leave_party:
+            await self.user.party.me.leave()
 
     def update_default_party_config(self, config):
         if config is None:
@@ -527,7 +549,7 @@ class Client:
             log.debug('Left old party')
         await self._create_party()
 
-    async def fetch_profile_by_display_name(self, display_name, cache=True, raw=False):
+    async def fetch_profile_by_display_name(self, display_name, *, cache=False, raw=False):
         """|coro|
         
         Fetches a profile from the passed display name
@@ -580,7 +602,7 @@ class Client:
             return res
         return self.store_user(res)
 
-    async def fetch_profile(self, user, cache=True, raw=False):
+    async def fetch_profile(self, user, *, cache=False, raw=False):
         """|coro|
         
         Fetches a single profile by the given id/displayname
@@ -621,7 +643,7 @@ class Client:
         except IndexError:
             return None
 
-    async def fetch_profiles(self, users, cache=True, raw=False):
+    async def fetch_profiles(self, users, *, cache=False, raw=False):
         """|coro|
         
         Fetches multiple profiles at once by the given ids/displaynames
@@ -1179,7 +1201,7 @@ class Client:
         log.debug('{} has been registered as an event'.format(coro.__name__))
         return coro
 
-    async def fetch_br_stats(self, user_id, start_time=None, end_time=None):
+    async def fetch_br_stats(self, user_id, *, start_time=None, end_time=None):
         """|coro|
         
         Gets Battle Royale stats the specified user.
@@ -1205,7 +1227,8 @@ class Client:
         Returns
         -------
         :class:`StatsV2`
-            An object representing the stats for this user.
+            An object representing the stats for this user. If the user was not found
+            ``None`` is returned.
         """
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
@@ -1214,10 +1237,18 @@ class Client:
         if isinstance(end_time, datetime.datetime):
             end_time = (end_time - epoch).total_seconds()
 
-        data = await self.http.get_br_stats_v2(user_id, start_time=start_time, end_time=end_time)
-        return StatsV2(data)
+        tasks = [
+            self.fetch_profile(user_id, cache=True),
+            self.http.get_br_stats_v2(user_id, start_time=start_time, end_time=end_time)
+        ]
+        d, _ = await asyncio.wait(tasks)
+        results = [r.result() for r in d]
+        if isinstance(results[0], dict):
+            results = list(reversed(results))
 
-    async def fetch_multiple_br_stats(self, user_ids, stats, start_time=None, end_time=None):
+        return StatsV2(*results) if results[0] is not None else None
+
+    async def fetch_multiple_br_stats(self, user_ids, stats, *, start_time=None, end_time=None):
         """|coro|
         
         Gets Battle Royale stats for multiple users at the same time.
@@ -1226,7 +1257,7 @@ class Client:
             
             This function is not the same as doing :meth:`fetch_br_stats` for multiple users.
             The expected return for this function would not be all the stats for the specified
-            users but rather the stats you specified.
+            users but rather the stats you specify.
 
         Example usage: ::
 
@@ -1239,16 +1270,20 @@ class Client:
 
                 # get the profiles and create a list of their ids.
                 profiles = await self.fetch_profiles(['Ninja', 'Dark', 'DrLupo'])
-                user_ids = [u.id for u in profiles]
+                user_ids = [u.id for u in profiles] + ['NonValidUserIdForTesting']
 
                 data = await self.fetch_multiple_br_stats(user_ids=user_ids, stats=stats)
                 for id, res in data.items():
-                    print('ID: {0} | Stats: {1}'.format(id, res.stats))
+                    if res is not None:
+                        print('ID: {0} | Stats: {1}'.format(id, res.get_stats()))
+                    else:
+                        print('ID: {0} not found.'.format(id))
             
             # expected output (ofc the values would be updated):
             # ID: 463ca9d604524ce38071f512baa9cd70 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 759, 'kills': 28093, 'matchesplayed': 6438}}}
             # ID: 3900c5958e4b4553907b2b32e86e03f8 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1763, 'kills': 41375, 'matchesplayed': 7944}}}
             # ID: 4735ce9132924caf8a5b17789b40f79c | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1888, 'kills': 40784, 'matchesplayed': 5775}}}
+            # ID: NonValidUserIdForTesting not found.
 
         Parameters
         ----------
@@ -1282,7 +1317,8 @@ class Client:
         Returns
         -------
         Dict[id: :class:`StatsV2`]
-            A mapping where :class:`StatsV2` is bound to its owners id.
+            A mapping where :class:`StatsV2` is bound to its owners id. If a userid was not found then the value bound to 
+            that userid will be ``None``.
         """
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
@@ -1291,12 +1327,61 @@ class Client:
         if isinstance(end_time, datetime.datetime):
             end_time = (end_time - epoch).total_seconds()
         
-        data = await self.http.get_multiple_br_stats_v2(user_ids, stats)
+        tasks = [
+            self.fetch_profiles(user_ids, cache=True),
+            self.http.get_multiple_br_stats_v2(user_ids, stats)
+        ]
+        d, _ = await asyncio.wait(tasks)
+        results = [r.result() for r in d]
+        if len(results[0]) > 0 and isinstance(results[0][0], dict):
+            results = list(reversed(results))
 
         res = {}
-        for udata in data:
-            res[udata['accountId']] = StatsV2(udata)
+        for udata in results[1]:
+            r = [x for x in results[0] if x.id == udata['accountId']]
+            user = r[0] if len(r) != 0 else None
+            res[udata['accountId']] = StatsV2(user, udata) if user is not None else None
         return res
+
+    async def fetch_multiple_battlepass_levels(self, users):
+        """|coro|
+        
+        Fetches multiple users battlepass level.
+        
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+            
+        Returns
+        -------
+        Dict[id: :class:`float`]
+            Users battlepass level mapped to their account id. Returns ``None`` if no battlepass
+            level was found.
+        """
+        data = await self.http.get_multiple_br_stats_v2(
+            users,
+            ('s11_social_bp_level',)
+        )
+        return {e['accountId']: e['stats'].get('s11_social_bp_level', None) for e in data}
+
+    async def fetch_battlepass_level(self, user_id):
+        """|coro|
+        
+        Fetches a users battlepass level.
+        
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        :class:`float`
+            The users battlepass level.
+        """
+        data = await self.fetch_multiple_battlepass_levels((user_id,))
+        return data[user_id]
 
     async def fetch_leaderboard(self, stat):
         """|coro|
@@ -1388,7 +1473,7 @@ class Client:
         await party.set_privacy(config['privacy'])
         return party
 
-    async def join_to_party(self, party_id, party=None):
+    async def join_to_party(self, party_id, *, party=None):
         if party is None:
             party_data = await self.http.party_lookup(party_id)
             party = ClientParty(self, party_data)
@@ -1423,7 +1508,7 @@ class Client:
         self.status = status
         await self.xmpp.send_presence(status=status)
 
-    async def send_status(self, status, to=None):
+    async def send_status(self, status, *, to=None):
         """|coro|
         
         Sends this status to all or one single friend.

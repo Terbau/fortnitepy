@@ -85,13 +85,13 @@ Enumerations
 
 	An enumeration for all currently available platforms.
 
-	..attribute:: WINDOWS
-	..attribute:: MAC
-	..attribute:: PLAYSTATION
-	..attribute:: XBOX
-	..attribute:: SWITCH
-	..attribute:: IOS
-	..attribute:: ANDROID
+	.. attribute:: WINDOWS
+	.. attribute:: MAC
+	.. attribute:: PLAYSTATION
+	.. attribute:: XBOX
+	.. attribute:: SWITCH
+	.. attribute:: IOS
+	.. attribute:: ANDROID
 
 
 Event Reference
@@ -156,6 +156,13 @@ this decorator if you are in a subclass of :class:`Client`.
 
 	This event is called when the client receives a friend request.
 	
+	:param request: Request object.
+	:type request: :class:`PendingFriend`
+
+.. function:: event_friend_request_abort(friend)
+
+	This event is called when a friend request is aborted. Aborted means that the friend request was deleted before the receiving user managed to accept it.
+
 	:param request: Request object.
 	:type request: :class:`PendingFriend`
 

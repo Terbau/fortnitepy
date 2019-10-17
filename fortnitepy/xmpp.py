@@ -70,7 +70,7 @@ class XMPPClient:
                 'urn:epic:conn:type_s': 'game',
                 'urn:epic:conn:platform_s': presence.party.platform,
                 'urn:epic:member:dn_s': presence.friend.display_name,
-                'urn:epic:cfg:build-id_s': presence.party.build_id,
+                'urn:epic:cfg:build-id_s': presence.party.build_id or self.client.party_build_id,
                 'urn:epic:invite:platformdata_s': '',
             },
         }
@@ -95,6 +95,7 @@ class XMPPClient:
         log.debug('XMPP: Received event `{}` with body `{}`'.format(_type, body))
         
         if _type == 'com.epicgames.friends.core.apiobjects.Friend':
+            await self.client.wait_until_ready()
             _payload = body['payload']
             _status = _payload['status']
 
@@ -150,6 +151,7 @@ class XMPPClient:
                 pf = self.client.get_pending_friend(_id)
                 self.client.store_user(pf.get_raw())
                 self.client._pending_friends.remove(pf.id)
+                self.client.dispatch_event('friend_request_abort', pf)
             else:
                 f = self.client.get_friend(_id)
                 self.client.store_user(f.get_raw())
@@ -174,22 +176,30 @@ class XMPPClient:
 
                 invite = self._create_invite_from_presence(body['pinger_id'], pres)
 
-            if invite['meta']['urn:epic:cfg:build-id_s'] not in (self.client.party_build_id,
-                                                                 self.client.net_cl):
+            if 'urn:epic:cfg:build-id_s' not in invite['meta']:
+                pres = self.client.get_presence(body['pinger_id'])
+                if pres is not None and pres.party is not None and not pres.party.is_private:
+                    net_cl = pres.party.net_cl
+                else:
+                    net_cl = self.client.net_cl
+            else:
+                s = invite['meta']['urn:epic:cfg:build-id_s']
+                net_cl = s[4:] if s.startswith('1:1:') else s
+
+            if net_cl != self.client.net_cl:
                 log.debug(
-                    'Could not match the currently set party_build_id ({0}) to the received one {1}'.format(
+                    'Could not match the currently set net_cl ({0}) to the received value ({1})'.format(
                         self.client.net_cl,
-                        invite['meta']['urn:epic:cfg:build-id_s']
+                        net_cl
                     )
                 )
-                raise PartyError('Incompatible net_cl')
             
             party_id = invite['party_id']
             _raw = await self.client.http.party_lookup(party_id)
             new_party = Party(self.client, _raw)
             await new_party._update_members(_raw['members'])
             
-            invitation = PartyInvitation(self.client, new_party, invite)
+            invitation = PartyInvitation(self.client, new_party, net_cl, invite)
             self.client.dispatch_event('party_invite', invitation)
         
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_LEFT':
@@ -488,7 +498,7 @@ class XMPPClient:
         if self.xmpp_client.running:
             self.xmpp_client.stop()
             
-            # wait for client to shut down
+            # let the loop run one more time so the xmpp client can stop
             while self.xmpp_client.running:
                 await asyncio.sleep(0)
             
@@ -496,6 +506,7 @@ class XMPPClient:
             self._task.cancel()
         if self._ping_task:
             self._ping_task.cancel()
+            
         self._ping_task = None
         self.xmpp_client = None
         self.stream = None

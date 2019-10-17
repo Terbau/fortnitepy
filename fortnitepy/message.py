@@ -79,8 +79,7 @@ class FriendMessage(MessageBase):
 
 class PartyMessage(MessageBase):
 
-    __slots__ = MessageBase.__slots__ + \
-                ('party',)
+    __slots__ = MessageBase.__slots__ + ('party',)
 
     def __init__(self, client, party, author, content):
         super().__init__(client, author, content)

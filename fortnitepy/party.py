@@ -36,12 +36,18 @@ from .user import User
 from .friend import Friend
 from .enums import PartyPrivacy, DefaultCharacters
 
+def get_random_default_character():
+    return (random.choice(list(DefaultCharacters))).name
+
+def get_random_hex_color():
+    r = lambda: random.randint(0, 255)
+    return '#{:02x}{:02x}{:02x}'.format(r(), r(), r())
 
 class MetaBase:
     def __init__(self):
         self.schema = {}
 
-    def set_prop(self, prop, value, raw=False):
+    def set_prop(self, prop, value, *, raw=False):
         if raw:
             self.schema[prop] = str(value)
             return self.schema[prop]
@@ -55,7 +61,7 @@ class MetaBase:
             self.schema[prop] = str(value)
         return self.schema[prop]
     
-    def get_prop(self, prop, raw=False):
+    def get_prop(self, prop, *, raw=False):
         if raw:
             self.schema.get(prop)
         
@@ -70,7 +76,7 @@ class MetaBase:
         else:
             return '' if _v is None else str(_v)
 
-    def update(self, schema, raw=False):
+    def update(self, schema, *, raw=False):
         if schema is None: 
             return
 
@@ -90,14 +96,14 @@ class PartyMemberMeta(MetaBase):
         super().__init__()
         self.member = member
 
-        character = (random.choice(list(DefaultCharacters))).name
+        self.def_character = get_random_default_character()
         self.schema = {
             'Location_s': 'PreLobby',
             'CampaignHero_j': json.dumps({
                 'CampaignHero': {
                     'heroItemInstanceId': '',
                     'heroType': "FortHeroType'/Game/Athena/Heroes/{0}.{0}'" \
-                                "".format(character),
+                                "".format(self.def_character),
                 },
             }),
             'MatchmakingLevel_U': '0',
@@ -134,7 +140,7 @@ class PartyMemberMeta(MetaBase):
             'AthenaCosmeticLoadout_j': json.dumps({
                 'AthenaCosmeticLoadout': {
                     'characterDef': "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/{0}.{0}'" \
-                                    "".format(character),
+                                    "".format(self.def_character),
                     'characterEKey': '',
                     'backpackDef': 'None',
                     'backpackEKey': '',
@@ -263,7 +269,7 @@ class PartyMemberMeta(MetaBase):
     def set_readiness(self, val):
         return {'GameReadiness_s': self.set_prop('GameReadiness_s', val)}
 
-    def set_emote(self, emote=None, emote_ekey=None, section=None):
+    def set_emote(self, emote=None, *, emote_ekey=None, section=None):
         data = (self.get_prop('FrontendEmote_j'))['FrontendEmote']
         
         if emote:
@@ -276,7 +282,7 @@ class PartyMemberMeta(MetaBase):
         final = {'FrontendEmote': data}
         return {'FrontendEmote_j': self.set_prop('FrontendEmote_j', final)}
 
-    def set_assisted_challenge(self, quest=None, completed=None):
+    def set_assisted_challenge(self, quest=None, *, completed=None):
         data = (self.get_prop('AssistedChallengeInfo_j'))['AssistedChallenge_j']
 
         if quest:
@@ -287,7 +293,7 @@ class PartyMemberMeta(MetaBase):
         final = {'AssistedChallengeInfo': data}
         return {'AssistedChallengeInfo_j': self.set_prop('AssistedChallengeInfo_j', final)}
 
-    def set_banner(self, banner_icon=None, banner_color=None, season_level=None):
+    def set_banner(self, banner_icon=None, *, banner_color=None, season_level=None):
         data = (self.get_prop('AthenaBannerInfo_j'))['AthenaBannerInfo']
 
         if banner_icon:
@@ -316,7 +322,7 @@ class PartyMemberMeta(MetaBase):
         final = {'BattlePassInfo': data}
         return {'BattlePassInfo_j': self.set_prop('BattlePassInfo_j', final)}
 
-    def set_cosmetic_loadout(self, character=None, character_ekey=None, backpack=None,
+    def set_cosmetic_loadout(self, *, character=None, character_ekey=None, backpack=None,
                              backpack_ekey=None, pickaxe=None, pickaxe_ekey=None, variants=None):
         data = (self.get_prop('AthenaCosmeticLoadout_j'))['AthenaCosmeticLoadout']
 
@@ -418,7 +424,7 @@ class PartyMeta(MetaBase):
 
             return privacy
 
-    def set_playlist(self, playlist=None, tournament=None, event_window=None, region=None):
+    def set_playlist(self, playlist=None, *, tournament=None, event_window=None, region=None):
         data = (self.get_prop('PlaylistData_j'))['PlaylistData']
 
         if playlist:
@@ -646,7 +652,7 @@ class PartyMemberBase(User):
     def update_role(self, role):
         self.role = role
 
-    def create_variants(self, item="AthenaCharacter", particle_config='Emissive', **kwargs):
+    def create_variants(self, item="AthenaCharacter", *, particle_config='Emissive', **kwargs):
         """Creates the variants list by the variants you set.
 
         .. warning::
@@ -886,13 +892,14 @@ class ClientPartyMember(PartyMemberBase):
         value: :class:`bool`
             **True** to set it to ready.
             **False** to set it to unready.
+            **None** to set it to sitting out.
         """
         prop = self.meta.set_readiness(
-            val='Ready' if value is True else 'NotReady'
+            val='Ready' if value is True else ('NotReady' if value is False else 'SittingOut')
         )
         await self.patch(updated=prop)
 
-    async def set_outfit(self, asset, key=None, variants=None):
+    async def set_outfit(self, asset, *, key=None, variants=None):
         """|coro|
         
         Sets the outfit of the client.
@@ -925,7 +932,7 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
         
-    async def set_backpack(self, asset, key=None, variants=None):
+    async def set_backpack(self, asset, *, key=None, variants=None):
         """|coro|
         
         Sets the backpack of the client.
@@ -958,7 +965,7 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
     
-    async def set_pickaxe(self, asset, key=None, variants=None):
+    async def set_pickaxe(self, asset, *, key=None, variants=None):
         """|coro|
         
         Sets the pickaxe of the client.
@@ -991,7 +998,7 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
 
-    async def set_emote(self, asset, run_for=None, key=None, section=None):
+    async def set_emote(self, asset, *, run_for=None, key=None, section=None):
         """|coro|
         
         Sets the emote of the client.
@@ -1043,7 +1050,7 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
     
-    async def set_banner(self, icon=None, color=None, season_level=None):
+    async def set_banner(self, icon=None, *, color=None, season_level=None):
         """|coro|
         
         Sets the banner of the client.
@@ -1099,7 +1106,7 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
     
-    async def set_assisted_challenge(self, quest=None, num_completed=None):
+    async def set_assisted_challenge(self, quest=None, *, num_completed=None):
         """|coro|
         
         Sets the assisted challenge.
@@ -1258,7 +1265,7 @@ class PartyBase:
             else:
                 user = self.client.get_user(user_id)
                 if user is None:
-                    user = await self.client.fetch_profile(user_id)
+                    user = await self.client.fetch_profile(user_id, cache=True)
             raw = {**raw, **(user.get_raw())}
 
             member = PartyMember(self.client, self, raw)
@@ -1438,7 +1445,7 @@ class ClientParty(PartyBase):
             else:
                 user = self.client.get_user(user_id)
                 if user is None:
-                    user = await self.client.fetch_profile(user_id)
+                    user = await self.client.fetch_profile(user_id, cache=True)
             raw = {**raw, **(user.get_raw())}
 
             member = PartyMember(self.client, self, raw)
@@ -1583,7 +1590,7 @@ class ClientParty(PartyBase):
         updated, deleted = self.meta.set_privacy(privacy)
         await self.patch(updated=updated, deleted=deleted)
     
-    async def set_playlist(self, playlist=None, tournament=None, event_window=None, region=None):
+    async def set_playlist(self, playlist=None, *, tournament=None, event_window=None, region=None):
         """|coro|
         
         Sets the current playlist of the party.
@@ -1693,15 +1700,18 @@ class PartyInvitation:
         The client.
     party: :class:`Party`
         The party the invitation belongs to.
+    net_cl: :class:`str`
+        The net_cl received by the sending client.
     author: :class:`Friend`
         The friend that invited you to the party.
     created_at: :class:`datetime.datetime`
         The UTC time this invite was created at.
     """
-    def __init__(self, client, party, data):
+    def __init__(self, client, party, net_cl, data):
         self.client = client
         self.party = party
-        
+        self.net_cl = net_cl
+
         self.author = self.client.get_friend(data['sent_by'])
         self.created_at = self.client.from_iso(data['sent_at'])
 
@@ -1715,6 +1725,9 @@ class PartyInvitation:
         HTTPException
             Something went wrong when accepting the invitation.
         """
+        if self.net_cl != self.client.net_cl:
+            raise PartyError('Incompatible net_cl')
+
         await self.client.join_to_party(self.party.id)
 
     async def decline(self):
@@ -1724,6 +1737,8 @@ class PartyInvitation:
 
         Raises
         ------
+        PartyError
+            The clients net_cl is not compatible with the received net_cl.
         HTTPException
             Something went wrong when declining the invitation.
         """
