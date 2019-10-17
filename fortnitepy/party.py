@@ -36,6 +36,12 @@ from .user import User
 from .friend import Friend
 from .enums import PartyPrivacy, DefaultCharacters
 
+def get_random_default_character():
+    return (random.choice(list(DefaultCharacters))).name
+
+def get_random_hex_color():
+    r = lambda: random.randint(0, 255)
+    return '#{:02x}{:02x}{:02x}'.format(r(), r(), r())
 
 class MetaBase:
     def __init__(self):
@@ -90,14 +96,14 @@ class PartyMemberMeta(MetaBase):
         super().__init__()
         self.member = member
 
-        character = (random.choice(list(DefaultCharacters))).name
+        self.def_character = get_random_default_character()
         self.schema = {
             'Location_s': 'PreLobby',
             'CampaignHero_j': json.dumps({
                 'CampaignHero': {
                     'heroItemInstanceId': '',
                     'heroType': "FortHeroType'/Game/Athena/Heroes/{0}.{0}'" \
-                                "".format(character),
+                                "".format(self.def_character),
                 },
             }),
             'MatchmakingLevel_U': '0',
@@ -134,7 +140,7 @@ class PartyMemberMeta(MetaBase):
             'AthenaCosmeticLoadout_j': json.dumps({
                 'AthenaCosmeticLoadout': {
                     'characterDef': "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/{0}.{0}'" \
-                                    "".format(character),
+                                    "".format(self.def_character),
                     'characterEKey': '',
                     'backpackDef': 'None',
                     'backpackEKey': '',

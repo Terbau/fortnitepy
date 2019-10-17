@@ -40,20 +40,25 @@ class PresenceGameplayStats:
         The state.
     playlist: :class:`str`
         The playlist.
+    players_alive: :class:`int`
+        The amount of players alive in the current game.
     num_kills: :class:`int`
         The amount of kills the friend currently has.
     fell_to_death: :class:`bool`
         ``True`` if friend fell to death in its current game, else ``False``    
     """
 
-    __slots__ = ('state', 'playlist', 'num_kills', 'fell_to_death')
+    __slots__ = ('state', 'playlist', 'players_alive', 'num_kills', 'fell_to_death')
 
-    def __init__(self, data):
+    def __init__(self, data, players_alive):
         self.state = data.get('state')
         self.playlist = data.get('playlist')
+        self.players_alive = players_alive
+
         self.num_kills = data.get('numKills')
         if self.num_kills is not None:
             self.num_kills = int(self.num_kills)
+
         self.fell_to_death = True if data.get('bFellToDeath') else False
 
 
@@ -137,6 +142,7 @@ class PresenceParty:
 
         self.party_flags = data.get('partyFlags')
         self.not_accepting_reason = data.get('notAcceptingReason')
+        
         self.playercount = data.get('pc')
         if self.playercount is not None:
             self.playercount = int(self.playercount)
@@ -155,6 +161,7 @@ class PresenceParty:
         """
         if self.is_private:
             raise PartyPermissionError('You cannot join a private party.')
+
         await self.client.join_to_party(self.id)
 
 
@@ -192,6 +199,10 @@ class Presence:
         The friend's party.
     gameplay_stats: :class:`PresenceGameplayStats`
         The friend's gameplay stats.
+    avatar: :class:`str`
+        The avatar set in Kairos (Mobile app).
+    avatar_colors: List[:class:`str`]
+        List of colors in hex string format used in the avatar background.
     homebase_rating: :class:`str`
         The friend's homebase rating
     lfg: :class:`bool`
@@ -202,8 +213,6 @@ class Presence:
         ``True`` if friend is in unjoinable match else ``False``.
     playlist: :class:`str`
         The friend's current playlist.
-    players_alive: :class:`int`
-        The amount of players alive in the friend's current game.
     party_size: :class:`int`
         The size of the friend's party.
     max_party_size: :class:`int`
@@ -216,10 +225,10 @@ class Presence:
 
     __slots__ = ('client', 'raw', 'is_available', 'friend', 'received_at', 'status', 
                  'is_playing', 'is_joinable', 'has_voice_support', 'session_id', 
-                 'raw_properties', 'has_properties', 'homebase_rating', 'lfg', 'sub_game',
-                 'in_unjoinable_match', 'playlist', 'players_alive', 'party_size',
-                 'max_party_size', 'game_session_join_key', 'server_player_count',
-                 'gameplay_stats', 'party')
+                 'raw_properties', 'has_properties', 'avatar', 'avatar_colors', 
+                 'homebase_rating', 'lfg', 'sub_game', 'in_unjoinable_match', 
+                 'playlist', 'party_size', 'max_party_size', 'game_session_join_key', 
+                 'server_player_count', 'gameplay_stats', 'party')
 
     def __init__(self, client, from_id, is_available, data):
         self.client = client
@@ -238,34 +247,50 @@ class Presence:
         self.has_properties = self.raw_properties != {}
         
         # all values below will be "None" if properties is empty
+
+        kairos_profile = self.raw_properties.get('KairosProfile_s', {})
+        if kairos_profile != {}:
+            kairos_profile = json.loads(kairos_profile)
+        
+        self.avatar = kairos_profile.get('avatar')
+        self.avatar_colors = kairos_profile.get('avatarBackground')
+
         _basic_info = self.raw_properties.get('FortBasicInfo_j', {})
         self.homebase_rating = _basic_info.get('homeBaseRating')
+
         if self.raw_properties.get('FortLFG_I') is None:
             self.lfg = None
         else:
             self.lfg = True if int(self.raw_properties.get('FortLFG_I')) == 1 else False
 
         self.sub_game = self.raw_properties.get('FortSubGame_i')
+
         self.in_unjoinable_match = self.raw_properties.get('InUnjoinableMatch_b')
         if self.in_unjoinable_match is not None:
             self.in_unjoinable_match = int(self.in_unjoinable_match)
+
         self.playlist = self.raw_properties.get('GamePlaylistName_s')
-        self.players_alive = self.raw_properties.get('Event_PlayersAlive_s')
-        if self.players_alive is not None:
-            self.players_alive = int(self.players_alive)
+
+        players_alive = self.raw_properties.get('Event_PlayersAlive_s')
+        if players_alive is not None:
+            players_alive = int(players_alive)
+
         self.party_size = self.raw_properties.get('Event_PartySize_s')
         if self.party_size is not None:
             self.party_size = int(self.party_size)
+
         self.max_party_size = self.raw_properties.get('Event_PartyMaxSize_s')
         if self.max_party_size is not None:
             self.max_party_size = int(self.max_party_size)
+
         self.game_session_join_key = self.raw_properties.get('GameSessionJoinKey_s')
+
         self.server_player_count = self.raw_properties.get('ServerPlayerCount_i')
         if self.server_player_count is not None:
             self.server_player_count = int(self.server_player_count)
 
         if 'FortGameplayStats_j' in self.raw_properties.keys():
-            self.gameplay_stats = PresenceGameplayStats(self.raw_properties['FortGameplayStats_j'])
+            self.gameplay_stats = PresenceGameplayStats(self.raw_properties['FortGameplayStats_j'], players_alive)
         else:
             self.gameplay_stats = None
         
@@ -273,6 +298,7 @@ class Presence:
         for k in self.raw_properties.keys():
             if re.search(r'party\.joininfodata\.\d+_j', k) is not None:
                 key = k
+
         if key is None:
             self.party = None
         else:
