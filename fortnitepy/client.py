@@ -1356,13 +1356,14 @@ class Client:
         Returns
         -------
         Dict[id: :class:`float`]
-            Users battlepass level mapped to their account id.
+            Users battlepass level mapped to their account id. Returns ``None`` if no battlepass
+            level was found.
         """
         data = await self.http.get_multiple_br_stats_v2(
             users,
             ('s11_social_bp_level',)
         )
-        return {e['accountId']: e['stats'].get('s11_social_bp_level', 100) for e in data}
+        return {e['accountId']: e['stats'].get('s11_social_bp_level', None) for e in data}
 
     async def fetch_battlepass_level(self, user_id):
         """|coro|
