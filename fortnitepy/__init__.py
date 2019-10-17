@@ -38,3 +38,6 @@ from .errors import *
 from .store import Store, FeaturedStoreItem, DailyStoreItem
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
+
+# temporary fix for python 3.8
+get_event_loop()
