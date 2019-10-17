@@ -95,6 +95,7 @@ class XMPPClient:
         log.debug('XMPP: Received event `{}` with body `{}`'.format(_type, body))
         
         if _type == 'com.epicgames.friends.core.apiobjects.Friend':
+            await self.client.wait_until_ready()
             _payload = body['payload']
             _status = _payload['status']
 
