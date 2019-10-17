@@ -31,6 +31,7 @@ import sys
 import signal
 import logging
 import json
+import selectors
 
 from bs4 import BeautifulSoup
 from OpenSSL.SSL import SysCallError
@@ -76,7 +77,6 @@ def _cancel_tasks(loop):
                 'task': task
             })
 
-
 def _cleanup_loop(loop):
     try:
         _cancel_tasks(loop)
@@ -85,6 +85,20 @@ def _cleanup_loop(loop):
     finally:
         log.info('Closing the event loop.')
         loop.close()
+
+def get_event_loop():
+    policy = asyncio.get_event_loop_policy()
+    loop = policy._local._loop
+
+    if loop is None:
+        selector = selectors.SelectSelector()
+        loop = asyncio.SelectorEventLoop(selector)
+        asyncio.set_event_loop(loop)
+    
+    elif isinstance(loop, asyncio.ProactorEventLoop):
+        raise RuntimeError('asyncio.ProactorEventLoop is not supported')
+
+    return loop
 
 
 class Client:
@@ -181,7 +195,7 @@ class Client:
         self.email = email
         self.password = password
         self.two_factor_code = two_factor_code
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_event_loop()
 
         self.status = kwargs.get('status', None)
         self.platform = kwargs.get('platform', Platform.WINDOWS)
@@ -398,6 +412,9 @@ class Client:
         AuthException
             An error occured when attempting to log in.
         """
+        # python 3.8 event loop check
+        get_event_loop()
+
         self.loop.set_exception_handler(self.exc_handler)
         if self._closed:
             self.http.create_connection()

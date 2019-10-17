@@ -26,7 +26,7 @@ SOFTWARE.
 
 __version__ = '0.8.0'
 
-from .client import Client
+from .client import Client, get_event_loop
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
 from .party import PartyMember, ClientPartyMember, Party, ClientParty, PartyInvitation, PartyJoinConfirmation
