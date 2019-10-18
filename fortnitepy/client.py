@@ -299,7 +299,7 @@ class Client:
             An error occured while requesting to leave the party.
         """
         self.net_cl = net_cl
-        self.party_build_id = '1:1:{0.net_cl}'.format(net_cl)
+        self.party_build_id = '1:1:{0}'.format(net_cl)
 
         if leave_party:
             await self.user.party.me.leave()
