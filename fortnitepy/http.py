@@ -388,8 +388,21 @@ class HTTPClient:
     # Party
     ########################################
 
-    # send party invite
-    async def party_send_invite(self, user_id):
+    async def party_send_invite(self, party_id, user_id):
+        return await self.post(
+            'https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite/' \
+            'parties/{0}/invites/{1}'.format(party_id, user_id),
+            self.client.auth.authorization,
+            json={
+                'urn:epic:cfg:build-id_s': self.client.party_build_id,
+                'urn:epic:conn:platform_s': self.client.platform.value,
+                'urn:epic:conn:type_s': 'game',
+                'urn:epic:invite:platformdata_s': '',
+                'urn:epic:member:dn_s': self.client.user.display_name,
+            }
+        )
+
+    async def party_send_ping(self, user_id):
         return await self.post(
             'https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite/' \
             'user/{0}/pings/{1.client.user.id}'.format(user_id, self),
@@ -412,7 +425,6 @@ class HTTPClient:
             'parties/{0}/members/{1}/confirm'.format(party_id, user_id),
             self.client.auth.authorization,
             is_json=True
-
         )
     
     async def party_member_reject(self, party_id, user_id):
@@ -499,6 +511,13 @@ class HTTPClient:
         return await self.get(
             'https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite/' \
             'user/{0}'.format(user_id),
+            self.client.auth.authorization
+        )
+
+    async def party_lookup_ping(self, user_id):
+        return await self.get(
+            'https://party-service-prod.ol.epicgames.com/party/api/v1/Fortnite/user/' \
+            '{0.client.user.id}/pings/{1}/parties'.format(self, user_id),
             self.client.auth.authorization
         )
 

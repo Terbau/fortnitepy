@@ -50,10 +50,14 @@ class PartyError(FortniteException):
     """This exception is raised when something regarding parties fails."""
     pass
 
-class PartyPermissionError(FortniteException):
-    """This exception is raised when you dont have permission to do something in a party
-    or a party you are trying to join is private.
+class Forbidden(FortniteException):
+    """This exception is raised whenever you attempted a request that your account does
+    not have permission to do.
     """
+    pass
+
+class NotFound(FortniteException):
+    """This exception is raised when something was not found by fortnites services."""
     pass
 
 class HTTPException(FortniteException):
@@ -102,3 +106,6 @@ class HTTPException(FortniteException):
         )
 
         super().__init__(self.text)
+
+    def reraise(self):
+        raise HTTPException(self.response, self.raw)

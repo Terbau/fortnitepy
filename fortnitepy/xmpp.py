@@ -76,6 +76,33 @@ class XMPPClient:
         }
         return inv
 
+    def _create_invite(self, from_id, data):
+        now = datetime.datetime.utcnow()
+        expires_at = now + datetime.timedelta(hours=4)
+
+        for m in data['members']:
+            if m['account_id'] == from_id:
+                member = m
+                break
+
+        inv = {
+            'party_id': data['id'],
+            'sent_by': from_id,
+            'sent_to': self.client.user.id,
+            'sent_at': self.client.to_iso(now),
+            'updated_at': self.client.to_iso(now),
+            'expires_at': self.client.to_iso(expires_at),
+            'status': 'SENT',
+            'meta': {
+                'urn:epic:conn:type_s': 'game',
+                'urn:epic:conn:platform_s': json.loads(member['meta']['Platform_j'])['Platform']['platformStr'],
+                'urn:epic:member:dn_s': member['meta']['urn:epic:member:dn_s'],
+                'urn:epic:cfg:build-id_s': data['meta']['urn:epic:cfg:build-id_s'],
+                'urn:epic:invite:platformdata_s': '',
+            }
+        }
+        return inv
+
     async def process_message(self, message):
         author = self.client.get_friend(message.from_.localpart)
 
@@ -162,22 +189,27 @@ class XMPPClient:
         # Party
         ##############################
         elif _type == 'com.epicgames.social.party.notification.v0.PING':
-            data = await self.client.http.party_lookup_user(self.client.user.id)
+            pinger = body['pinger_id']
+            data = (await self.client.http.party_lookup_ping(pinger))[0]
 
             invite = None
             for inv in data['invites']:
-                if inv['sent_by'] == body['pinger_id'] and inv['status'] == 'SENT':
+                if inv['sent_by'] == pinger and inv['status'] == 'SENT':
                     invite = inv
 
             if invite is None:
-                pres = self.client.get_presence(body['pinger_id'])
-                if pres is None:
-                    raise PartyError('Invite not found')
+                invite = self._create_invite(pinger, data)
 
-                invite = self._create_invite_from_presence(body['pinger_id'], pres)
+            # if invite is None:
+            #     pres = self.client.get_presence(body['pinger_id'])
+
+            #     if pres is None:
+            #         raise PartyError('Invite not found')
+
+            #     invite = self._create_invite_from_presence(body['pinger_id'], pres)
 
             if 'urn:epic:cfg:build-id_s' not in invite['meta']:
-                pres = self.client.get_presence(body['pinger_id'])
+                pres = self.client.get_presence(pinger)
                 if pres is not None and pres.party is not None and not pres.party.is_private:
                     net_cl = pres.party.net_cl
                 else:
@@ -186,7 +218,7 @@ class XMPPClient:
                 s = invite['meta']['urn:epic:cfg:build-id_s']
                 net_cl = s[4:] if s.startswith('1:1:') else s
 
-            if net_cl != self.client.net_cl:
+            if net_cl != self.client.net_cl and self.client.net_cl != '':
                 log.debug(
                     'Could not match the currently set net_cl ({0}) to the received value ({1})'.format(
                         self.client.net_cl,
@@ -194,10 +226,8 @@ class XMPPClient:
                     )
                 )
             
-            party_id = invite['party_id']
-            _raw = await self.client.http.party_lookup(party_id)
-            new_party = Party(self.client, _raw)
-            await new_party._update_members(_raw['members'])
+            new_party = Party(self.client, data)
+            await new_party._update_members(members=data['members'])
             
             invitation = PartyInvitation(self.client, new_party, net_cl, invite)
             self.client.dispatch_event('party_invite', invitation)
@@ -270,6 +300,7 @@ class XMPPClient:
             party._remove_member(member.id)
 
             if member.id == self.client.user.id:
+                await self.leave_muc()
                 p = await self.client._create_party()
                 
                 self.client.user.set_party(p)
@@ -340,9 +371,27 @@ class XMPPClient:
 
             asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
             if party.me and party.leader and party.me.id == party.leader.id:
-                await party.patch(updated={
+                fut = asyncio.ensure_future(party.patch(updated={
                     'RawSquadAssignments_j': party.meta.refresh_squad_assignments()
-                })
+                }), loop=self.client.loop)
+
+            self.client.dispatch_event('internal_party_member_join', member)
+
+            try:
+                if member.id == self.client.user.id:
+                    await self.client.wait_for('muc_enter', timeout=1)
+                else:
+                    def check(m):
+                        return m.direct_jid.localpart == member.id
+
+                    await self.client.wait_for('muc_member_join', check=check, timeout=1)
+            except asyncio.TimeoutError:
+                pass
+
+            try:
+                await fut
+            except UnboundLocalError:
+                pass
 
             self.client.dispatch_event('party_member_join', member)
 
@@ -524,6 +573,12 @@ class XMPPClient:
             content=message.body.any()
         ))
 
+    def muc_on_member_join(self, member):
+        self.client.dispatch_event('muc_member_join', member)
+
+    def muc_on_enter(self, *args, **kwargs):
+        self.client.dispatch_event('muc_enter')
+
     async def join_muc(self, party_id):
         muc_jid = aioxmpp.JID.fromstr('Party-{}@muc.prod.ol.epicgames.com'.format(party_id))
         nick = '{0.display_name}:{0.id}:{1}'.format(self.client.user, self.xmpp_client.local_jid.resource)
@@ -531,13 +586,22 @@ class XMPPClient:
         room, fut = self.muc_service.join(muc_jid, nick)
 
         room.on_message.connect(self.muc_on_message)
+        room.on_join.connect(self.muc_on_member_join)
+        room.on_enter.connect(self.muc_on_enter)
         self.muc_room = room
-        await fut
+
+        asyncio.ensure_future(fut, loop=self.client.loop)
+        await self.client.wait_for('muc_enter')
 
     async def leave_muc(self):
         if self.muc_room is not None:
-            await self.muc_room.leave()
-        self.muc_room = None
+            presence = aioxmpp.stanza.Presence(
+                type_=aioxmpp.structs.PresenceType.UNAVAILABLE,
+                to=self.muc_room._mucjid
+            )
+            await self.xmpp_client.send(presence)
+
+            self.muc_service._muc_exited(self.muc_room)
 
     async def send_party_message(self, content):
         if self.muc_room is None:
@@ -592,6 +656,10 @@ class XMPPClient:
         if _status is not None:
             pres.status[None] = json.dumps(_status)
         await self.stream.send(pres)
+
+    async def get_presence(self, jid):
+        self.client.loop.create_task(self.send_presence_probe(jid))
+        return await self.client.wait_for('friend_presence', check=lambda p: p.friend.id == jid.localpart)
 
     async def send_presence_probe(self, to):
         presence = aioxmpp.Presence(

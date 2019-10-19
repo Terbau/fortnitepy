@@ -25,7 +25,7 @@ SOFTWARE.
 """
 
 from .user import UserBase
-from .errors import PartyError, PartyPermissionError
+from .errors import PartyError, Forbidden
 
 
 class FriendBase(UserBase):
@@ -204,7 +204,7 @@ class Friend(FriendBase):
         ------
         PartyError
             Party was not found.
-        PartyPermissionError
+        Forbidden
             The party you attempted to join was private.
         HTTPException
             Something else went wrong when trying to join the party.
@@ -214,9 +214,25 @@ class Friend(FriendBase):
             raise PartyError('Could not join party. Reason: Party not found')
         
         if _pre.party.is_private:
-            raise PartyPermissionError('Could not join party. Reason: Party is private')
+            raise Forbidden('Could not join party. Reason: Party is private')
         
         await _pre.party.join()
+
+    async def invite(self):
+        """|coro|
+        
+        Invites this friend to your party.
+        
+        Raises
+        ------
+        PartyError
+            Friend is already in your party.
+        PartyError
+            The party is full.
+        HTTPException
+            Something went wrong when trying to invite this friend.
+        """
+        await self.client.user.party.invite(self.id)
 
 
 class PendingFriend(FriendBase):
