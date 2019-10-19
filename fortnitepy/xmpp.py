@@ -379,12 +379,12 @@ class XMPPClient:
 
             try:
                 if member.id == self.client.user.id:
-                    await self.client.wait_for('muc_enter', timeout=1)
+                    await self.client.wait_for('muc_enter', timeout=2)
                 else:
                     def check(m):
                         return m.direct_jid.localpart == member.id
 
-                    await self.client.wait_for('muc_member_join', check=check, timeout=1)
+                    await self.client.wait_for('muc_member_join', check=check, timeout=2)
             except asyncio.TimeoutError:
                 pass
 

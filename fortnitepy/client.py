@@ -86,16 +86,20 @@ def _cleanup_loop(loop):
         loop.close()
 
 def get_event_loop():
-    policy = asyncio.get_event_loop_policy()
-    loop = policy._local._loop
+    if sys.platform == 'win32':
+        policy = asyncio.get_event_loop_policy()
+        loop = policy._local._loop
 
-    if loop is None:
-        selector = selectors.SelectSelector()
-        loop = asyncio.SelectorEventLoop(selector)
-        asyncio.set_event_loop(loop)
+        if loop is None:
+            selector = selectors.SelectSelector()
+            loop = asyncio.SelectorEventLoop(selector)
+            asyncio.set_event_loop(loop)
+        
+        elif isinstance(loop, asyncio.ProactorEventLoop):
+            raise RuntimeError('asyncio.ProactorEventLoop is not supported')
     
-    elif isinstance(loop, asyncio.ProactorEventLoop):
-        raise RuntimeError('asyncio.ProactorEventLoop is not supported')
+    else:
+        loop = asyncio.get_event_loop()
 
     return loop
 
@@ -1486,7 +1490,7 @@ class Client:
         await party.set_privacy(config['privacy'])
         return party
 
-    async def join_to_party(self, party_id, check_private=True):
+    async def join_to_party(self, party_id, *, check_private=True):
         """|coro|
         
         Joins a party by the party id.
