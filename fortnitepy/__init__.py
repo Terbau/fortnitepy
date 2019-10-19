@@ -24,9 +24,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '0.8.0'
+__version__ = '0.9.0'
 
-from .client import Client
+from .client import Client, get_event_loop
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
 from .party import PartyMember, ClientPartyMember, Party, ClientParty, PartyInvitation, PartyJoinConfirmation
@@ -38,3 +38,6 @@ from .errors import *
 from .store import Store, FeaturedStoreItem, DailyStoreItem
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
+
+# temporary fix for python 3.8
+get_event_loop()

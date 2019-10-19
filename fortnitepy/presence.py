@@ -29,7 +29,7 @@ import re
 import datetime
 
 from .party import Party
-from .errors import PartyPermissionError
+from .errors import Forbidden, PartyError
 
 class PresenceGameplayStats:
     """Represents gameplaystats received from presence.
@@ -154,13 +154,18 @@ class PresenceParty:
 
         Raises
         ------
-        PartyPermissionError
+        PartyError
+            You are already a member of this party.
+        Forbidden
             The party is private.
         HTTPException
             Something else went wrong when trying to join this party.
         """
+        if self.client.user.party.id == self.id:
+            raise PartyError('You are already a member of this party.')
+
         if self.is_private:
-            raise PartyPermissionError('You cannot join a private party.')
+            raise Forbidden('You cannot join a private party.')
 
         await self.client.join_to_party(self.id)
 

@@ -31,10 +31,11 @@ import sys
 import signal
 import logging
 import json
+import selectors
 
 from bs4 import BeautifulSoup
 from OpenSSL.SSL import SysCallError
-from .errors import EventError, PartyError, HTTPException, PurchaseException
+from .errors import EventError, PartyError, HTTPException, PurchaseException, NotFound, Forbidden
 from .xmpp import XMPPClient
 from .auth import Auth
 from .http import HTTPClient
@@ -48,7 +49,6 @@ from .store import Store
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 
-# logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__) 
 
 # all credit for this function goes to discord.py. Great task cancelling.
@@ -76,7 +76,6 @@ def _cancel_tasks(loop):
                 'task': task
             })
 
-
 def _cleanup_loop(loop):
     try:
         _cancel_tasks(loop)
@@ -85,6 +84,24 @@ def _cleanup_loop(loop):
     finally:
         log.info('Closing the event loop.')
         loop.close()
+
+def get_event_loop():
+    if sys.platform == 'win32':
+        policy = asyncio.get_event_loop_policy()
+        loop = policy._local._loop
+
+        if loop is None:
+            selector = selectors.SelectSelector()
+            loop = asyncio.SelectorEventLoop(selector)
+            asyncio.set_event_loop(loop)
+        
+        elif isinstance(loop, asyncio.ProactorEventLoop):
+            raise RuntimeError('asyncio.ProactorEventLoop is not supported')
+    
+    else:
+        loop = asyncio.get_event_loop()
+
+    return loop
 
 
 class Client:
@@ -107,17 +124,11 @@ class Client:
         Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
     platform: Optional[:class:`.Platform`]
         The platform you want the client to display as its source. 
-        Defaults to ``WIN``.
+        Defaults to :attr:`Platform.WINDOWS`.
     net_cl: :class:`str`
-        The current buildid used by the current Fortnite build. Named *netCL* in official logs.
-        Defaults to the current buildid but doesn't get updated automatically. 
-        
-        .. warning::
-
-            When a new buildid is pushed by EpicGames you must either wait for the library to get updated
-            and then download the updated version with the correct buildid or you can get it yourself from
-            the official logs and initialize client with it.
-
+        The current net cl used by the current Fortnite build. Named **netCL** in official logs.
+        Defaults to an empty string which is the recommended usage as of ``v0.9.0`` since you then
+        won't need to update it when a new update is pushed by Fortnite.  
     default_party_config: Optional[:class:`dict`]
         The party configuration used when creating parties.
         Defaults to:
@@ -181,11 +192,11 @@ class Client:
         self.email = email
         self.password = password
         self.two_factor_code = two_factor_code
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_event_loop()
 
         self.status = kwargs.get('status', None)
         self.platform = kwargs.get('platform', Platform.WINDOWS)
-        self.net_cl = kwargs.get('net_cl', '9403777')
+        self.net_cl = kwargs.get('net_cl', '')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', {})
         self.build = kwargs.get('build', '++Fortnite+Release-11.00-CL-9603448')
@@ -285,7 +296,7 @@ class Client:
             An error occured while requesting to leave the party.
         """
         self.net_cl = net_cl
-        self.party_build_id = '1:1:{0.net_cl}'.format(net_cl)
+        self.party_build_id = '1:1:{0}'.format(net_cl)
 
         if leave_party:
             await self.user.party.me.leave()
@@ -301,9 +312,10 @@ class Client:
             'privacy': PartyPrivacy.PUBLIC.value,
             'join_confirmation': False,
             'joinability': 'OPEN',
+            'discoverability': 'ALL',
             'max_size': 16,
             'sub_type': 'default',
-            'type': 'default',
+            'type': 'DEFAULT',
             'invite_ttl_seconds': 14400,
             'chat_enabled': True,
         }
@@ -333,7 +345,8 @@ class Client:
 
     def setup_internal(self):
         logger = logging.getLogger('aioxmpp')
-        logger.setLevel(level=logging.ERROR)
+        if logger.getEffectiveLevel() == 30:
+            logger.setLevel(level=logging.ERROR)
 
     def run(self):
         """This function starts the loop and then calls :meth:`start` for you.
@@ -398,6 +411,9 @@ class Client:
         AuthException
             An error occured when attempting to log in.
         """
+        # python 3.8 event loop check
+        get_event_loop()
+
         self.loop.set_exception_handler(self.exc_handler)
         if self._closed:
             self.http.create_connection()
@@ -1454,37 +1470,92 @@ class Client:
 
                 data = await self.http.party_lookup_user(self.user.id)
                 await self.http.party_leave(data['current'][0]['id'])
+                await self.xmpp.leave_muc()
 
         config = {**cf, **data['config']}
         party = ClientParty(self, data)
-        await party._update_members(data['members'])
-        asyncio.ensure_future(party.join_chat(), loop=self.loop)
+        await party._update_members(members=data['members'])
         self.user.set_party(party)
 
         def check(m):
             return m.id == self.user.id
 
         try:
-            await self.wait_for('party_member_join', check=check, timeout=3)
+            await self.wait_for('internal_party_member_join', check=check, timeout=3)
         except asyncio.TimeoutError:
             await party._leave()
             return await self._create_party()
 
+        await party.join_chat()
         await party.set_privacy(config['privacy'])
         return party
 
-    async def join_to_party(self, party_id, *, party=None):
-        if party is None:
+    async def join_to_party(self, party_id, *, check_private=True):
+        """|coro|
+        
+        Joins a party by the party id.
+
+        Parameters
+        ----------
+        party_id: :class:`str`
+            The id of the party you wish to join.
+        check_private: :class:`bool`
+            | Whether or not to check if the party is private before joining.
+            | Defaults to ``True``.
+
+        Raises
+        ------
+        PartyError
+            You are already a member of this party.
+        NotFound
+            The party was not found.
+        Forbidden
+            You attempted to join a private party with ``check_party`` set to ``True``.
+        Forbidden
+            You have no right to join this party. This exception is only raised if 
+            ``check_party`` is set to ``False``. 
+
+            .. warning::
+
+                Since the client has to leave its current party before joining another one, 
+                a new party is automatically created if this error is raised. Use ``check_private`` 
+                with caution.
+
+        Returns
+        -------
+        :class:`ClientParty`
+            The party that was just joined.
+        """
+        if party_id == self.user.party.id:
+            raise PartyError('You are already a member of this party.')
+
+        try:
             party_data = await self.http.party_lookup(party_id)
-            party = ClientParty(self, party_data)
-            await party._update_members(party_data['members'])
+        except HTTPException as e:
+            if e.message_code == 'errors.com.epicgames.social.party.party_not_found':
+                raise NotFound('Could not find a party with the id {0}'.format(party_id))
+            e.reraise()
+
+        if check_private and party_data['config']['joinability'] == 'INVITE_AND_FORMER':
+            raise Forbidden('You can\'t join a private party.')
+
+        party = ClientParty(self, party_data)
+        await party._update_members(party_data['members'])
 
         await self.user.party._leave()
         self.user.set_party(party)
 
-        await self.http.party_join_request(party_id)
-        await party._update_members_meta()
-        asyncio.ensure_future(self.user.party.join_chat(), loop=self.loop)
+        try:
+            await self.http.party_join_request(party_id)
+            await self.user.party.join_chat()
+        except HTTPException as e:
+            await self._create_party()
+
+            if e.message_code == 'errors.com.epicgames.social.party.party_join_forbidden':
+                raise Forbidden('Client has no right to join this party.')
+            e.reraise()
+
+        return party
 
     async def set_status(self, status):
         """|coro|

@@ -506,5 +506,7 @@ Exceptions
 
 .. autoexception:: PartyError
 
-.. autoexception:: PartyPermissionError
+.. autoexception:: Forbidden
+
+.. autoexception:: NotFound
 

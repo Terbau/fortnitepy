@@ -31,7 +31,7 @@ import random
 import aioxmpp
 import re
 
-from .errors import FortniteException, PartyError, PartyPermissionError, HTTPException
+from .errors import FortniteException, PartyError, Forbidden, HTTPException
 from .user import User
 from .friend import Friend
 from .enums import PartyPrivacy, DefaultCharacters
@@ -761,7 +761,7 @@ class PartyMember(PartyMemberBase):
 
         Raises
         ------
-        PartyPermissionError
+        Forbidden
             You are not the leader of the party.
         PartyError
             You attempted to kick yourself.
@@ -769,8 +769,7 @@ class PartyMember(PartyMemberBase):
             Something else went wrong when trying to kick this member.
         """
         if self.client.user.id != self.party.leader.id:
-            raise PartyPermissionError(
-                'You must be partyleader to perform this action')
+            raise Forbidden('You must be the party leader to perform this action')
 
         if self.client.user.id == self.id:
             raise PartyError('You can\'t kick yourself')
@@ -785,7 +784,7 @@ class PartyMember(PartyMemberBase):
 
         Raises
         ------
-        PartyPermissionError
+        Forbidden
             You are not the leader of the party.
         PartyError
             You are already partyleader.
@@ -793,11 +792,10 @@ class PartyMember(PartyMemberBase):
             Something else went wrong when trying to promote this member.
         """
         if self.client.user.id != self.party.leader.id:
-            raise PartyPermissionError(
-                'You must be partyleader to perform this action')
+            raise Forbidden('You must be the party leader to perform this action')
 
         if self.client.user.id == self.id:
-            raise PartyError('You are already partyleader')
+            raise PartyError('You are already the leader')
 
         await self.client.http.party_promote_member(self.party.id, self.id)
 
@@ -877,9 +875,8 @@ class ClientPartyMember(PartyMemberBase):
             The new party the client is connected to after leaving.
         """
         await self.client.http.party_leave(self.party.id)
-        self.client.xmpp.muc_room = None
+        await self.client.xmpp.leave_muc()
         p = await self.client._create_party()
-        self.client.user.set_party(p)
         return p
 
     async def set_ready(self, value):
@@ -1050,7 +1047,7 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
     
-    async def set_banner(self, icon=None, *, color=None, season_level=None):
+    async def set_banner(self, icon=None, color=None, season_level=None):
         """|coro|
         
         Sets the banner of the client.
@@ -1257,21 +1254,32 @@ class PartyBase:
         self.sub_type = config['sub_type']
         self.config = {**self.client.default_party_config, **config}
 
-    async def _update_members(self, raw_members):
-        for raw in raw_members:
-            user_id = raw.get('account_id', raw.get('accountId'))
+    async def _update_members(self, members=None):
+        if members is None:
+            data = await self.client.http.party_lookup(self.id)
+            members = data['members']
+
+        def get_id(m):
+            return m.get('account_id', m.get('accountId'))
+
+        profiles = await self.client.fetch_profiles(
+            [get_id(m) for m in members],
+            cache=True
+        )
+        profiles = {p.id: p for p in profiles}
+
+        for raw in members:
+            user_id = get_id(raw)
             if user_id == self.client.user.id:
                 user = self.client.user
             else:
-                user = self.client.get_user(user_id)
-                if user is None:
-                    user = await self.client.fetch_profile(user_id, cache=True)
+                user = profiles[user_id]
             raw = {**raw, **(user.get_raw())}
 
             member = PartyMember(self.client, self, raw)
             self._add_member(member)
 
-        ids = map(lambda r: raw.get('account_id', raw.get('accountId')), raw_members)
+        ids = profiles.keys()
         to_remove = []
         for m in self.members.values():
             if m.id not in ids:
@@ -1437,15 +1445,26 @@ class ClientParty(PartyBase):
         self.sub_type = config['sub_type']
         self.config = {**self.client.default_party_config, **config}
 
-    async def _update_members(self, raw_members):
-        for raw in raw_members:
-            user_id = raw.get('account_id', raw.get('accountId'))
+    async def _update_members(self, members=None):
+        if members is None:
+            data = await self.client.http.party_lookup(self.id)
+            members = data['members']
+
+        def get_id(m):
+            return m.get('account_id', m.get('accountId'))
+
+        profiles = await self.client.fetch_profiles(
+            [get_id(m) for m in members],
+            cache=True
+        )
+        profiles = {p.id:p for p in profiles}
+        
+        for raw in members:
+            user_id = get_id(raw)
             if user_id == self.client.user.id:
                 user = self.client.user
             else:
-                user = self.client.get_user(user_id)
-                if user is None:
-                    user = await self.client.fetch_profile(user_id, cache=True)
+                user = profiles[user_id]
             raw = {**raw, **(user.get_raw())}
 
             member = PartyMember(self.client, self, raw)
@@ -1455,7 +1474,7 @@ class ClientParty(PartyBase):
                 clientmember = ClientPartyMember(self.client, self, raw)
                 self._add_clientmember(clientmember)
 
-        ids = map(lambda r: raw.get('account_id', raw.get('accountId')), raw_members)
+        ids = profiles.keys()
         to_remove = []
         for m in self.members.values():
             if m.id not in ids:
@@ -1463,15 +1482,6 @@ class ClientParty(PartyBase):
             
         for id in to_remove:
             self._remove_member(id)
-
-    async def _update_members_meta(self):
-        data = await self.client.http.party_lookup(self.id)
-        for m in data['members']:
-            try:
-                member = self.members[m['account_id']]
-                member.meta.update(m['meta'], raw=True)
-            except KeyError:
-                pass
 
     async def join_chat(self):
         await self.client.xmpp.join_muc(self.id)
@@ -1545,14 +1555,27 @@ class ClientParty(PartyBase):
         Raises
         ------
         PartyError
+            User is already in your party.
+        PartyError
             The party is full.
+        Forbidden
+            The invited user is not friends with the client.
         HTTPException
             Something else went wrong when trying to invite the user.
         """
-        if len(self.members.keys()) == self.max_size:
+        if user_id in self.members:
+            raise PartyError('User is already in you party.')
+
+        if len(self.members) == self.max_size:
             raise PartyError('Party is full')
         
-        await self.client.http.party_send_invite(user_id)
+        try:
+            await self.client.http.party_send_invite(self.id, user_id)
+            await self.client.http.party_send_ping(user_id)
+        except HTTPException as e:
+            if e.message_code == 'errors.com.epicgames.social.party.ping_forbidden':
+                raise Forbidden('You can only invite friends to your party.')
+            e.reraise()
 
     async def _leave(self):
         """|coro|
@@ -1564,7 +1587,7 @@ class ClientParty(PartyBase):
         HTTPException
             Something went wrong when trying to leave the party.
         """
-        self.client.xmpp.muc_room = None
+        await self.client.xmpp.leave_muc()
         await self.client.http.party_leave(self.id)
 
     async def set_privacy(self, privacy):
@@ -1578,11 +1601,11 @@ class ClientParty(PartyBase):
 
         Raises
         ------
-        PartyPermissionError
+        Forbidden
             The client is not the leader of the party.
         """
         if self.leader.id != self.client.user.id:
-            raise PartyPermissionError('You have to be leader for this action to work.')
+            raise Forbidden('You have to be leader for this action to work.')
 
         if not isinstance(privacy, dict):
             privacy = privacy.value
@@ -1590,7 +1613,7 @@ class ClientParty(PartyBase):
         updated, deleted = self.meta.set_privacy(privacy)
         await self.patch(updated=updated, deleted=deleted)
     
-    async def set_playlist(self, playlist=None, *, tournament=None, event_window=None, region=None):
+    async def set_playlist(self, playlist=None, tournament=None, event_window=None, region=None):
         """|coro|
         
         Sets the current playlist of the party.
@@ -1626,11 +1649,11 @@ class ClientParty(PartyBase):
 
         Raises
         ------
-        PartyPermissionError
+        Forbidden
             The client is not the leader of the party.
         """
         if self.leader.id != self.client.user.id:
-            raise PartyPermissionError('You have to be leader for this action to work.')
+            raise Forbidden('You have to be leader for this action to work.')
 
         if region is not None:
             region = region.value
@@ -1655,11 +1678,11 @@ class ClientParty(PartyBase):
 
         Raises
         ------
-        PartyPermissionError
+        Forbidden
             The client is not the leader of the party.
         """
         if self.leader.id != self.client.user.id:
-            raise PartyPermissionError('You have to be leader for this action to work.')
+            raise Forbidden('You have to be leader for this action to work.')
 
         prop = self.meta.set_custom_key(
             key=key
@@ -1681,11 +1704,11 @@ class ClientParty(PartyBase):
 
         Raises
         ------
-        PartyPermissionError
+        Forbidden
             The client is not the leader of the party.
         """
         if self.leader.id != self.client.user.id:
-            raise PartyPermissionError('You have to be leader for this action to work.')
+            raise Forbidden('You have to be leader for this action to work.')
 
         prop = self.meta.set_fill(val=value)
         await self.patch(updated=prop)
@@ -1717,18 +1740,26 @@ class PartyInvitation:
 
     async def accept(self):
         """|coro|
-        
+
         Accepts the invitation and joins the party.
+
+        .. warning::
+
+            A bug within the fortnite services makes it not possible to join a 
+            private party you have already been a part of before.
 
         Raises
         ------
+        Forbidden
+            You attempted to join a private party you've already been a part of before.
         HTTPException
             Something went wrong when accepting the invitation.
         """
-        if self.net_cl != self.client.net_cl:
+        if self.net_cl != self.client.net_cl and self.client.net_cl != '':
             raise PartyError('Incompatible net_cl')
 
-        await self.client.join_to_party(self.party.id)
+        await self.client.join_to_party(self.party.id, check_private=False)
+
 
     async def decline(self):
         """|coro|
