@@ -6,6 +6,39 @@ Changelog
 Detailed version changes.
 
 
+v0.9.0
+------
+
+| **BREAKING UPDATE**
+| This update adds windows support for python 3.8, removes the need for setting a net_cl and fixes multiple important bugs.
+
+Breaking Changes
+~~~~~~~~~~~~~~~~
+
+- :exc:`Forbidden` has been renamed from ``PartyPermissionError``.
+- Reworked and added documentation for :meth:`Client.join_to_party()`. The function no longer takes ``party`` as a keyword and a new kwarg ``check_private`` has been added.
+
+Changes
+~~~~~~~
+
+- You no longer need to worry about net_cl, ever.
+- Added :func:`get_event_loop()` to get a working event loop on Windows. It isn't necessary to use this function as long as fortnitepy is imported before the event loop is created.
+- Added :meth:`HTTPException.reraise()` which reraises the exception.
+- Added :meth:`Friend.invite()` which invites the friend to your party.
+- :meth:`ClientPartyMember.set_banner()` and :meth:`ClientParty.set_playlist()`
+- The loading time between accepting and joining a party with 2+ users has been significantly decreased.
+- :meth:`PartyInvitation.accept()` now raises :exc:`Forbidden` if you attempted to join a private party you have already been a member of before.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed multiple internal issues related to party chat.
+- Fixed an issue where that caused invites sent by the client to its private party to not work.
+- Fixed an issue where :func:`event_party_member_join()` would dispatch before party chat was ready.
+- Fixed an issue that caused aioxmpp logger to not work.
+
+
+
 v0.8.0
 ------
 
