@@ -331,7 +331,7 @@ class XMPPClient:
                 return
             
             party._update(body)
-            self.client.dispatch_event('party_updated', party)
+            self.client.dispatch_event('party_update', party)
 
         elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_STATE_UPDATED':
             party = self.client.user.party
