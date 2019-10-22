@@ -272,11 +272,11 @@ class PartyMemberMeta(MetaBase):
     def set_emote(self, emote=None, *, emote_ekey=None, section=None):
         data = (self.get_prop('FrontendEmote_j'))['FrontendEmote']
         
-        if emote:
+        if emote is not None:
             data['emoteItemDef'] = emote
-        if emote_ekey:
+        if emote_ekey is not None:
             data['emoteItemDefEncryptionKey'] = emote_ekey
-        if section:
+        if section is not None:
             data['emoteSection'] = section
         
         final = {'FrontendEmote': data}
@@ -285,9 +285,9 @@ class PartyMemberMeta(MetaBase):
     def set_assisted_challenge(self, quest=None, *, completed=None):
         data = (self.get_prop('AssistedChallengeInfo_j'))['AssistedChallenge_j']
 
-        if quest:
+        if quest is not None:
             data['questItemDef'] = quest
-        if completed:
+        if completed is not None:
             data['objectivesCompleted'] = completed
         
         final = {'AssistedChallengeInfo': data}
@@ -296,11 +296,11 @@ class PartyMemberMeta(MetaBase):
     def set_banner(self, banner_icon=None, *, banner_color=None, season_level=None):
         data = (self.get_prop('AthenaBannerInfo_j'))['AthenaBannerInfo']
 
-        if banner_icon:
+        if banner_icon is not None:
             data['bannerIconId'] = banner_icon
-        if banner_color:
+        if banner_color is not None:
             data['bannerColorId'] = banner_color
-        if season_level:
+        if season_level is not None:
             data['seasonLevel'] = season_level
         
         final = {'AthenaBannerInfo': data}
@@ -310,13 +310,13 @@ class PartyMemberMeta(MetaBase):
                             friend_boost_xp=None):
         data = (self.get_prop('BattlePassInfo_j'))['BattlePassInfo']
 
-        if has_purchased:
+        if has_purchased is not None:
             data['bHasPurchasedPass'] = has_purchased
-        if level:
+        if level is not None:
             data['passLevel'] = level
-        if self_boost_xp:
+        if self_boost_xp is not None:
             data['selfBoostXp'] = self_boost_xp
-        if friend_boost_xp:
+        if friend_boost_xp is not None:
             data['friendBoostXp'] = friend_boost_xp
         
         final = {'BattlePassInfo': data}
@@ -326,19 +326,19 @@ class PartyMemberMeta(MetaBase):
                              backpack_ekey=None, pickaxe=None, pickaxe_ekey=None, variants=None):
         data = (self.get_prop('AthenaCosmeticLoadout_j'))['AthenaCosmeticLoadout']
 
-        if character:
+        if character is not None:
             data['characterDef'] = character
-        if character_ekey:
+        if character_ekey is not None:
             data['characterEKey'] = character_ekey
-        if backpack:
+        if backpack is not None:
             data['backpackDef'] = backpack
-        if backpack_ekey:
+        if backpack_ekey is not None:
             data['backpackEKey'] = backpack_ekey
-        if pickaxe:
+        if pickaxe is not None:
             data['pickaxeDef'] = pickaxe
-        if pickaxe_ekey:
+        if pickaxe_ekey is not None:
             data['pickaxeEKey'] = pickaxe_ekey
-        if variants:
+        if variants is not None:
             data['variants'] = variants
         
         final = {'AthenaCosmeticLoadout': data}
@@ -427,13 +427,13 @@ class PartyMeta(MetaBase):
     def set_playlist(self, playlist=None, *, tournament=None, event_window=None, region=None):
         data = (self.get_prop('PlaylistData_j'))['PlaylistData']
 
-        if playlist:
+        if playlist is not None:
             data['playlistName'] = playlist
-        if tournament:
+        if tournament is not None:
             data['tournamentId'] = tournament
-        if event_window:
+        if event_window is not None:
             data['eventWindowId'] = event_window
-        if region:
+        if region is not None:
             data['regionId'] = region
         
         final = {'PlaylistData': data}
@@ -896,15 +896,16 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
 
-    async def set_outfit(self, asset, *, key=None, variants=None):
+    async def set_outfit(self, asset=None, *, key=None, variants=None):
         """|coro|
         
         Sets the outfit of the client.
 
         Parameters
         ----------
-        asset: Required[:class:`str`]
-            The CID of the outfit.
+        asset: :class:`str`
+            | The CID of the outfit.
+            | Defaults to the last set outfit.
 
             .. note::
 
@@ -913,15 +914,16 @@ class ClientPartyMember(PartyMemberBase):
         key: Optional[:class:`str`]
             The encyption key to use for this skin.
         variants: Optional[:class:`list`]
-            The variants to use for this outfit.
+            The variants to use for this outfit. Defaults to ``None`` which resets variants.
         """
-        if '.' not in asset:
-            asset = "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/" \
-                    "{0}.{0}'".format(asset)
-
-        if variants is not None:
-            variants = [x for x in self.meta.variants if x['item'] != 'AthenaCharacter'] + variants
-
+        if asset is not None:
+            if '.' not in asset:
+                asset = "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/" \
+                        "{0}.{0}'".format(asset)
+        else:
+            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['characterDef']
+        
+        variants = [x for x in self.meta.variants if x['item'] != 'AthenaCharacter'] + (variants or [])
         prop = self.meta.set_cosmetic_loadout(
             character=asset,
             character_ekey=key,
@@ -929,15 +931,16 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
         
-    async def set_backpack(self, asset, *, key=None, variants=None):
+    async def set_backpack(self, asset=None, *, key=None, variants=None):
         """|coro|
         
         Sets the backpack of the client.
 
         Parameters
         ----------
-        asset: Required[:class:`str`]
-            The CID of the backpack.
+        asset: :class:`str`
+            | The CID of the backpack.
+            | Defaults to the last set backpack.
 
             .. note::
 
@@ -946,15 +949,16 @@ class ClientPartyMember(PartyMemberBase):
         key: Optional[:class:`str`]
             The encyption key to use for this backpack.
         variants: Optional[:class:`list`]
-            The variants to use for this backpack.
+            The variants to use for this backpack. Defaults to ``None`` which resets variants.
         """
-        if '.' not in asset:
-            asset = "AthenaBackpackItemDefinition'/Game/Athena/Items/Cosmetics/Backpacks/" \
-                    "{0}.{0}'".format(asset)
+        if asset is not None:
+            if '.' not in asset:
+                asset = "AthenaBackpackItemDefinition'/Game/Athena/Items/Cosmetics/Backpacks/" \
+                        "{0}.{0}'".format(asset)
+        else:
+            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['backpackDef']
 
-        if variants is not None:
-            variants = [x for x in self.meta.variants if x['item'] != 'AthenaBackpack'] + variants
-
+        variants = [x for x in self.meta.variants if x['item'] != 'AthenaBackpack'] + (variants or [])
         prop = self.meta.set_cosmetic_loadout(
             backpack=asset,
             backpack_ekey=key,
@@ -962,15 +966,16 @@ class ClientPartyMember(PartyMemberBase):
         )
         await self.patch(updated=prop)
     
-    async def set_pickaxe(self, asset, *, key=None, variants=None):
+    async def set_pickaxe(self, asset=None, *, key=None, variants=None):
         """|coro|
         
         Sets the pickaxe of the client.
 
         Parameters
         ----------
-        asset: Required[:class:`str`]
-            The CID of the pickaxe.
+        asset: :class:`str`
+            | The CID of the pickaxe.
+            | Defaults to the last set pickaxe.
 
             .. note::
 
@@ -979,15 +984,16 @@ class ClientPartyMember(PartyMemberBase):
         key: Optional[:class:`str`]
             The encyption key to use for this pickaxe.
         variants: Optional[:class:`list`]
-            The variants to use for this pickaxe.
+            The variants to use for this pickaxe. Defaults to ``None`` which resets variants.
         """
-        if '.' not in asset:
-            asset = "AthenaPickaxeItemDefinition'/Game/Athena/Items/Cosmetics/Pickaxes/" \
-                    "{0}.{0}'".format(asset)
+        if asset is not None:
+            if '.' not in asset:
+                asset = "AthenaPickaxeItemDefinition'/Game/Athena/Items/Cosmetics/Pickaxes/" \
+                        "{0}.{0}'".format(asset)
+        else:
+            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['pickaxeDef']
 
-        if variants is not None:
-            variants = [x for x in self.meta.variants if x['item'] != 'AthenaPickaxe'] + variants
-
+        variants = [x for x in self.meta.variants if x['item'] != 'AthenaPickaxe'] + (variants or [])
         prop = self.meta.set_cosmetic_loadout(
             pickaxe=asset,
             pickaxe_ekey=key,
