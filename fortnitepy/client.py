@@ -1733,10 +1733,11 @@ class Client:
         Returns
         -------
         List[:class:`str`]
-            List of internal playlist names.
+            List of internal playlist names. Returns an empty list of none LTMs are 
+            for the specified region.
         """
         data = await self.http.get_fortnite_timeline()
 
         states = data['channels']['client-matchmaking']['states']
-        region_data = states[len(states) - 1]['state']['region'][region.value]
+        region_data = states[len(states) - 1]['state']['region'].get(region.value, {})
         return region_data.get('eventFlagsForcedOn', [])
