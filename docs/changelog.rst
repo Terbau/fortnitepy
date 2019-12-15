@@ -6,6 +6,36 @@ Changelog
 Detailed version changes.
 
 
+v1.0.1
+------
+
+Quick update to fix some issues brought along with v1.0.0.
+
+Added
+~~~~~
+
+- Added :func:`event_friend_request_decline()` which emits when a friend request in either direction is declined.
+
+Renamed
+~~~~~~~
+
+- :meth:`Client.get_user()`'s only parameter has been renamed from ``id`` to ``user_id``.
+- :meth:`Client.get_friend()`'s only parameter has been renamed from ``id`` to ``user_id``.
+- :meth:`Client.get_presence()`'s only parameter has been renamed from ``id`` to ``user_id``.
+- :meth:`Client.get_pending_friend()`'s only parameter has been renamed from ``id`` to ``user_id``.
+- :meth:`Client.has_friend()`'s only parameter has been renamed from ``id`` to ``user_id``.
+- :meth:`Client.is_pending()`'s only parameter has been renamed from ``id`` to ``user_id``.
+- :meth:`Client.block_user()`'s only parameter has been renamed from ``id`` to ``user_id``.
+- :meth:`Client.unblock_user()`'s only parameter has been renamed from ``id`` to ``user_id``.
+
+Bug Fixes
+~~~~~~~~~
+
+- Unavailable presences now work as expected again.
+- Fixed an issue where an error was raised when when removing a friend in some special cases.
+- Fixed an issue that caused :meth:`Client.remove_or_decline_friend()` to not work.
+
+
 v1.0.0
 ------
 
