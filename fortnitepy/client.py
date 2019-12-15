@@ -1369,7 +1369,7 @@ class Client:
         """|coro|
         
         Gets Battle Royale stats for multiple users at the same time.
-        
+
         .. note::
             
             This function is not the same as doing :meth:`fetch_br_stats` for multiple users.
