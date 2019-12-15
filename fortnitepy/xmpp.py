@@ -501,7 +501,7 @@ class XMPPClient:
             except (KeyError, AttributeError):
                 pass
 
-        if presence.type_ == aioxmpp.PresenceType.UNAVAILABLE and friend.online:
+        if presence.type_ == aioxmpp.PresenceType.UNAVAILABLE and friend.is_online():
             friend._update_last_logout(datetime.datetime.utcnow())
 
         self.client._presences.set(user_id, _pres)
