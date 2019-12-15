@@ -10,7 +10,7 @@ v1.0.0
 ------
 
 | **BREAKING UPDATE**
-| Massive code overhaul and lots of new stuff / bugs fixes. Keep in mind that this is a very big update so issues and bugs might appear. If so, report them either on the issue tracker or discord.
+| Massive code overhaul and lots of new stuff / bugs fixes. Keep in mind that this is a very big update so issues and bugs might appear. If so, report them either on the issue tracker or on discord.
 
 Added
 ~~~~~
@@ -50,6 +50,7 @@ Added
 [**ALL BREAKING**] Renamed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- ``event_party_updated()`` -> :func:`event_party_update()`
 - ``Client.remove_friend`` -> :meth:`Client.remove_or_decline_friend()`
 - ``PartyMember.is_leader`` -> :attr:`PartyMember.leader`
 - ``ClientPartyMember.is_leader`` -> :attr:`ClientPartyMember.leader`
@@ -71,6 +72,9 @@ Changes
 - :meth:`PendingFriend.accept()` now returns the friend object of the friend you just accepted.
 - :meth:`ClientPartyMember.set_ready()` now promotes a random member to leader when changing to sitting out.
 - [**BREAKING**] :func:`event_party_member_promote()` now has an additional parameter which represents the previous leader.
+- :meth:`ClientPartyMember.set_outfit()`'s parameter ``asset`` is now optional.
+- :meth:`ClientPartyMember.set_backpack()`'s parameter ``asset`` is now optional.
+- :meth:`ClientPartyMember.set_pickaxe()`'s parameter ``asset`` is now optional.
 
 Bug Fixes
 ~~~~~~~~~
@@ -88,6 +92,8 @@ Bug Fixes
 - :attr:`StatsV2.start_time` and :attr:`StatsV2.end_time` now returns an UTC timestamp instead of a local timestamp (oops).
 - Fixed an issue that caused :meth:`Client.fetch_item_shop()` to emit an error.
 - Fixed an issue where :attr:`Presence.friend` would be ``None``.
+- Fixed an issue where changing variants with :meth:`ClientPartyMember.set_outfit()`, :meth:`ClientPartyMember.set_backpack()` and :meth:`ClientPartyMember.set_pickaxe()` would sometimes not work properly.
+- Fixed an issue where :meth:`Client.fetch_active_ltms()` would sometimes fail and raise an error.
 
 
 v0.9.0
