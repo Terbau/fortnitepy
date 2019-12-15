@@ -274,9 +274,9 @@ this decorator if you are in a subclass of :class:`Client`.
 
 	:param party: The party that changed.
 	:type party: :class:`ClientParty`
-	:param before: The previous playlist data. Same structure as :attr:`Party.privacy`.
+	:param before: The previous playlist data. Same structure as .
     :type before: :class:`tuple`
-    :param after: The current playlist data. Same structure as :attr:`Party.privacy`.
+    :param after: The current playlist data. Same structure as .
     :type after: :class:`tuple`
 
 .. function:: event_party_squad_fill_change(party, before, after)
