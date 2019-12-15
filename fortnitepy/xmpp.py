@@ -183,11 +183,17 @@ class XMPPClient:
                 self.client.store_user(pf.get_raw())
                 self.client._pending_friends.remove(pf.id)
                 self.client.dispatch_event('friend_request_abort', pf)
+            elif body['reason'] == 'REJECTED':
+                pf = self.client.get_pending_friend(_id)
+                self.client.store_user(pf.get_raw())
+                self.client._pending_friends.remove(pf.id)
+                self.client.dispatch_event('friend_request_decline', pf)
             else:
                 f = self.client.get_friend(_id)
-                self.client.store_user(f.get_raw())
-                self.client._friends.remove(f.id)
-                self.client.dispatch_event('friend_remove', f)
+                if f is not None:
+                    self.client.store_user(f.get_raw())
+                    self.client._friends.remove(f.id)
+                    self.client.dispatch_event('friend_remove', f)
         
         ##############################
         # Party
@@ -501,7 +507,7 @@ class XMPPClient:
             except (KeyError, AttributeError):
                 pass
 
-        if presence.type_ == aioxmpp.PresenceType.UNAVAILABLE and friend.online:
+        if presence.type_ == aioxmpp.PresenceType.UNAVAILABLE and friend.is_online():
             friend._update_last_logout(datetime.datetime.utcnow())
 
         self.client._presences.set(user_id, _pres)
