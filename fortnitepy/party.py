@@ -359,6 +359,7 @@ class PartyMeta(MetaBase):
             'SessionIsCriticalMission_b': 'false',
             'ZoneTileIndex_U': '-1',
             'ZoneInstanceId_s': '',
+            'SpectateAPartyMemberAvailable_b': False,
             'TheaterId_s': '',
             'TileStates_j': json.dumps({
                 'TileStates': [],
@@ -402,7 +403,7 @@ class PartyMeta(MetaBase):
         return (info['playlistName'], info['tournamentId'], info['eventWindowId'], info['regionId'])
 
     @property
-    def squad_fill_enabled(self):
+    def squad_fill(self):
         return self.get_prop('AthenaSquadFill_b')
 
     @property
@@ -490,7 +491,7 @@ class PartyMeta(MetaBase):
 
         i = 0
         for member in self.party.members.values():
-            if member.is_leader:
+            if member.leader:
                 assignments.append({
                     'memberId': member.id,
                     'absoluteMemberIdx': 0,
@@ -528,7 +529,7 @@ class PartyMemberBase(User):
         return self._joined_at
 
     @property
-    def is_leader(self):
+    def leader(self):
         """:class:`bool`: Returns ``True`` if member is the leader else ``False``."""
         return True if self.role else False
 
@@ -874,7 +875,13 @@ class ClientPartyMember(PartyMemberBase):
         :class:`Party`
             The new party the client is connected to after leaving.
         """
-        await self.client.http.party_leave(self.party.id)
+        async with self.client._leave_lock:
+            try:
+                await self.client.http.party_leave(self.party.id)
+            except HTTPException as e:
+                if e.message_code != 'errors.com.epicgames.social.party.party_not_found':
+                    e.reraise()
+
         await self.client.xmpp.leave_muc()
         p = await self.client._create_party()
         return p
@@ -894,7 +901,11 @@ class ClientPartyMember(PartyMemberBase):
         prop = self.meta.set_readiness(
             val='Ready' if value is True else ('NotReady' if value is False else 'SittingOut')
         )
-        await self.patch(updated=prop)
+
+        tasks = [self.patch(updated=prop)]
+        if value is None:
+            tasks.append(random.choice(list(self.party.members.values())).promote())
+        await asyncio.wait(tasks)
 
     async def set_outfit(self, asset=None, *, key=None, variants=None):
         """|coro|
@@ -1178,7 +1189,7 @@ class PartyBase:
     def leader(self):
         """:class:`PartyMember`: The leader of the party."""
         for member in self.members.values():
-            if member.is_leader:
+            if member.leader:
                 return member
 
     @property
@@ -1197,9 +1208,9 @@ class PartyBase:
         return self.meta.playlist_info
 
     @property
-    def squad_fill_enabled(self):
+    def squad_fill(self):
         """:class:`bool`: ``True`` if squad fill is enabled else ``False``."""
-        return self.meta.squad_fill_enabled
+        return self.meta.squad_fill
 
     @property
     def privacy(self):
@@ -1332,6 +1343,16 @@ class ClientParty(PartyBase):
     def _add_clientmember(self, member):
         self._me = member
 
+    def _create_member(self, data):
+        member = PartyMember(self.client, self, data)
+        self._add_member(member)
+        return member
+
+    def _create_clientmember(self, data):
+        member = ClientPartyMember(self.client, self, data)
+        self._add_clientmember(member)
+        return member
+
     def _remove_member(self, id):
         if not isinstance(id, str):
             id = id.id
@@ -1340,7 +1361,7 @@ class ClientParty(PartyBase):
 
     def update_presence(self, text=None, conf={}):
         perm = self.config['privacy']['presencePermission']
-        if perm == 'Noone' or (perm == 'Leader' and (self.me is not None and not self.me.is_leader)):
+        if perm == 'Noone' or (perm == 'Leader' and (self.me is not None and not self.me.leader)):
             join_data = {
                 'bInPrivate': True
             }
@@ -1577,13 +1598,12 @@ class ClientParty(PartyBase):
         
         try:
             await self.client.http.party_send_invite(self.id, user_id)
-            await self.client.http.party_send_ping(user_id)
         except HTTPException as e:
             if e.message_code == 'errors.com.epicgames.social.party.ping_forbidden':
                 raise Forbidden('You can only invite friends to your party.')
             e.reraise()
 
-    async def _leave(self):
+    async def _leave(self, ignore_not_found=True):
         """|coro|
         
         Leaves the party.
@@ -1594,7 +1614,14 @@ class ClientParty(PartyBase):
             Something went wrong when trying to leave the party.
         """
         await self.client.xmpp.leave_muc()
-        await self.client.http.party_leave(self.id)
+
+        async with self.client._leave_lock:
+            try:
+                await self.client.http.party_leave(self.id)
+            except HTTPException as e:
+                if ignore_not_found and e.message_code == 'errors.com.epicgames.social.party.party_not_found':
+                    return
+                e.reraise()
 
     async def set_privacy(self, privacy):
         """|coro|
@@ -1731,7 +1758,7 @@ class PartyInvitation:
         The party the invitation belongs to.
     net_cl: :class:`str`
         The net_cl received by the sending client.
-    author: :class:`Friend`
+    sender: :class:`Friend`
         The friend that invited you to the party.
     created_at: :class:`datetime.datetime`
         The UTC time this invite was created at.
@@ -1741,7 +1768,7 @@ class PartyInvitation:
         self.party = party
         self.net_cl = net_cl
 
-        self.author = self.client.get_friend(data['sent_by'])
+        self.sender = self.client.get_friend(data['sent_by'])
         self.created_at = self.client.from_iso(data['sent_at'])
 
     async def accept(self):
@@ -1765,7 +1792,7 @@ class PartyInvitation:
             raise PartyError('Incompatible net_cl')
 
         await self.client.join_to_party(self.party.id, check_private=False)
-
+        await self.client.http.party_delete_ping(self.sender.id)
 
     async def decline(self):
         """|coro|
@@ -1780,6 +1807,7 @@ class PartyInvitation:
             Something went wrong when declining the invitation.
         """
         await self.client.http.party_decline_invite(self.party.id)
+        await self.client.http.party_delete_ping(self.sender.id)
 
 
 class PartyJoinConfirmation:

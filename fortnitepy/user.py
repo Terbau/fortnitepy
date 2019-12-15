@@ -143,10 +143,10 @@ class ClientUser(UserBase):
         The email of the user.
     failed_login_attempts: :class:`str`
         Failed login attempts
-    headless: :class:`str`
-        COME BACK TO THIS
+    headless: :class:`bool`
+        ``True`` if the account has no display name due to no epicgames account being linked to the current account.
     last_login: :class:`datetime.datetime`
-        UTC time of the last login of the user.
+        UTC time of the last login of the user. ``None`` if no failed login attempt has been registered.
     name: :class:`str`
         First name of the user.
     first_name: :class:`str`
@@ -160,7 +160,15 @@ class ClientUser(UserBase):
     preferred_language: :class:`str`
         Users preferred language.
     tfa_enabled: :class:`bool`
-        ``True`` if the user has two-factor authentication enabled.
+        ``True`` if the user has two-factor authentication enabled else ``False``.
+    email_verified: :class:`bool`
+        ``True`` if the accounts email has been verified.
+    minor_verified: :class:`bool`
+        ``True`` if the account has been verified to be run by a minor.
+    minor_expected: :class:`bool`
+        ``True`` if the account is expected to be run by a minor.
+    minor_status: :class:`str`
+        The minor status of this account.
     """
 
     def __init__(self, client, data, **kwargs):
@@ -190,18 +198,23 @@ class ClientUser(UserBase):
 
     def _update(self, data):
         super()._update(data)
-        self.age_group = data['ageGroup']
-        self.can_update_display_name = bool(data['canUpdateDisplayName'])
-        self.country = data['country']
+        self.name = data['name']
         self.email = data['email']
         self.failed_login_attempts = data['failedLoginAttempts']
-        self.headless = data['headless']
+        self.last_failed_login = self.client.from_iso(data['lastFailedLogin']) if 'lastFailedLogin' in data else None
         self.last_login = self.client.from_iso(data['lastLogin'])
-        self.name = data['name']
+        self.number_of_display_name_changes = data['numberOfDisplayNameChanges']
+        self.age_group = data['ageGroup']
+        self.headless = data['headless']
+        self.country = data['country']
         self.last_name = data['lastName']
-        self.number_of_display_name_changes = int(data['numberOfDisplayNameChanges'])
         self.preferred_language = data['preferredLanguage']
-        self.tfa_enabled = bool(data['tfaEnabled'])
+        self.can_update_display_name = data['canUpdateDisplayName']
+        self.tfa_enabled = data['tfaEnabled']
+        self.email_verified = data['emailVerified']
+        self.minor_verified = data['minorVerified']
+        self.minor_expected = data['minorExpected']
+        self.minor_status = data['minorStatus']
 
     def set_party(self, party):
         self._party = party

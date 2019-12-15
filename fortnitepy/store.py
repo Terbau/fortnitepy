@@ -116,7 +116,7 @@ class StoreItemBase:
         except TypeError:
             self._asset = None
 
-        self._gifts_enabled = data['giftInfo']['bIsEnabled']
+        self._gifts_enabled = data['giftInfo']['bIsEnabled'] if 'giftInfo' in data else False
         self._daily_limit = data['dailyLimit']
         self._weekly_limit = data['weeklyLimit']
         self._monthly_limit = data['monthlyLimit']
