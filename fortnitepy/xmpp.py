@@ -185,9 +185,10 @@ class XMPPClient:
                 self.client.dispatch_event('friend_request_abort', pf)
             else:
                 f = self.client.get_friend(_id)
-                self.client.store_user(f.get_raw())
-                self.client._friends.remove(f.id)
-                self.client.dispatch_event('friend_remove', f)
+                if f is not None:
+                    self.client.store_user(f.get_raw())
+                    self.client._friends.remove(f.id)
+                    self.client.dispatch_event('friend_remove', f)
         
         ##############################
         # Party
