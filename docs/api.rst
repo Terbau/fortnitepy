@@ -198,12 +198,14 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: Expired member.
 	:type member: :class:`PartyMember`
 	
-.. function:: event_party_member_promote(member)
+.. function:: event_party_member_promote(old_leader, new_leader)
 
 	This event is called when a new partyleader has been promoted.
 	
-	:param member: Member that was promoted.
-	:type member: :class:`PartyMember`
+	:param old_leader: Member that was previously leader.
+	:type old_leader: :class:`PartyMember`
+	:param new_leader: Member that was promoted.
+	:type new_leader: :class:`PartyMember`
 	
 .. function:: event_party_member_kick(member)
 
