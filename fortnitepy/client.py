@@ -788,8 +788,7 @@ class Client:
         if len(tasks) > 0:
             done, _ = await asyncio.wait(tasks)
             for f in done:
-                id = (f.result())['id']
-                new.append(id)
+                new.append((f.result())['id'])
 
         chunk_tasks = []
         chunks = [new[i:i + 100] for i in range(0, len(new), 100)]
@@ -845,12 +844,12 @@ class Client:
             self._users.set(u.id, u)
             return u
 
-    def get_user(self, id):
-        """Tries to get a user from the user cache by the given id.
+    def get_user(self, user_id):
+        """Tries to get a user from the user cache by the given user id.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the user.
 
         Returns
@@ -858,9 +857,9 @@ class Client:
         :class:`User`
             :class:`User` if found, else ``None``
         """
-        user = self._users.get(id)
+        user = self._users.get(user_id)
         if user is None:
-            friend = self.get_friend(id)
+            friend = self.get_friend(user_id)
             if friend is not None:
                 user = User(self, friend.get_raw())
                 self._users.set(user.id, user)
@@ -874,12 +873,12 @@ class Client:
             self._friends.set(f.id, f)
             return f
 
-    def get_friend(self, id):
-        """Tries to get a friend from the friend cache by the given id.
+    def get_friend(self, user_id):
+        """Tries to get a friend from the friend cache by the given user id.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the friend.
 
         Returns
@@ -887,14 +886,14 @@ class Client:
         :class:`Friend`
             :class:`Friend` if found, else ``None``
         """
-        return self._friends.get(id)
+        return self._friends.get(user_id)
 
-    def get_presence(self, id):
+    def get_presence(self, user_id):
         """Tries to get the latest received presence from the presence cache.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the friend you want the last presence of.
 
         Returns
@@ -902,14 +901,14 @@ class Client:
         :class:`Presence`
             :class:`Presence` if found, else ``None``
         """
-        return self._presences.get(id)
+        return self._presences.get(user_id)
     
-    def get_pending_friend(self, id):
-        """Tries to get a pending friend from the pending friend cache by the given id.
+    def get_pending_friend(self, user_id):
+        """Tries to get a pending friend from the pending friend cache by the given user id.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the pending friend.
 
         Returns
@@ -917,14 +916,14 @@ class Client:
         :class:`PendingFriend`: 
             :class:`PendingFriend` if found, else ``None``
         """
-        return self._pending_friends.get(id)
+        return self._pending_friends.get(user_id)
 
-    def has_friend(self, id):
-        """Checks if the client is friends with the given id.
+    def has_friend(self, user_id):
+        """Checks if the client is friends with the given user id.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the user you want to check.
 
         Returns
@@ -932,14 +931,14 @@ class Client:
         :class:`bool`
             ``True`` if user is friends with the client else ``False``
         """
-        return self.get_friend(id) is not None
+        return self.get_friend(user_id) is not None
     
-    def is_pending(self, id):
-        """Checks if the given id is a pending friend of the client.
+    def is_pending(self, user_id):
+        """Checks if the given user id is a pending friend of the client.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the user you want to check.
 
         Returns
@@ -947,7 +946,7 @@ class Client:
         :class:`bool`
             ``True`` if user is a pending friend else ``False``
         """
-        return self.get_pending_friend(id)
+        return self.get_pending_friend(user_id)
 
     async def get_blocklist(self):
         """|coro|
@@ -966,14 +965,14 @@ class Client:
         """
         return (await self.http.friends_get_blocklist())['blockedUsers']
 
-    async def block_user(self, id):
+    async def block_user(self, user_id):
         """|coro|
         
-        Blocks a user by a given id.
+        Blocks a user by a given user id.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the user you want to block.
 
         Raises
@@ -981,16 +980,16 @@ class Client:
         HTTPException
             Something went wrong when trying to block this user.
         """
-        await self.http.friends_block(id)
+        await self.http.friends_block(user_id)
 
-    async def unblock_user(self, id):
+    async def unblock_user(self, user_id):
         """|coro|
         
-        Unblocks a user by a given id.
+        Unblocks a user by a given user id.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the user you want to unblock
 
         Raises
@@ -998,7 +997,7 @@ class Client:
         HTTPException
             Something went wrong when trying to unblock this user.
         """
-        await self.http.friends_unblock(id)
+        await self.http.friends_unblock(user_id)
 
     def is_id(self, value):
         """Simple function that finds out if a :class:`str` is a valid id
@@ -1091,7 +1090,7 @@ class Client:
         HTTPException
             Something went wrong when trying to remove this friend.
         """
-        await self.http.friends_remove_or_decline(id)
+        await self.http.friends_remove_or_decline(user_id)
 
     async def dispatch_and_wait_event(self, event, *args, **kwargs):
         method = '{0.event_prefix}{1}'.format(self, event)
