@@ -60,6 +60,10 @@ class NotFound(FortniteException):
     """This exception is raised when something was not found by fortnites services."""
     pass
 
+class NoMoreItems(FortniteException):
+    """This exception is raised whenever an iterator does not have any more items."""
+    pass
+
 class HTTPException(FortniteException):
     """This exception is raised when an error is received by Fortnite services.
     

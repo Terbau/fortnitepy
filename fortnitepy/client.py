@@ -210,6 +210,7 @@ class Client:
 
         self.kill_other_sessions = True
         self.accept_eula = True
+        self.event_prefix = 'event_'
 
         self.http = HTTPClient(self, connector=kwargs.get('connector'))
         self.http.add_header('Accept-Language', 'en-EN')
@@ -221,11 +222,13 @@ class Client:
         self._pending_friends = Cache()
         self._users = Cache()
         self._presences = Cache()
-        self.event_prefix = 'event'
         self._ready = asyncio.Event(loop=self.loop)
+        self._leave_lock = asyncio.Lock(loop=self.loop)
         self._refresh_task = None
         self._closed = False
         self._closing = False
+        self._restarting = False
+        self._forcequit = False
 
         self.refresh_i = 0
 
@@ -233,7 +236,6 @@ class Client:
         self.update_default_party_config(
             kwargs.get('default_party_config')
         )
-        self._check_party_confirmation()
         
     @staticmethod
     def from_iso(iso):
@@ -329,12 +331,7 @@ class Client:
         self.default_party_config = {**default_config, **config}
 
     def _check_party_confirmation(self):
-        try:
-            getattr(self, '{0.event_prefix}_party_member_confirm'.format(self))
-            val = True
-        except AttributeError:
-            val = False
-
+        val = 'party_member_confirm' in self._events and len(self._events['party_member_confirm']) > 0
         self.update_default_party_config({'join_confirmation': val})
 
     def exc_handler(self, loop, ctx):
@@ -369,14 +366,18 @@ class Client:
             loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
         except NotImplementedError:
             pass
-
-        async def runner():
-            await self.start()
             
+        future = None
         def stop_loop_on_completion(f):
-            loop.stop()
+            nonlocal future
 
-        future = asyncio.ensure_future(runner(), loop=loop)
+            if not self._restarting:
+                loop.stop()
+            else:
+                future = asyncio.ensure_future(self.start(dispatch_ready=False), loop=loop)
+                future.add_done_callback(stop_loop_on_completion)
+
+        future = asyncio.ensure_future(self.start(), loop=loop)
         future.add_done_callback(stop_loop_on_completion)
 
         try:
@@ -395,7 +396,7 @@ class Client:
         if not future.cancelled():
             return future.result()
         
-    async def start(self):
+    async def start(self, dispatch_ready=True):
         """|coro|
         
         Starts the client and logs into the specified user.
@@ -406,13 +407,17 @@ class Client:
             If you are using this function instead of :meth:`run` you should always call it after everything
             else. When the client is ready it will dispatch :meth:`event_ready`. 
 
+        Parameters
+        ----------
+        dispatch_ready: :class:`bool`
+            Whether or not the client should dispatch the ready event when ready.
+
         Raises
         ------
         AuthException
             An error occured when attempting to log in.
         """
-        # python 3.8 event loop check
-        get_event_loop()
+        self._check_party_confirmation()
 
         self.loop.set_exception_handler(self.exc_handler)
         if self._closed:
@@ -422,16 +427,17 @@ class Client:
         await self._login()
 
         self._set_ready()
-        self.dispatch_event('ready')
+        if dispatch_ready:
+            self.dispatch_event('ready')
 
-        self._refresh_task = self.loop.create_task(self.auth.schedule_token_refresh())
+        self._refresh_task = self.loop.create_task(self.auth.run_refresh_loop())
         try:
             await self._refresh_task
         except asyncio.CancelledError:
             pass
 
     async def account_owns_fortnite(self):
-        entitlements = await self.http.get_launcher_entitlements()
+        entitlements = await self.http.entitlement_get_all()
 
         for ent in entitlements:
             if ent['entitlementName'] == 'Fortnite_Free' and ent['active'] == True:
@@ -439,22 +445,22 @@ class Client:
         return False
 
     async def quick_purchase_fortnite(self):
-        data = await self.http.launcher_quickpurchase_fortnite()
+        data = await self.http.orderprocessor_quickpurchase()
         status = data.get('quickPurchaseStatus', False)
 
         if status == 'SUCCESS':
             pass
 
         elif status == 'CHECKOUT':
-            data = await self.http.launcher_purchase_fortnite()
+            data = await self.http.launcher_website_purchase('fn', '09176f4ff7564bbbb499bbe20bd6348f')
             soup = BeautifulSoup(data, 'html.parser')
 
             token = soup.find(id='purchaseToken')['value']
-            data = json.loads(await self.http.launcher_purchase_preview(token))
+            data = json.loads(await self.http.payment_website_order_preview(token, 'fn', '09176f4ff7564bbbb499bbe20bd6348f'))
             if 'syncToken' not in data:
                 pass
 
-            await self.http.launcher_purchase_confirm(token, data)
+            await self.http.payment_website_confirm_order(token, data)
         
         else:
             raise PurchaseException(
@@ -468,17 +474,17 @@ class Client:
     async def _login(self):
         log.debug('Running authenticating')
         self.auth = Auth(self)
-        await self.auth.stable_authenticate()
+        await self.auth.authenticate()
 
-        data = await self.http.get_profile(self.auth.account_id)
+        data = await self.http.account_get_by_user_id(self.auth.account_id)
         self.user = ClientUser(self, data)        
 
         if self.kill_other_sessions:
-            await self.auth.kill_other_sessions()
+            await self.http.account_sessions_kill('OTHERS_ACCOUNT_CLIENT_SERVICE')
             log.debug('Other sessions killed')
 
         if self.accept_eula:
-            await self.auth.accept_eula(self.auth.account_id)
+            await self.auth.accept_eula()
             log.debug('EULA accepted')
 
         if not await self.account_owns_fortnite():
@@ -493,10 +499,16 @@ class Client:
         await self.initialize_party()
         log.debug('Party created')
 
-    async def logout(self):
+    async def logout(self, close_http=True):
         """|coro|
         
         Logs the user out and closes running services.
+
+        Parameters
+        ----------
+        close_http: :class:`bool`
+            Whether or not to close the clients :class:`aiohttp.ClientSession` when 
+            logged out. 
 
         Raises
         ------
@@ -505,7 +517,7 @@ class Client:
         """
         self._closing = True
 
-        await self.dispatch_and_wait_for_event('logout')
+        await self.dispatch_and_wait_event('logout')
 
         if self._refresh_task is not None and not self._refresh_task.cancelled():
             self._refresh_task.cancel()
@@ -522,7 +534,7 @@ class Client:
             pass
 
         try:
-            await self.auth.kill_token(self.auth.access_token)
+            await self.http.account_session_kill_token(self.auth.access_token)
         except:
             pass
 
@@ -532,10 +544,58 @@ class Client:
         self._presences.clear()
         self._ready.clear()
         
-        await self.http.close()
-        self._closed = True
+        if close_http:
+            await self.http.close()
+            self._closed = True
+        
         self._closing = False
         log.debug('Successfully logged out')
+
+    async def restart(self):
+        """|coro|
+        
+        Restarts the client completely. All events received while this method runs are 
+        dispatched when it has finished.
+
+        Raises
+        ------
+        AuthException
+            An error occured while authenticating.
+        HTTPException
+            An error occured while requesting something.
+        """
+        self._restarting = True
+
+        asyncio.ensure_future(self.recover_events(), loop=self.loop)
+        await self.logout(close_http=False)
+
+        await self.wait_until_ready()
+        self.dispatch_event('restart')
+        self._restarting = False
+
+    async def recover_events(self):
+        await self.wait_for('xmpp_session_close')
+        pre_friends = self.friends
+        pre_pending = self.pending_friends
+        await self.wait_for('xmpp_session_establish')
+
+        for friend in pre_friends.values():
+            if friend.id not in self.friends:
+                self.dispatch_event('friend_remove', friend)
+        
+        added_friends = []
+        for friend in self.friends.values():
+            if friend.id not in pre_friends:
+                added_friends.append(friend.id)
+                self.dispatch_event('friend_add', friend)
+
+        for pending in pre_pending.values():
+            if pending.id not in self.pending_friends and pending.id not in added_friends:
+                self.dispatch_event('friend_request_abort', pending)
+
+        for pending in self.pending_friends.values():
+            if pending.id not in pre_pending:
+                self.dispatch_event('friend_request', pending)
 
     def _set_ready(self):
         self._ready.set()
@@ -563,6 +623,7 @@ class Client:
             party = ClientParty(self, data['current'][0])
             await party._leave()
             log.debug('Left old party')
+
         await self._create_party()
 
     async def fetch_profile_by_display_name(self, display_name, *, cache=False, raw=False):
@@ -608,7 +669,7 @@ class Client:
                 except AttributeError:
                     pass
         try:
-            res = await self.http.get_profile_by_display_name(display_name)
+            res = await self.http.account_get_by_display_name(display_name)
         except HTTPException as exc:
             if exc.message_code != 'errors.com.epicgames.account.account_not_found':
                 raise HTTPException(exc.response, exc.raw)
@@ -711,7 +772,7 @@ class Client:
                     except AttributeError:
                         pass
 
-                task = self.http.get_profile_by_display_name(elem)
+                task = self.http.account_get_by_display_name(elem)
                 tasks.append(task)
             else:
                 if cache:
@@ -733,7 +794,7 @@ class Client:
         chunk_tasks = []
         chunks = [new[i:i + 100] for i in range(0, len(new), 100)]
         for chunk in chunks:
-            task = self.http.get_profiles(chunk)
+            task = self.http.account_get_multiple_by_user_id(chunk)
             chunk_tasks.append(task)
         
         if len(chunks) > 0:
@@ -748,10 +809,9 @@ class Client:
         return profiles
 
     async def initialize_friends(self):
-        raw_friends = await self.http.get_friends(include_pending=True)
+        raw_friends = await self.http.friends_get_all(include_pending=True)
         ids = [r['accountId'] for r in raw_friends]
         friends = await self.fetch_profiles(ids, raw=True)
-        
         m = {}
         for friend in friends:
             m[friend['id']] = friend
@@ -770,6 +830,12 @@ class Client:
                     self._friends.set(f.id, f)
                 except KeyError:
                     continue
+
+        presences = await self.http.presence_get_last_online()
+        for user_id, data in presences.items():
+            friend = self.get_friend(user_id)
+            if friend is not None:
+                friend._update_last_logout(self.from_iso(data[0]['last_online']))
 
     def store_user(self, data):
         try:
@@ -898,7 +964,7 @@ class Client:
         List[:class:`str`]
             List of ids
         """
-        return (await self.http.get_friends_blocklist())['blockedUsers']
+        return (await self.http.friends_get_blocklist())['blockedUsers']
 
     async def block_user(self, id):
         """|coro|
@@ -915,7 +981,7 @@ class Client:
         HTTPException
             Something went wrong when trying to block this user.
         """
-        await self.http.block_user(id)
+        await self.http.friends_block(id)
 
     async def unblock_user(self, id):
         """|coro|
@@ -932,7 +998,7 @@ class Client:
         HTTPException
             Something went wrong when trying to unblock this user.
         """
-        await self.http.unblock_user(id)
+        await self.http.friends_unblock(id)
 
     def is_id(self, value):
         """Simple function that finds out if a :class:`str` is a valid id
@@ -964,31 +1030,60 @@ class Client:
         """
         return isinstance(val, str) and 3 <= len(val) <= 16  
 
-    async def add_friend(self, id):
+    async def add_friend(self, user_id):
         """|coro|
         
-        Sends a friend request or accepts a request if found.
-
+        Sends a friend request to the specified user id.
+        
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the user you want to add.
+        
         Raises
         ------
         HTTPException
             An error occured while requesting to add this friend.
+        """
+        await self.http.friends_add_or_accept(user_id)
+
+    async def accept_friend(self, user_id):
+        """|coro|
+        
+        .. warning:: 
+
+            Do not use this method to send a friend request. It will then not return until
+            the friend request has been accepted by the user.
+
+        Accepts a request.
 
         Parameters
         ----------
-        id: :class:`str`
-            The id of the user you want to add/accept.
+        user_id: :class:`str`
+            The id of the user you want to accept.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting to accept this friend.
+
+        Returns
+        -------
+        :class:`Friend`
+            Object of the friend you just added.
         """
-        await self.http.add_friend(id)
-    
-    async def remove_friend(self, id):
+        await self.http.friends_add_or_accept(user_id)
+        friend = await self.wait_for('friend_add', check=lambda f: f.id == user_id)
+        return friend
+
+    async def remove_or_decline_friend(self, user_id):
         """|coro|
         
         Removes a friend by the given id.
 
         Parameters
         ----------
-        id: :class:`str`
+        user_id: :class:`str`
             The id of the friend you want to remove.
 
         Raises
@@ -996,10 +1091,10 @@ class Client:
         HTTPException
             Something went wrong when trying to remove this friend.
         """
-        await self.http.remove_friend(id)
+        await self.http.friends_remove_or_decline(id)
 
-    async def dispatch_and_wait_for_event(self, event, *args, **kwargs):
-        method = '{0.event_prefix}_{1}'.format(self, event)
+    async def dispatch_and_wait_event(self, event, *args, **kwargs):
+        method = '{0.event_prefix}{1}'.format(self, event)
 
         coros = self._events.get('logout', [])
         try:
@@ -1012,8 +1107,6 @@ class Client:
             await asyncio.wait(tasks)
 
     def dispatch_event(self, event, *args, **kwargs):
-        method = '{0.event_prefix}_{1}'.format(self, event)
-
         listeners = self._listeners.get(event)
         if listeners:
             removed = []
@@ -1044,7 +1137,7 @@ class Client:
                     del listeners[idx]
         
         try:
-            coro = getattr(self, method)
+            coro = getattr(self, '{0.event_prefix}{1}'.format(self, event))
         except AttributeError:
             pass
         else:
@@ -1136,7 +1229,7 @@ class Client:
                 return True
             check = _check
         
-        ev = (event.lower()).replace('{0.event_prefix}_'.format(self), '')
+        ev = (event.lower()).replace(self.event_prefix, '')
         try:
             listeners = self._listeners[ev]
         except KeyError:
@@ -1165,7 +1258,7 @@ class Client:
         if not asyncio.iscoroutinefunction(coro):
             raise TypeError('event registered must be a coroutine function')
 
-        if event.strip('event_') not in self._events.keys():
+        if event[len(self.event_prefix):] not in self._events.keys():
             self._events[event] = []
         self._events[event].append(coro)
     
@@ -1187,12 +1280,13 @@ class Client:
         except ValueError:
             pass
 
-    def event(self, coro):
+    def event(self, event_or_coro):
         """A decorator to register an event.
         
         .. note::
 
-            You do not need to decorate events in a subclass of :class:`Client`.
+            You do not need to decorate events in a subclass of :class:`Client` but
+            the function names of event handlers must follow this format ``event_<event>``.
 
         Usage: ::
 
@@ -1200,22 +1294,29 @@ class Client:
             async def event_friend_message(message):
                 await message.reply('Thanks for your message!')
 
+            @client.event('friend_message')
+            async def my_message_handler(message):
+                await message.reply('Thanks for your message!')
+
         Raises
         ------
         TypeError
-            The name of the function is not prefixed with ``event_``
-        TypeError
             The decorated function is not a coroutine.
+        TypeError
+            Event is not specified as argument or function name with event prefix.
         """
-        if not coro.__name__.startswith('event_'):
-            raise TypeError('event function names must follow this syntax: "event_<event>"')
-        if not asyncio.iscoroutinefunction(coro):
-            raise TypeError('the decorated function must be a coroutine')
+        is_coro = not isinstance(event_or_coro, str)
+        def pred(coro):
+            if not asyncio.iscoroutinefunction(coro):
+                raise TypeError('the decorated function must be a coroutine')
+            if is_coro and not coro.__name__.startswith(self.event_prefix):
+                raise TypeError('non specified events must follow this function name format: "{}<event>"'.format(self.event_prefix))
 
-        name = '_'.join(coro.__name__.split('_')[1:])
-        self.add_event_handler(name, coro)
-        log.debug('{} has been registered as an event'.format(coro.__name__))
-        return coro
+            name = coro.__name__[len(self.event_prefix):] if is_coro else event_or_coro
+            self.add_event_handler(name, coro)
+            log.debug('{} has been registered as a handler for the event {}'.format(coro.__name__, name))
+            return coro
+        return pred(event_or_coro) if is_coro else pred
 
     async def fetch_br_stats(self, user_id, *, start_time=None, end_time=None):
         """|coro|
@@ -1248,14 +1349,14 @@ class Client:
         """
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
-            start_time = (start_time - epoch).total_seconds()
+            start_time = int((start_time - epoch).total_seconds())
 
         if isinstance(end_time, datetime.datetime):
-            end_time = (end_time - epoch).total_seconds()
+            end_time = int((end_time - epoch).total_seconds())
 
         tasks = [
             self.fetch_profile(user_id, cache=True),
-            self.http.get_br_stats_v2(user_id, start_time=start_time, end_time=end_time)
+            self.http.stats_get_v2(user_id, start_time=start_time, end_time=end_time)
         ]
         d, _ = await asyncio.wait(tasks)
         results = [r.result() for r in d]
@@ -1345,7 +1446,7 @@ class Client:
         
         tasks = [
             self.fetch_profiles(user_ids, cache=True),
-            self.http.get_multiple_br_stats_v2(user_ids, stats)
+            self.http.stats_get_mutliple_v2(user_ids, stats)
         ]
         d, _ = await asyncio.wait(tasks)
         results = [r.result() for r in d]
@@ -1375,10 +1476,11 @@ class Client:
             Users battlepass level mapped to their account id. Returns ``None`` if no battlepass
             level was found.
         """
-        data = await self.http.get_multiple_br_stats_v2(
+        data = await self.http.stats_get_mutliple_v2(
             users,
             ('s11_social_bp_level',)
         )
+
         return {e['accountId']: e['stats'].get('s11_social_bp_level', None) for e in data}
 
     async def fetch_battlepass_level(self, user_id):
@@ -1447,7 +1549,7 @@ class Client:
                     'value': 5082
                 }
         """
-        data = await self.http.get_br_leaderboard_v2(stat)
+        data = await self.http.stats_get_leaderboard_v2(stat)
 
         if len(data['entries']) == 0:
             raise ValueError('{0} is not a valid stat'.format(stat))
@@ -1469,7 +1571,13 @@ class Client:
                     raise HTTPException(exc.response, exc.raw)
 
                 data = await self.http.party_lookup_user(self.user.id)
-                await self.http.party_leave(data['current'][0]['id'])
+                async with self._leave_lock:
+                    try:
+                        await self.http.party_leave(data['current'][0]['id'])
+                    except HTTPException as e:
+                        if e.message_code != 'errors.com.epicgames.social.party.party_not_found':
+                            e.reraise()
+
                 await self.xmpp.leave_muc()
 
         config = {**cf, **data['config']}
@@ -1477,17 +1585,13 @@ class Client:
         await party._update_members(members=data['members'])
         self.user.set_party(party)
 
-        def check(m):
-            return m.id == self.user.id
-
-        try:
-            await self.wait_for('internal_party_member_join', check=check, timeout=3)
-        except asyncio.TimeoutError:
-            await party._leave()
-            return await self._create_party()
+        fut = asyncio.ensure_future(party.patch(updated={
+            'RawSquadAssignments_j': party.meta.refresh_squad_assignments()
+        }), loop=self.loop)
 
         await party.join_chat()
         await party.set_privacy(config['privacy'])
+        await fut
         return party
 
     async def join_to_party(self, party_id, *, check_private=True):
@@ -1622,7 +1726,7 @@ class Client:
         :class:`bool`
             ``True`` if service is up else ``False``
         """
-        status = await self.http.get_lightswitch_status(service_id=service_id)
+        status = await self.http.lightswitch_get_status(service_id=service_id)
         if len(status) == 0:
             raise ValueError('emtpy lightswitch response')
         return True if status[0].get('status') == 'UP' else False
@@ -1656,7 +1760,7 @@ class Client:
         :class:`Store`
             Object representing the data from the current item shop.
         """
-        data = await self.http.get_store_catalog()
+        data = await self.http.fortnite_get_store_catalog()
         return Store(self, data)
 
     async def fetch_br_news(self):
@@ -1674,8 +1778,7 @@ class Client:
         :class:`list`
             List[:class:`BattleRoyaleNewsPost`]
         """
-        raw = await self.http.get_fortnite_news()
-        data = json.loads(raw.encode('utf-8'))
+        data = await self.http.fortnitecontent_get()
 
         res = []
         msg = data['battleroyalenews']['news'].get('message')
@@ -1703,7 +1806,7 @@ class Client:
         List[:class:`Playlist`]
             List containing all playlists registered on Fortnite.
         """
-        data = await self.http.get_fortnite_content()
+        data = await self.http.fortnitecontent_get()
 
         raw = data['playlistinformation']['playlist_info']['playlists']
         playlists = []
@@ -1733,10 +1836,11 @@ class Client:
         Returns
         -------
         List[:class:`str`]
-            List of internal playlist names.
+            List of internal playlist names. Returns an empty list of none LTMs are 
+            for the specified region.
         """
-        data = await self.http.get_fortnite_timeline()
+        data = await self.http.fortnite_get_timeline()
 
         states = data['channels']['client-matchmaking']['states']
-        region_data = states[len(states) - 1]['state']['region'][region.value]
+        region_data = states[len(states) - 1]['state']['region'].get(region.value, {})
         return region_data.get('eventFlagsForcedOn', [])

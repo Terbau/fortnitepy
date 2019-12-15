@@ -6,6 +6,96 @@ Changelog
 Detailed version changes.
 
 
+v1.0.0
+------
+
+| **BREAKING UPDATE**
+| Massive code overhaul and lots of new stuff / bugs fixes. Keep in mind that this is a very big update so issues and bugs might appear. If so, report them either on the issue tracker or on discord.
+
+Added
+~~~~~
+
+- Added :meth:`Client.restart()` which restarts the client completely.
+- Added :meth:`Client.accept_friend()` which accepts a friend and then returns the :class:`Friend` object of the friend you added.
+- Added :attr:`Friend.nickname` which returns the currently set nickname for a friend.
+- Added :attr:`Friend.note` which returns the currently set note for a friend.
+- Added :attr:`Friend.last_logout` which returns the time of a friends last logout.
+- Added :meth:`Friend.fetch_mutual_friends_count()` which returns the number of mutual friends the friend and the client have.
+- Added :meth:`Friend.set_nickname()` to set a friends nickname.
+- Added :meth:`Friend.remove_nickname()` to remove the friends nickname.
+- Added :meth:`Friend.set_note()` to pin a note to a friend.
+- Added :meth:`Friend.remove_note()` to remove the note pinned to a friend.
+- Added :attr:`ClientUser.email_verified`.
+- Added :attr:`ClientUser.minor_verified`.
+- Added :attr:`ClientUser.minor_expected`.
+- Added :attr:`ClientUser.minor_status`.
+- Added event :func:`event_restart()` which emits when the client has successfully restarted.
+- Added event :func:`event_auth_refresh()` which emits when the clients authentication has been successfully refreshed.
+- Added event :func:`event_party_playlist_change()` which emits when the playlist of the clients current party is changed.
+- Added event :func:`event_party_squad_fill_change()` which emits when the squad fill value is changed.
+- Added event :func:`event_party_privacy_change()` which emits when the party privacy is changed.
+- Added event :func:`event_party_member_ready_change()` which emits when a members ready state is changed.
+- Added event :func:`event_party_member_input_change()` which emits when a members input is changed.
+- Added event :func:`event_party_member_assisted_challenge_change()` which emits when a members assisted challenge is changed.
+- Added event :func:`event_party_member_outfit_change()` which emits when a members outfit is changed.
+- Added event :func:`event_party_member_backpack_change()` which emits when a members backpack is changed.
+- Added event :func:`event_party_member_pickaxe_change()` which emits when a members pickaxe is changed.
+- Added event :func:`event_party_member_emote_change()` which emits when a members emote is changed.
+- Added event :func:`event_party_member_banner_change()` which emits when a members banner is changed.
+- Added event :func:`event_party_member_battlepass_info_change()` which emits when a members battlepass info is changed.
+- Added event :func:`event_party_member_outfit_variants_change()` which emits when a members outfit variants is changed.
+- Added event :func:`event_party_member_backpack_variants_change()` which emits when a members backpack variants is changed.
+- Added event :func:`event_party_member_pickaxe_variants_change()` which emits when a members pickaxe variants is changed.
+
+[**ALL BREAKING**] Renamed
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- ``event_party_updated()`` -> :func:`event_party_update()`
+- ``Client.remove_friend`` -> :meth:`Client.remove_or_decline_friend()`
+- ``PartyMember.is_leader`` -> :attr:`PartyMember.leader`
+- ``ClientPartyMember.is_leader`` -> :attr:`ClientPartyMember.leader`
+- ``Party.squad_fill_enabled`` -> :attr:`Party.squad_fill`
+- ``ClientParty.squad_fill_enabled`` -> :attr:`ClientParty.squad_fill`
+- ``PartyInvitation.author`` -> :attr:`PartyInvitation.sender`
+- ``PresenceParty.is_private`` -> :attr:`PresenceParty.private`
+- ``Presence.is_available`` -> :attr:`Presence.available`
+- ``Presence.is_playing`` -> :attr:`Presence.playing`
+- ``Presence.is_joinable`` -> :attr:`Presence.joinable`
+
+Changes
+~~~~~~~
+
+- :meth:`Client.start()` now takes an optional parameter ``dispatch_ready`` which determines if the :func:`event_ready()` should be dispatched when the client is ready.
+- :meth:`Client.logout()` now takes an optional parameter ``close_http`` which determines if the clients :class:`aiohttp.ClientSession` should be closed when logged out.
+- The decorator :meth:`Client.event()` can now be used by being called. Read more about it on its page.
+- [**BREAKING**] :meth:`Friend.is_online()` is now a method instead of an attribute.
+- :meth:`PendingFriend.accept()` now returns the friend object of the friend you just accepted.
+- :meth:`ClientPartyMember.set_ready()` now promotes a random member to leader when changing to sitting out.
+- [**BREAKING**] :func:`event_party_member_promote()` now has an additional parameter which represents the previous leader.
+- :meth:`ClientPartyMember.set_outfit()`'s parameter ``asset`` is now optional.
+- :meth:`ClientPartyMember.set_backpack()`'s parameter ``asset`` is now optional.
+- :meth:`ClientPartyMember.set_pickaxe()`'s parameter ``asset`` is now optional.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue causing the :func:`event_party_member_confirm()` event to not work.
+- Fixed an issue that caused :meth:`Client.fetch_br_stats()` to not work when passing a starttime and an endtime.
+- Fixed an issue that caused ``party_not_found`` to be raised when the bot was leaving its current party.
+- Fixed an issue that caused :attr:`Friend.favorite` to return an incorrect value.
+- Swapped some unintentional f-strings (oops) for the python 3.5 supported format method.
+- Attempted to fix an issue where an error would be raised saying the clients oauth token was invalid.
+- Fixed an issue introduced in fortnite v11.30 that caused adding/removing friends to not work.
+- Fixed an issue introduced in fortnite v11.30 that caused inviting and joining parties to not work.
+- Fixed an issue that caused :meth:`Client.fetch_br_stats()`, :meth:`Client.fetch_multiple_br_stats()` and :meth:`Client.fetch_leaderboard()` to not work.
+- Fixed an issue that caused :attr:`Presence.playing`, :attr:`Presence.joinable` and :attr:`Presence.has_voice_support` to return incorrect values.
+- :attr:`StatsV2.start_time` and :attr:`StatsV2.end_time` now returns an UTC timestamp instead of a local timestamp (oops).
+- Fixed an issue that caused :meth:`Client.fetch_item_shop()` to emit an error.
+- Fixed an issue where :attr:`Presence.friend` would be ``None``.
+- Fixed an issue where changing variants with :meth:`ClientPartyMember.set_outfit()`, :meth:`ClientPartyMember.set_backpack()` and :meth:`ClientPartyMember.set_pickaxe()` would sometimes not work properly.
+- Fixed an issue where :meth:`Client.fetch_active_ltms()` would sometimes fail and raise an error.
+
+
 v0.9.0
 ------
 
@@ -36,7 +126,6 @@ Bug Fixes
 - Fixed an issue where that caused invites sent by the client to its private party to not work.
 - Fixed an issue where :func:`event_party_member_join()` would dispatch before party chat was ready.
 - Fixed an issue that caused aioxmpp logger to not work.
-
 
 
 v0.8.0

@@ -25,6 +25,7 @@ SOFTWARE.
 """
 
 import datetime
+import json
 
 replacers = {
     'placetop1': 'wins',
@@ -58,12 +59,12 @@ class StatsV2:
         self._stats = None
         self._platform_specific_combined_stats = None
         self._combined_stats = None
-        self.start_time = datetime.datetime.fromtimestamp(data['startTime'])
+        self.start_time = datetime.datetime.utcfromtimestamp(data['startTime'])
 
         if data['endTime'] == 9223372036854775807:
             self.end_time = datetime.datetime.utcnow()
         else:
-            self.end_time = datetime.datetime.fromtimestamp(data['endTime'])
+            self.end_time = datetime.datetime.utcfromtimestamp(data['endTime'])
 
     @staticmethod
     def create_stat(stat, platform, playlist):
@@ -159,7 +160,7 @@ class StatsV2:
                 pass
 
             if name == 'lastmodified':
-                stat = datetime.datetime.fromtimestamp(stat)
+                stat = datetime.datetime.utcfromtimestamp(stat)
             
             if inp not in result:
                 result[inp] = {}

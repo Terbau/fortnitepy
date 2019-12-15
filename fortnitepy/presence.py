@@ -75,11 +75,11 @@ class PresenceParty:
             # NOTE: you should always use id over display_name
             # but for this example i've use display_name just
             # to demonstrate.
-            if presence.author.display_name != 'Terbau':
+            if presence.friend.display_name != 'Terbau':
                 return
             
             # check if party is private
-            if presence.party.is_private:
+            if presence.party.private:
                 return
             
             # if all the checks above succeeds we join the party
@@ -88,14 +88,14 @@ class PresenceParty:
     
     .. note::
 
-        If the party is private all attributes below is_private will
+        If the party is private, all attributes below private will
         be ``None``.
 
     Attributes
     ----------
     client: :class:`str`
         The client.
-    is_private: :class:`bool`
+    private: :class:`bool`
         ``True`` if the party is private else ``False``.
     platform: :class:`str`
         The platform of the friend.
@@ -119,14 +119,14 @@ class PresenceParty:
         The party's playercount.
     """
 
-    __slots__ = ('client', 'raw', 'is_private', 'platform', 'id', 'party_type_id',
+    __slots__ = ('client', 'raw', 'private', 'platform', 'id', 'party_type_id',
                  'key', 'app_id', 'build_id', 'net_cl', 'party_flags', 
                  'not_accepting_reason', 'playercount')
 
     def __init__(self, client, data):
         self.client = client
         self.raw = data
-        self.is_private = data.get('bIsPrivate', False)
+        self.private = data.get('bIsPrivate', False)
 
         self.platform = data.get('sourcePlatform')
         self.id = data.get('partyId')
@@ -164,7 +164,7 @@ class PresenceParty:
         if self.client.user.party.id == self.id:
             raise PartyError('You are already a member of this party.')
 
-        if self.is_private:
+        if self.private:
             raise Forbidden('You cannot join a private party.')
 
         await self.client.join_to_party(self.id)
@@ -177,7 +177,7 @@ class Presence:
     ----------
     client: :class:`Client`
         The client.
-    is_available: :class:`bool`
+    available: :class:`bool`
         The availability of this presence. ``True`` if presence is available,
         ``False`` if user went unavailable.
     friend: :class:`Friend`
@@ -186,13 +186,14 @@ class Presence:
         The UTC time of when the client received this presence.
     status: :class:`str`
         The friend's status.
-    is_playing: :class:`bool`
+    playing: :class:`bool`
         Says if friend is playing.
-    is_joinable: :class:`bool`
+    joinable: :class:`bool`
         Says if friend is joinable.
     session_id: :class:`str`
         The friend's current session id. Often referred to as
-        server key or game key.
+        server key or game key. Returns ``None`` if the friend is not currently
+        in a game.
     has_properties: :class:`bool`
         ``True`` if the presence has properties else ``False``.
         
@@ -228,24 +229,24 @@ class Presence:
         The playercount of the friend's server.
     """
 
-    __slots__ = ('client', 'raw', 'is_available', 'friend', 'received_at', 'status', 
-                 'is_playing', 'is_joinable', 'has_voice_support', 'session_id', 
+    __slots__ = ('client', 'raw', 'available', 'friend', 'received_at', 'status', 
+                 'playing', 'joinable', 'has_voice_support', 'session_id', 
                  'raw_properties', 'has_properties', 'avatar', 'avatar_colors', 
                  'homebase_rating', 'lfg', 'sub_game', 'in_unjoinable_match', 
                  'playlist', 'party_size', 'max_party_size', 'game_session_join_key', 
                  'server_player_count', 'gameplay_stats', 'party')
 
-    def __init__(self, client, from_id, is_available, data):
+    def __init__(self, client, from_id, available, data):
         self.client = client
         self.raw = data
-        self.is_available = is_available
+        self.available = available
         self.friend = self.client.get_friend(from_id)
         self.received_at = datetime.datetime.utcnow()
 
         self.status = data['Status']
-        self.is_playing = bool(data['bIsPlaying'])
-        self.is_joinable = bool(data['bIsJoinable'])
-        self.has_voice_support = bool(data['bHasVoiceSupport'])
+        self.playing = data['bIsPlaying']
+        self.joinable = data['bIsJoinable']
+        self.has_voice_support = data['bHasVoiceSupport']
         self.session_id = data['SessionId'] if data['SessionId'] != "" else None
 
         self.raw_properties = data['Properties']

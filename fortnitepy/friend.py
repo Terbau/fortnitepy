@@ -25,7 +25,7 @@ SOFTWARE.
 """
 
 from .user import UserBase
-from .errors import PartyError, Forbidden
+from .errors import PartyError, Forbidden, HTTPException
 
 
 class FriendBase(UserBase):
@@ -41,17 +41,17 @@ class FriendBase(UserBase):
         super()._update(data)
         self._status = data['status']
         self._direction = data['direction']
-        self._favorite = bool(data['favorite'])
+        self._favorite = str(data['favorite']).lower() == 'true'
         self._created_at = self.client.from_iso(data['created'])
 
     @property
     def display_name(self):
-        """:class:`str`: The friends' displayname"""
+        """:class:`str`: The friend's displayname"""
         return self._display_name
     
     @property
     def id(self):
-        """:class:`str`: The friends' id"""
+        """:class:`str`: The friend's id"""
         return self._id
     
     @property
@@ -116,7 +116,7 @@ class FriendBase(UserBase):
         HTTPException
             Something went wrong when trying to block this user.
         """
-        await self.client.http.block_user(self.id)
+        await self.client.http.friends_block(self.id)
 
     def get_raw(self):
         return {
@@ -131,10 +131,20 @@ class FriendBase(UserBase):
 class Friend(FriendBase):
     """Represents a friend on Fortnite"""
 
-    __slots__ = FriendBase.__slots__
+    __slots__ = FriendBase.__slots__ + ('_nickname', '_note', '_last_logout')
 
     def __init__(self, client, data):
         super().__init__(client, data)
+        self._last_logout = None
+
+    def _update(self, data):
+        super()._update(data)
+        self._nickname = data.get('alias')
+        self._note = data.get('note')
+        self._favorite = data.get('favorite')
+
+    def _update_last_logout(self, dt):
+        self._last_logout = dt
 
     @property
     def display_name(self):
@@ -145,6 +155,16 @@ class Friend(FriendBase):
     def id(self):
         """:class:`str`: The friends id"""
         return self._id
+    
+    @property
+    def nickname(self):
+        """:class:`str`: The friend's nickname. ``None`` if no nickname is set for this friend."""
+        return self._nickname
+
+    @property
+    def note(self):
+        """:class:`str`: The friend's note. ``None`` if no note is set."""
+        return self._note
     
     @property
     def external_auths(self):
@@ -162,14 +182,126 @@ class Friend(FriendBase):
         return self.client.get_presence(self.id)
 
     @property
+    def last_logout(self):
+        """:class:`datetime.datetime`: The UTC time of the last time this friend logged off."""
+        return self._last_logout
+
     def is_online(self):
-        """:class:`bool`: ``True`` if this friend is currently online on 
-        Fortnite else ``False``.
+        """Method to check if a user is currently online.
+        
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if the friend is currently online else ``False``.
         """
         pres = self.client.get_presence(self.id)
         if pres is None:
             return False
-        return pres.is_available
+        return pres.available
+
+    async def fetch_mutual_friends_count(self):
+        """|coro|
+        
+        Gets how many mutual friends the client and this friend have in common.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        data = await self.client.http.friends_get_summary()
+        for friend in data['friends']:
+            if friend['accountId'] == self.id:
+                return friend['mutual']
+
+    async def set_nickname(self, nickname):
+        """|coro|
+        
+        Sets the nickname of this friend.
+        
+        Parameters
+        ----------
+        nickname: :class:`str`
+            | The nickname you want to set.
+            | Min length: ``3``
+            | Max length: ``16``
+
+        Raises
+        ------
+        ValueError
+            The nickname contains too few/many characters or contains invalid
+            characters.
+        HTTPException
+            An error occured while requesting.
+        """
+        if not (3 <= len(nickname) <= 16):
+            raise ValueError('Invalid nickname length')
+
+        try:
+            await self.client.http.friends_set_nickname(self.id, nickname)
+        except HTTPException as e:
+            if e.message_code in ('errors.com.epicgames.common.unsupported_media_type',
+                                  'errors.com.epicgames.validation.validation_failed'):
+                raise ValueError('Invalid nickname')
+            e.reraise()
+        self._nickname = nickname
+
+    async def remove_nickname(self):
+        """|coro|
+        
+        Removes the friend's nickname.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        await self.client.http.friends_remove_nickname(self.id)
+        self._nickname = None
+
+    async def set_note(self, note):
+        """|coro|
+        
+        Pins a note to this friend.
+
+        Parameters
+        note: :class:`str`
+            | The note you want to set.
+            | Min length: ``3``
+            | Max length: ``255``
+
+        Raises
+        ------
+        ValueError
+            The note contains too few/many characters or contains invalid
+            characters.
+        HTTPException
+            An error occured while requesting.
+        """
+        if not (3 <= len(note) <= 255):
+            raise ValueError('Invalid note length')
+
+        try:
+            await self.client.http.friends_set_note(self.id, note)
+        except HTTPException as e:
+            if e.message_code in ('errors.com.epicgames.common.unsupported_media_type',
+                                  'errors.com.epicgames.validation.validation_failed'):
+                raise ValueError('Invalid note')
+            e.reraise()
+        self._note = note
+
+    async def remove_note(self):
+        """|coro|
+        
+        Removes the friend's note.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        await self.client.http.friends_remove_note(self.id)
+        self._note = None
 
     async def remove(self):
         """|coro|
@@ -181,7 +313,7 @@ class Friend(FriendBase):
         HTTPException
             Something went wrong when trying to remove this friend.
         """
-        await self.client.http.remove_friend(self.id)
+        await self.client.friends_remove_or_decline(self.id)
 
     async def send(self, content):
         """|coro|
@@ -213,7 +345,7 @@ class Friend(FriendBase):
         if _pre is None:
             raise PartyError('Could not join party. Reason: Party not found')
         
-        if _pre.party.is_private:
+        if _pre.party.private:
             raise Forbidden('Could not join party. Reason: Party is private')
         
         await _pre.party.join()
@@ -257,8 +389,14 @@ class PendingFriend(FriendBase):
         ------
         HTTPException
             Something went wrong when trying to accept this request.
+
+        Returns
+        -------
+        :class:`Friend`
+            Object of the friend you just added.
         """
-        await self.client.http.add_friend(self.id)
+        friend = await self.client.accept_friend(self.id)
+        return friend
 
     async def decline(self):
         """|coro|
@@ -270,7 +408,7 @@ class PendingFriend(FriendBase):
         HTTPException
             Something went wrong when trying to decline this request.
         """
-        await self.client.http.remove_friend(self.id)
+        await self.client.remove_or_decline_friend(self.id)
 
 
 # NOT IMPLEMENTED
@@ -288,6 +426,6 @@ class PendingFriend(FriendBase):
 #         """|coro|
         
 #         Unblocks this friend."""
-#         await self.client.http.unblock_user(self.id)
+#         await self.client.http.friends_unblock(self.id)
 
     
