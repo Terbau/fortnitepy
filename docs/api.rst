@@ -275,9 +275,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param party: The party that changed.
 	:type party: :class:`ClientParty`
 	:param before: The previous playlist data. Same structure as .
-    :type before: :class:`tuple`
-    :param after: The current playlist data. Same structure as .
-    :type after: :class:`tuple`
+	:type before: :class:`tuple`
+	:param after: The current playlist data. Same structure as .
+	:type after: :class:`tuple`
 
 .. function:: event_party_squad_fill_change(party, before, after)
 
@@ -286,9 +286,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param party: The party that changed.
 	:type party: :class:`ClientParty`
 	:param before: The previous squad fill value.
-    :type before: :class:`bool`
-    :param after: The current squad fill value.
-    :type after: :class:`bool`
+	:type before: :class:`bool`
+	:param after: The current squad fill value.
+	:type after: :class:`bool`
 
 .. function:: event_party_privacy_change(party, before, after)
 
@@ -297,9 +297,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param party: The party that changed.
 	:type party: :class:`ClientParty`
 	:param before: The previous party privacy.
-    :type before: :class:`Privacy`
-    :param after: The current party privacy.
-    :type after: :class:`Privacy`
+	:type before: :class:`Privacy`
+	:param after: The current party privacy.
+	:type after: :class:`Privacy`
 
 .. function:: event_party_member_ready_change(member, before, after)
 
@@ -308,9 +308,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous ready status. ``None`` if the member is sitting out.
-    :type before: :class:`bool`
-    :param after: The current ready status. ``None`` if the member is sitting out.
-    :type after: :class:`bool`
+	:type before: :class:`bool`
+	:param after: The current ready status. ``None`` if the member is sitting out.
+	:type after: :class:`bool`
 
 .. function:: event_party_member_input_change(member, before, after)
 
@@ -319,9 +319,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous input.
-    :type before: :class:`str`
-    :param after: The current input.
-    :type after: :class:`str`
+	:type before: :class:`str`
+	:param after: The current input.
+	:type after: :class:`str`
 
 .. function:: event_party_member_assisted_challenge_change(member, before, after)
 
@@ -330,9 +330,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous assisted challenge. ``None`` if no assisted challenge was previously set.
-    :type before: :class:`str`
-    :param after: The current assisted challenge. ``None`` if the assisted challenge was removed.
-    :type after: :class:`str`
+	:type before: :class:`str`
+	:param after: The current assisted challenge. ``None`` if the assisted challenge was removed.
+	:type after: :class:`str`
 
 .. function:: event_party_member_outfit_change(member, before, after)
 
@@ -341,9 +341,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous outfit cid.
-    :type before: :class:`str`
-    :param after: The current outfit cid.
-    :type after: :class:`str`
+	:type before: :class:`str`
+	:param after: The current outfit cid.
+	:type after: :class:`str`
 
 .. function:: event_party_member_backpack_change(member, before, after)
 
@@ -352,9 +352,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous backpack bid.
-    :type before: :class:`str`
-    :param after: The current backpack bid.
-    :type after: :class:`str`
+	:type before: :class:`str`
+	:param after: The current backpack bid.
+	:type after: :class:`str`
 
 .. function:: event_party_member_pickaxe_change(member, before, after)
 
@@ -363,9 +363,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous pickaxe pid.
-    :type before: :class:`str`
-    :param after: The current pickaxe pid.
-    :type after: :class:`str`
+	:type before: :class:`str`
+	:param after: The current pickaxe pid.
+	:type after: :class:`str`
 
 .. function:: event_party_member_emote_change(member, before, after)
 
@@ -374,9 +374,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous emote eid. ``None`` if no emote was currently playing.
-    :type before: :class:`str`
-    :param after: The current emote eid. ``None`` if the emote was stopped.
-    :type after: :class:`str`
+	:type before: :class:`str`
+	:param after: The current emote eid. ``None`` if the emote was stopped.
+	:type after: :class:`str`
 
 .. function:: event_party_member_banner_change(member, before, after)
 
@@ -385,9 +385,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous banner data. Same structure as :attr:`PartyMember.banner`.
-    :type before: :class:`tuple`
-    :param after: The current banner data. Same structure as :attr:`PartyMember.banner`.
-    :type after: :class:`tuple`
+	:type before: :class:`tuple`
+	:param after: The current banner data. Same structure as :attr:`PartyMember.banner`.
+	:type after: :class:`tuple`
 
 .. function:: event_party_member_battlepass_info_change(member, before, after)
 
@@ -396,9 +396,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous battlepass data. Same structure as :attr:`PartyMember.battlepass_info`.
-    :type before: :class:`tuple`
-    :param after: The current battlepass data. Same structure as :attr:`PartyMember.battlepass_info`.
-    :type after: :class:`tuple`
+	:type before: :class:`tuple`
+	:param after: The current battlepass data. Same structure as :attr:`PartyMember.battlepass_info`.
+	:type after: :class:`tuple`
 
 .. function:: event_party_member_outfit_variants_change(member, before, after)
 
@@ -407,9 +407,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous outfit variants. Same structure as :attr:`PartyMember.outfit_variants`.
-    :type before: :class:`list`
-    :param after: The current outfit variants. Same structure as :attr:`PartyMember.outfit_variants`.
-    :type after: :class:`list`
+	:type before: :class:`list`
+	:param after: The current outfit variants. Same structure as :attr:`PartyMember.outfit_variants`.
+	:type after: :class:`list`
 
 .. function:: event_party_member_backpack_variants_change(member, before, after)
 
@@ -418,9 +418,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous backpack variants. Same structure as :attr:`PartyMember.backpack_variants`.
-    :type before: :class:`list`
-    :param after: The current backpack variants. Same structure as :attr:`PartyMember.backpack_variants`.
-    :type after: :class:`list`
+	:type before: :class:`list`
+	:param after: The current backpack variants. Same structure as :attr:`PartyMember.backpack_variants`.
+	:type after: :class:`list`
 
 .. function:: event_party_member_pickaxe_variants_change(member, before, after)
 
@@ -429,9 +429,9 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
 	:param before: The previous pickaxe variants. Same structure as :attr:`PartyMember.pickaxe_variants`.
-    :type before: :class:`list`
-    :param after: The current pickaxe variants. Same structure as :attr:`PartyMember.pickaxe_variants`.
-    :type after: :class:`list`
+	:type before: :class:`list`
+	:param after: The current pickaxe variants. Same structure as :attr:`PartyMember.pickaxe_variants`.
+	:type after: :class:`list`
 
 
 Stats Reference
