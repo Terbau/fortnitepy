@@ -1791,7 +1791,7 @@ class PartyInvitation:
             raise PartyError('Incompatible net_cl')
 
         await self.client.join_to_party(self.party.id, check_private=False)
-        await self.client.http.party_delete_ping(self.sender.id)
+        asyncio.ensure_future(self.client.http.party_delete_ping(self.sender.id), loop=self.client.loop)
 
     async def decline(self):
         """|coro|
