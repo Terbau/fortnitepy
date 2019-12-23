@@ -5,6 +5,16 @@ Changelog
 
 Detailed version changes.
 
+v1.0.3
+------
+
+Another hotpatch to fix a silly issue from the last one .-.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed :meth:`Client.from_iso()`.
+
 
 v1.0.2
 ------

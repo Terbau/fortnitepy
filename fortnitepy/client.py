@@ -251,7 +251,7 @@ class Client:
         try:
             return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S.%fZ')
         except ValueError:
-            return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S')
+            return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%SZ')
     
     @staticmethod
     def to_iso(dt):
