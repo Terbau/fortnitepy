@@ -160,6 +160,11 @@ class PresenceParty:
             The party is private.
         HTTPException
             Something else went wrong when trying to join this party.
+
+        Returns
+        -------
+        :class:`ClientParty`
+            The party that was just joined.
         """
         if self.client.user.party.id == self.id:
             raise PartyError('You are already a member of this party.')
@@ -167,7 +172,7 @@ class PresenceParty:
         if self.private:
             raise Forbidden('You cannot join a private party.')
 
-        await self.client.join_to_party(self.id)
+        return await self.client.join_to_party(self.id)
 
 
 class Presence:
