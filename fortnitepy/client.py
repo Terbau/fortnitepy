@@ -247,7 +247,11 @@ class Client:
         """
         if isinstance(iso, datetime.datetime):
             return iso
-        return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S.%fZ')
+        
+        try:
+            return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S.%fZ')
+        except ValueError:
+            return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S')
     
     @staticmethod
     def to_iso(dt):
@@ -1648,6 +1652,11 @@ class Client:
         await self.user.party._leave()
         self.user.set_party(party)
 
+        future = asyncio.ensure_future(self.wait_for(
+            'party_member_join', 
+            check=lambda m: m.id == self.user.id
+        ), loop=self.loop)
+
         try:
             await self.http.party_join_request(party_id)
             await self.user.party.join_chat()
@@ -1657,6 +1666,11 @@ class Client:
             if e.message_code == 'errors.com.epicgames.social.party.party_join_forbidden':
                 raise Forbidden('Client has no right to join this party.')
             e.reraise()
+
+        try:
+            await future
+        except asyncio.TimeoutError:
+            pass
 
         return party
 

@@ -6,6 +6,20 @@ Changelog
 Detailed version changes.
 
 
+v1.0.2
+------
+
+Another hotpatch.
+
+Changes
+~~~~~~~
+
+- Fixed an issue where :func:`event_party_member_kick()` would not emit if the member was kicked by the client.
+- Fixed a bug that caused an error to be raised when converting a string to a datetime object internally.
+- :meth:`Client.join_to_party()` now waits until the client has joined the party before returning.
+- :meth:`PresenceParty.join()` now returns the :class:`ClientParty` that was just joined.
+
+
 v1.0.1
 ------
 
