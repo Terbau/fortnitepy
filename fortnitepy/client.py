@@ -247,7 +247,11 @@ class Client:
         """
         if isinstance(iso, datetime.datetime):
             return iso
-        return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S.%fZ')
+        
+        try:
+            return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S.%fZ')
+        except ValueError:
+            return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S')
     
     @staticmethod
     def to_iso(dt):
