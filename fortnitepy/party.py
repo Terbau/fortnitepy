@@ -776,7 +776,6 @@ class PartyMember(PartyMemberBase):
             raise PartyError('You can\'t kick yourself')
 
         await self.client.http.party_kick_member(self.party.id, self.id)
-        self.party._remove_member(self.id)
 
     async def promote(self):
         """|coro|
