@@ -420,7 +420,9 @@ class XMPPClient:
                 if member.id == self.client.user.id:
                     party._create_clientmember(body)
 
-            asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
+            if party.me is not None:
+                asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
+
             if not (member.id == self.client.user.id and member.leader):
                 if party.me and party.leader and party.me.id == party.leader.id:
                     fut = asyncio.ensure_future(party.patch(updated={
