@@ -30,6 +30,7 @@ import asyncio
 import random
 import aioxmpp
 import re
+import functools
 
 from .errors import FortniteException, PartyError, Forbidden, HTTPException
 from .user import User
@@ -42,6 +43,29 @@ def get_random_default_character():
 def get_random_hex_color():
     r = lambda: random.randint(0, 255)
     return '#{:02x}{:02x}{:02x}'.format(r(), r(), r())
+
+
+class MaybeLock:
+    def __init__(self, lock, loop=None):
+        self.lock = lock
+        self.loop = loop or asyncio.get_event_loop()
+        self._cleanup = False
+
+    async def _acquire(self):
+        await self.lock.acquire()
+        self._cleanup = True
+
+    async def __aenter__(self):
+        self._task = self.loop.create_task(self._acquire())
+        return self
+
+    async def __aexit__(self, *args):
+        if not self._task.cancelled():
+            self._task.cancel()
+
+        if self._cleanup:
+            self.lock.release()
+
 
 class MetaBase:
     def __init__(self):
@@ -179,6 +203,13 @@ class PartyMemberMeta(MetaBase):
 
         if meta is not None:
             self.update(meta, raw=True)
+
+        client = member.client
+        if member.id == client.user.id and isinstance(member, ClientPartyMember):
+            asyncio.ensure_future(
+                member._edit(*client.default_party_member_config, from_default=True), 
+                loop=client.loop
+            )
 
     @property
     def ready(self):
@@ -814,6 +845,7 @@ class ClientPartyMember(PartyMemberBase):
 
         self.queue = asyncio.Queue(loop=self.client.loop)
         self.queue_active = False
+        self.edit_lock = asyncio.Lock(loop=self.client.loop)
 
     async def _patch(self, updated=None):
         meta = updated or self.meta.schema
@@ -859,6 +891,102 @@ class ClientPartyMember(PartyMemberBase):
             pass
         self.queue_active = False
 
+    async def _edit(self, *coros, from_default=True):
+        to_gather = {}
+        for coro in reversed(coros):
+            if isinstance(coro, functools.partial):
+                result = getattr(coro.func, '__self__', None)
+                if result is None:
+                    coro = coro.func(self, *coro.args, **coro.keywords)   
+                else:
+                    coro = coro()
+
+            if coro.__qualname__ in to_gather:
+                coro.close()
+            else:
+                to_gather[coro.__qualname__] = coro
+
+        async with MaybeLock(self.edit_lock):
+            await asyncio.gather(*list(to_gather.values()))
+
+    async def edit(self, *coros):
+        """|coro|
+        
+        Edits multiple meta parts at once.
+
+        This example sets the clients outfit to galaxy and banner to the epic banner with level 100.: ::
+
+            from functools import partial
+
+            async def edit_client_member():
+                member = client.user.party.me
+                await member.edit(
+                    member.set_outfit('CID_175_Athena_Commando_M_Celestial'), # usage with non-awaited coroutines
+                    partial(member.set_banner, icon="OtherBanner28", season_level=100) # usage with functools.partial()
+                )
+        
+        Parameters
+        ----------
+        *coros: Union[:class:`asyncio.coroutine`, :class:`functools.partial`]
+            A list of coroutines that should be included in the edit.
+
+        Raises
+        ------
+        HTTPException
+            Something went wrong while editing.
+        """
+        for coro in coros:
+            if not (asyncio.iscoroutine(coro) or isinstance(coro, functools.partial)):
+                raise TypeError('All arguments must be coroutines or a partials of coroutines')
+
+        await self._edit(*coros)
+        await self.patch()
+
+    async def edit_and_keep(self, *coros):
+        """|coro|
+        
+        Edits multiple meta parts at once and keeps the changes for when the bot joins other parties.
+
+        This example sets the clients outfit to galaxy and banner to the epic banner with level 100.
+        When the client joins another party, the outfit and banner will automatically be equipped.: ::
+
+            from functools import partial
+
+            async def edit_and_keep_client_member():
+                member = client.user.party.me
+                await member.edit_and_keep(
+                    partial(member.set_outfit, 'CID_175_Athena_Commando_M_Celestial'),
+                    partial(member.set_banner, icon="OtherBanner28", season_level=100)
+                )
+        
+        Parameters
+        ----------
+        *coros: :class:`functools.partial`
+            A list of coroutines that should be included in the edit. Unlike :meth:`ClientPartyMember.edit()`,
+            this method only takes coroutines in the form of a :class:`functools.partial`.
+
+        Raises
+        ------
+        HTTPException
+            Something went wrong while editing.
+        """
+        new = []
+        for coro in coros:
+            if not isinstance(coro, functools.partial):
+                raise TypeError('All arguments partials of a coroutines')
+            
+            result = getattr(coro.func, '__self__', None)
+            if result is not None:
+                coro = functools.partial(getattr(ClientPartyMember, coro.func.__name__), *coro.args, **coro.keywords)
+
+            new.append(coro)
+
+        self.client.update_default_party_member_config(new)
+        default = self.client.default_party_member_config
+
+        await self._edit(*default)
+        await self.patch()
+
     async def leave(self):
         """|coro|
         
@@ -901,11 +1029,19 @@ class ClientPartyMember(PartyMemberBase):
             val='Ready' if value is True else ('NotReady' if value is False else 'SittingOut')
         )
 
-        tasks = [self.patch(updated=prop)]
-        if value is None:
-            tasks.append(random.choice(list(self.party.members.values())).promote())
-        await asyncio.wait(tasks)
+        if not self.edit_lock.locked():
+            tasks = [self.patch(updated=prop)]
+            if value is None:
+                tasks.append(random.choice(list(self.party.members.values())).promote())
+            await asyncio.wait(tasks)
 
+        else:
+            if value is None:
+                asyncio.ensure_future(
+                    random.choice(list(self.party.members.values())).promote(),
+                    loop=self.client.loop
+                )
+            
     async def set_outfit(self, asset=None, *, key=None, variants=None):
         """|coro|
         
@@ -939,7 +1075,9 @@ class ClientPartyMember(PartyMemberBase):
             character_ekey=key,
             variants=variants
         )
-        await self.patch(updated=prop)
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
         
     async def set_backpack(self, asset=None, *, key=None, variants=None):
         """|coro|
@@ -974,7 +1112,9 @@ class ClientPartyMember(PartyMemberBase):
             backpack_ekey=key,
             variants=variants
         )
-        await self.patch(updated=prop)
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
     
     async def set_pickaxe(self, asset=None, *, key=None, variants=None):
         """|coro|
@@ -1009,7 +1149,9 @@ class ClientPartyMember(PartyMemberBase):
             pickaxe_ekey=key,
             variants=variants
         )
-        await self.patch(updated=prop)
+        
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
 
     async def set_emote(self, asset, *, run_for=None, key=None, section=None):
         """|coro|
@@ -1042,10 +1184,12 @@ class ClientPartyMember(PartyMemberBase):
             emote_ekey=key,
             section=section
         )
-        await self.patch(updated=prop)
 
         if run_for is not None:
-            self.client.loop.create_task(self._schedule_clear_emote(run_for))
+            asyncio.ensure_future(self._schedule_clear_emote(run_for), loop=self.client.loop)
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
 
     async def _schedule_clear_emote(self, seconds):
         await asyncio.sleep(seconds)
@@ -1061,7 +1205,9 @@ class ClientPartyMember(PartyMemberBase):
             emote_ekey='',
             section=-1
         )
-        await self.patch(updated=prop)
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
     
     async def set_banner(self, icon=None, color=None, season_level=None):
         """|coro|
@@ -1085,7 +1231,9 @@ class ClientPartyMember(PartyMemberBase):
             banner_color=color,
             season_level=season_level
         )
-        await self.patch(updated=prop)
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
     
     async def set_battlepass_info(self, has_purchased=None, level=None, self_boost_xp=None,
                                   friend_boost_xp=None):
@@ -1117,7 +1265,9 @@ class ClientPartyMember(PartyMemberBase):
             self_boost_xp=self_boost_xp,
             friend_boost_xp=friend_boost_xp
         )
-        await self.patch(updated=prop)
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
     
     async def set_assisted_challenge(self, quest=None, *, num_completed=None):
         """|coro|
@@ -1144,7 +1294,9 @@ class ClientPartyMember(PartyMemberBase):
             quest=quest,
             completed=num_completed
         )
-        await self.patch(updated=prop)    
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)   
 
 
 class PartyBase:
