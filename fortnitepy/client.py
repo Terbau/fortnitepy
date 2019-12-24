@@ -32,6 +32,7 @@ import signal
 import logging
 import json
 import selectors
+import functools
 
 from bs4 import BeautifulSoup
 from OpenSSL.SSL import SysCallError
@@ -145,6 +146,20 @@ class Client:
                 'chat_enabled': True,
             }
 
+    default_party_member_config: List[:class:`functools.partial`]
+        A list of coroutines in the form of partials. This config will be automatically
+        equipped by the bot when joining new parties.
+
+        .. code-block:: python3
+
+            from fortnitepy import ClientPartyMember
+            from functools import partial
+
+            [
+                partial(ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'),
+                partial(ClientPartyMember.set_banner, icon="OtherBanner28", season_level=100)
+            ]
+
     build: :class:`str`
         The build used by Fortnite. 
         Defaults to a valid but maybe outdated value.
@@ -199,6 +214,7 @@ class Client:
         self.net_cl = kwargs.get('net_cl', '')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', {})
+        self.default_party_member_config = kwargs.get('default_party_member_config', [])
         self.build = kwargs.get('build', '++Fortnite+Release-11.00-CL-9603448')
         self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
         self.launcher_token = kwargs.get('launcher_token', 'MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=')
@@ -235,6 +251,9 @@ class Client:
         self.setup_internal()
         self.update_default_party_config(
             kwargs.get('default_party_config')
+        )
+        self.update_default_party_member_config(
+            kwargs.get('default_party_member_config')
         )
         
     @staticmethod
@@ -337,6 +356,25 @@ class Client:
     def _check_party_confirmation(self):
         val = 'party_member_confirm' in self._events and len(self._events['party_member_confirm']) > 0
         self.update_default_party_config({'join_confirmation': val})
+
+    def update_default_party_member_config(self, config):
+        if config is None:
+            return
+
+        names = []
+        results = []
+
+        unfiltered = [*list(reversed(config)), *list(reversed(self.default_party_member_config))]
+        for elem in unfiltered:
+            coro = elem.func
+            if coro.__qualname__ not in names:
+                names.append(coro.__qualname__)
+                results.append(elem)
+
+            if not (asyncio.iscoroutine(coro) or asyncio.iscoroutinefunction(coro)):
+                raise TypeError('default_party_member_config must be list of partials of coroutines')
+
+        self.default_party_member_config = results
 
     def exc_handler(self, loop, ctx):
         exc = ctx.get('exception')

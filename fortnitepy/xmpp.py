@@ -420,7 +420,9 @@ class XMPPClient:
                 if member.id == self.client.user.id:
                     party._create_clientmember(body)
 
-            asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
+            if party.me is not None:
+                asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
+
             if not (member.id == self.client.user.id and member.leader):
                 if party.me and party.leader and party.me.id == party.leader.id:
                     fut = asyncio.ensure_future(party.patch(updated={
@@ -628,13 +630,16 @@ class XMPPClient:
         await asyncio.sleep(0)
     
     def muc_on_message(self, message, member, source, **kwargs):
-        if member.direct_jid.localpart == self.client.user.id or member.nick is None:
+        user_id = member.direct_jid.localpart
+        party = self.client.user.party
+
+        if user_id == self.client.user.id or member.nick is None or user_id not in party.members:
             return
         
         self.client.dispatch_event('party_message', PartyMessage(
             client=self.client,
-            party=self.client.user.party, 
-            author=self.client.user.party.members[member.direct_jid.localpart],
+            party=party, 
+            author=party.members[member.direct_jid.localpart],
             content=message.body.any()
         ))
 

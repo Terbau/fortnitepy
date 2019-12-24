@@ -313,7 +313,7 @@ class Friend(FriendBase):
         HTTPException
             Something went wrong when trying to remove this friend.
         """
-        await self.client.friends_remove_or_decline(self.id)
+        await self.client.remove_or_decline_friend(self.id)
 
     async def send(self, content):
         """|coro|
