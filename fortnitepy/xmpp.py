@@ -630,13 +630,16 @@ class XMPPClient:
         await asyncio.sleep(0)
     
     def muc_on_message(self, message, member, source, **kwargs):
-        if member.direct_jid.localpart == self.client.user.id or member.nick is None:
+        user_id = member.direct_jid.localpart
+        party = self.client.user.party
+
+        if user_id == self.client.user.id or member.nick is None or user_id not in party.members:
             return
         
         self.client.dispatch_event('party_message', PartyMessage(
             client=self.client,
-            party=self.client.user.party, 
-            author=self.client.user.party.members[member.direct_jid.localpart],
+            party=party, 
+            author=party.members[member.direct_jid.localpart],
             content=message.body.any()
         ))
 
