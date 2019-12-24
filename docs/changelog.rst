@@ -5,6 +5,27 @@ Changelog
 
 Detailed version changes.
 
+v1.1.0
+------
+
+This update adds some much awaited edit functions to ClientPartyMember as well as some important bug fixes.
+
+Added
+~~~~~
+
+- Added :meth:`ClientPartyMember.edit()` which patches multiple meta changes at once.
+- Added :meth:`ClientPartyMember.edit_and_keep()` which patches multiple meta changes at once and then keeps the changes so they are automatically equipped when joining new parties.
+- Added keyword ``default_party_member_config`` to :class:`Client` which takes a list of meta changes and automatically equips them when joining new parties.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed :meth:`Friend.remove()`.
+- Fixed an issue where :attr:`PartyMember.outfit` would sometimes raise an error.
+- Fixed an issue causing an error to sometimes be raised when a new member joined the party.
+- Fixed an issue causing an error to sometimes be raised when a message was received from party chat.
+
+
 v1.0.3
 ------
 
