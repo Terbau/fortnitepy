@@ -223,16 +223,18 @@ class PartyMemberMeta(MetaBase):
     @property
     def assisted_challenge(self):
         base = self.get_prop('AssistedChallengeInfo_j')
-        result = result = re.search(r".*\.(.*)", base['AssistedChallengeInfo']['questItemDef'].strip("'"))
+        result = re.search(r".*\.(.*)", base['AssistedChallengeInfo']['questItemDef'].strip("'"))
 
-        if result is None or result[1] == 'None':
-            return None
-        return result[1]
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def outfit(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
-        return re.search(r'.*(CID.*)\..*', base['AthenaCosmeticLoadout']['characterDef'])[1]
+        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['characterDef'].strip("'"))
+
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def variants(self):
@@ -256,27 +258,24 @@ class PartyMemberMeta(MetaBase):
         base = self.get_prop('AthenaCosmeticLoadout_j')
         result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['backpackDef'].strip("'"))
 
-        if result is None or result[1] == 'None':
-            return None
-        return result[1]
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def pickaxe(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
         result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['pickaxeDef'].strip("'"))
 
-        if result is None or result[1] == 'None':
-            return None
-        return result[1]
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def emote(self):
         base = self.get_prop('FrontendEmote_j')
-        result = re.search(r'.*(EID.*)\..*', base['FrontendEmote']['emoteItemDef'])
+        result = re.search(r".*\.(.*)", base['FrontendEmote']['emoteItemDef'].strip("'"))
 
-        if result is None or result[1] == 'None':
-            return None
-        return result[1]
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def banner(self):
