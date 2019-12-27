@@ -68,7 +68,7 @@ class PartyPrivacy(Enum):
         'acceptingMembers': False,
     }
 
-class DefaultCharacters(Enum):
+class DefaultCharactersChapter1(Enum):
     CID_001_Athena_Commando_F_Default = 1
     CID_002_Athena_Commando_F_Default = 2
     CID_003_Athena_Commando_F_Default = 3
@@ -77,6 +77,16 @@ class DefaultCharacters(Enum):
     CID_006_Athena_Commando_M_Default = 6
     CID_007_Athena_Commando_M_Default = 7
     CID_008_Athena_Commando_M_Default = 8
+
+class DefaultCharactersChapter2(Enum):
+    CID_556_Athena_Commando_F_RebirthDefaultA = 1
+    CID_557_Athena_Commando_F_RebirthDefaultB = 2
+    CID_558_Athena_Commando_F_RebirthDefaultC = 3
+    CID_559_Athena_Commando_F_RebirthDefaultD = 4
+    CID_560_Athena_Commando_M_RebirthDefaultA = 5
+    CID_561_Athena_Commando_M_RebirthDefaultB = 6
+    CID_562_Athena_Commando_M_RebirthDefaultC = 7
+    CID_563_Athena_Commando_M_RebirthDefaultD = 8
 
 class V1Gamemode(Enum):
     SOLO =  'p2'

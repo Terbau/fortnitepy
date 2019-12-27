@@ -35,10 +35,10 @@ import functools
 from .errors import FortniteException, PartyError, Forbidden, HTTPException
 from .user import User
 from .friend import Friend
-from .enums import PartyPrivacy, DefaultCharacters
+from .enums import PartyPrivacy, DefaultCharactersChapter2
 
 def get_random_default_character():
-    return (random.choice(list(DefaultCharacters))).name
+    return (random.choice(list(DefaultCharactersChapter2))).name
 
 def get_random_hex_color():
     r = lambda: random.randint(0, 255)
