@@ -105,6 +105,7 @@ class Region(Enum):
     OCEANIA = 'OCE'
     ASIA    = 'ASIA'
     CHINA   = 'CN'
+    MIDDLEEAST = 'ME'
 
 class Platform(Enum):
     WINDOWS     = 'WIN'
