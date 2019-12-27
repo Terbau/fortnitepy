@@ -105,7 +105,7 @@ venv.bak/
 
 .vscode
 tests/
-test.py
+test*
 voice.py
 output.txt
 todo.txt
