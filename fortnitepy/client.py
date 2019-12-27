@@ -990,7 +990,7 @@ class Client:
         """
         return self.get_pending_friend(user_id)
 
-    async def get_blocklist(self):
+    async def fetch_blocklist(self):
         """|coro|
         
         Retrieves the blocklist with an api call.
@@ -1005,7 +1005,7 @@ class Client:
         List[:class:`str`]
             List of ids
         """
-        return (await self.http.friends_get_blocklist())['blockedUsers']
+        return await self.http.friends_get_blocklist()
 
     async def block_user(self, user_id):
         """|coro|
