@@ -71,7 +71,7 @@ class Auth:
                 token = await self.fetch_xsrf_token()
 
                 code = self.client.two_factor_code or await ainput('Please enter the 2fa code:\n', loop=self.client.loop)
-                await self.client.http.epicgames_mfa_login(e.raw['metadata']['twoFactorMethod'], token, code)
+                await self.client.http.epicgames_mfa_login(e.raw['metadata']['twoFactorMethod'], code, token)
  
             await self.client.http.epicgames_redirect(token)
 
