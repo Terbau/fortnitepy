@@ -36,6 +36,8 @@ class PresenceGameplayStats:
     
     Attributes
     ----------
+    friend: :class:`Friend`
+        The friend these stats belong to.
     state: :class:`str`
         The state.
     playlist: :class:`str`
@@ -50,7 +52,8 @@ class PresenceGameplayStats:
 
     __slots__ = ('state', 'playlist', 'players_alive', 'num_kills', 'fell_to_death')
 
-    def __init__(self, data, players_alive):
+    def __init__(self, friend, data, players_alive):
+        self.friend = friend
         self.state = data.get('state')
         self.playlist = data.get('playlist')
         self.players_alive = players_alive
@@ -301,7 +304,7 @@ class Presence:
             self.server_player_count = int(self.server_player_count)
 
         if 'FortGameplayStats_j' in self.raw_properties.keys():
-            self.gameplay_stats = PresenceGameplayStats(self.raw_properties['FortGameplayStats_j'], players_alive)
+            self.gameplay_stats = PresenceGameplayStats(self.friend, self.raw_properties['FortGameplayStats_j'], players_alive)
         else:
             self.gameplay_stats = None
         
