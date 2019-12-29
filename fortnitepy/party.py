@@ -785,6 +785,10 @@ class PartyMember(PartyMemberBase):
     def __init__(self, client, party, data):
         super().__init__(client, party, data)
 
+    def __repr__(self):
+        return '<PartyMember id={0.id!r} party={0.party!r} display_name={0.display_name!r} ' \
+               'joined_at={0.joined_at!r}>'.format(self)
+
     async def kick(self):
         """|coro|
         
@@ -845,6 +849,10 @@ class ClientPartyMember(PartyMemberBase):
         self.queue = asyncio.Queue(loop=self.client.loop)
         self.queue_active = False
         self.edit_lock = asyncio.Lock(loop=self.client.loop)
+
+    def __repr__(self):
+        return '<ClientPartyMember id={0.id!r} party={0.party!r} display_name={0.display_name!r} ' \
+               'joined_at={0.joined_at!r}>'.format(self)
 
     async def _patch(self, updated=None):
         meta = updated or self.meta.schema
@@ -1310,6 +1318,9 @@ class PartyBase:
         self._update_config(data.get('config'))
         self.meta = PartyMeta(self, data['meta'])
 
+    def __str__(self):
+        return self.id
+
     @property
     def client(self):
         """:class:`Client`: The client."""
@@ -1462,6 +1473,10 @@ class Party(PartyBase):
     def __init__(self, client, data):
         super().__init__(client, data)
 
+    def __repr__(self):
+        return '<Party id={0.id!r} leader={0.leader!r} ' \
+               'member_count={0.member_count}>'.format(self)
+
 
 class ClientParty(PartyBase):
     """Represents ClientUser's party."""
@@ -1479,6 +1494,10 @@ class ClientParty(PartyBase):
         self._update_invites(data.get('invites', []))
         self._update_config(data.get('config'))
         self.meta = PartyMeta(self, data['meta'])
+
+    def __repr__(self):
+        return '<ClientParty id={0.id!r} me={0.me!r} leader={0.leader!r} ' \
+               'member_count={0.member_count}>'.format(self)
 
     @property
     def me(self):
@@ -1921,6 +1940,10 @@ class PartyInvitation:
         self.sender = self.client.get_friend(data['sent_by'])
         self.created_at = self.client.from_iso(data['sent_at'])
 
+    def __repr__(self):
+        return '<PartyInvitation party={0.party!r} sender={0.sender!r} ' \
+               'created_at={0.created_at!r}>'.format(self)
+
     async def accept(self):
         """|coro|
 
@@ -1979,6 +2002,10 @@ class PartyJoinConfirmation:
         self.party = party
         self.user = User(self.client, data)
         self.created_at = self.client.from_iso(data['sent'])
+
+    def __repr__(self):
+        return '<PartyJoinConfirmation party={0.party!r} user={0.user!r} ' \
+               'created_at={0.created_at!r}>'.format(self)
 
     async def confirm(self):
         """|coro|

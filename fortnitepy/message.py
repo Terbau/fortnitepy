@@ -64,6 +64,9 @@ class FriendMessage(MessageBase):
     def __init__(self, client, author, content):
         super().__init__(client, author, content)
 
+    def __repr__(self):
+        return '<FriendMessage author={0.author!r} created_at={0.created_at!r}>'.format(self)
+
     async def reply(self, content):
         """|coro|
         
@@ -84,6 +87,10 @@ class PartyMessage(MessageBase):
     def __init__(self, client, party, author, content):
         super().__init__(client, author, content)
         self.party = party
+
+    def __repr__(self):
+        return '<FriendMessage party={0.party!r} author={0.author!r} ' \
+               'created_at={0.created_at!r}>'.format(self)
 
     @property
     def author(self):

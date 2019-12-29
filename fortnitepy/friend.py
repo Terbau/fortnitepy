@@ -137,6 +137,9 @@ class Friend(FriendBase):
         super().__init__(client, data)
         self._last_logout = None
 
+    def __repr__(self):
+        return '<Friend id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
+
     def _update(self, data):
         super()._update(data)
         self._nickname = data.get('alias')
@@ -374,6 +377,9 @@ class PendingFriend(FriendBase):
 
     def __init__(self, client, data):
         super().__init__(client, data)
+
+    def __repr__(self):
+        return '<PendingFriend id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
 
     @property
     def created_at(self):

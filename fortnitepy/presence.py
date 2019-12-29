@@ -64,6 +64,10 @@ class PresenceGameplayStats:
 
         self.fell_to_death = True if data.get('bFellToDeath') else False
 
+    def __repr__(self):
+        return '<PresenceGameplayStats friend={0.friend!r} players_alive={0.players_alive} ' \
+               'num_kills={0.num_kills}> playlist={0.playlist!r}'.format(self)
+
 
 class PresenceParty:
     """Represents a party received from presence.
@@ -149,6 +153,9 @@ class PresenceParty:
         self.playercount = data.get('pc')
         if self.playercount is not None:
             self.playercount = int(self.playercount)
+
+    def __repr__(self):
+        return '<PresenceParty private={0.private} id={0.id!r} playercount={0.playercount}>'.format(self)
 
     async def join(self):
         """|coro|
@@ -317,3 +324,6 @@ class Presence:
             self.party = None
         else:
             self.party = PresenceParty(self.client, self.raw_properties[key])
+
+    def __repr__(self):
+        return '<Presence friend={0.friend!r} available={0.available} received_at={0.received_at!r}>'.format(self)

@@ -39,6 +39,9 @@ class UserBase:
         if data:
             self._update(data)
 
+    def __str__(self):
+        return self._display_name
+
     @property
     def display_name(self):
         """:class:`str`: The users displayname"""
@@ -176,6 +179,10 @@ class ClientUser(UserBase):
         self._party = None
         self._update(data)
 
+    def __repr__(self):
+        return '<ClientUser id={0.id!r} display_name={0.display_name!r} jid={0.jid!r} ' \
+               'email={0.email!r}>'.format(self)
+
     @property
     def first_name(self):
         return self.name
@@ -229,3 +236,6 @@ class User(UserBase):
     
     def __init__(self, client, data, **kwargs):
         super().__init__(client, data)
+
+    def __repr__(self):
+        return '<User id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)

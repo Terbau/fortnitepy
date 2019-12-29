@@ -37,6 +37,13 @@ class Playlist:
         self._violator = data.get('violator')
         self._display_subname = data.get('display_subname')
         self._description = data.get('description')
+
+    def __str__(self):
+        return self.internal_name
+
+    def __repr__(self):
+        return '<Playlist internal_name={0.internal_name!r} image_url={0.image_url!r} ' \
+               'type={0.type!r}>'.format(self)
     
     @property
     def image_url(self):
