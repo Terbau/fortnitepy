@@ -803,13 +803,18 @@ class PartyMember(PartyMemberBase):
         HTTPException
             Something else went wrong when trying to kick this member.
         """
-        if self.client.user.id != self.party.leader.id:
+        if self.party.leader is not None and self.client.user.id != self.party.leader.id:
             raise Forbidden('You must be the party leader to perform this action')
 
         if self.client.user.id == self.id:
             raise PartyError('You can\'t kick yourself')
 
-        await self.client.http.party_kick_member(self.party.id, self.id)
+        try:
+            await self.client.http.party_kick_member(self.party.id, self.id)
+        except HTTPException as e:
+            if e.message_code == 'errors.com.epicgames.social.party.party_change_forbidden':
+                raise Forbidden('You dont have permission to kick this member.')
+            e.reraise()
 
     async def promote(self):
         """|coro|
