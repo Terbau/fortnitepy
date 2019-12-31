@@ -209,7 +209,7 @@ class Client:
         self.two_factor_code = two_factor_code
         self.loop = loop or get_event_loop()
 
-        self.status = kwargs.get('status', None)
+        self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')
         self.platform = kwargs.get('platform', Platform.WINDOWS)
         self.net_cl = kwargs.get('net_cl', '')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)

@@ -1546,11 +1546,12 @@ class ClientParty(PartyBase):
                 'buildId': self.client.party_build_id,
                 'partyFlags': -2024557306,
                 'notAcceptingReason': 0,
-                'pc': len(self.members.keys()),
+                'pc': self.member_count,
             }
 
+        status = text or self.client.status    
         _default_status = {
-            'Status': 'Battle Royale Lobby - {0} / {1}'.format(len(self.members.keys()), self.max_size),
+            'Status': status.format(party_size=self.member_count, party_max_size=self.max_size),
             'bIsPlaying': True,
             'bIsJoinable': False,
             'bHasVoiceSupport': False,
@@ -1576,17 +1577,9 @@ class ClientParty(PartyBase):
                 'Event_PartyMaxSize_s': str(self.max_size),
             },
         }
-
-        if text is None:
-            if self.client.status is None:
-                _text = {}
-            else:
-                _text = {'Status': str(self.client.status)}
-        else:
-            _text = {'Status': str(text)}
         
         if self.client.status is not False:
-            self.last_raw_status = {**_default_status, **conf, **_text}
+            self.last_raw_status = {**_default_status, **conf}
             self.client.xmpp.set_presence(status=self.last_raw_status)
         
     def _update(self, data):
