@@ -683,7 +683,8 @@ class PartyMemberBase(User):
     def update_role(self, role):
         self.role = role
 
-    def create_variants(self, item="AthenaCharacter", *, particle_config='Emissive', **kwargs):
+    @staticmethod
+    def create_variants(item="AthenaCharacter", *, particle_config='Emissive', **kwargs):
         """Creates the variants list by the variants you set.
 
         .. warning::
@@ -753,7 +754,8 @@ class PartyMemberBase(User):
             'progressive': 'Stage{}',
             'particle': '{}{}',
             'material': 'Mat{}',
-            'emissive': 'Emissive{}'
+            'emissive': 'Emissive{}',
+            'profile_banner': '{}',
         }
 
         variant = []
