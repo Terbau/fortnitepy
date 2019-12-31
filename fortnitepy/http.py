@@ -248,6 +248,9 @@ class HTTPClient:
                 await asyncio.sleep(0.5)
                 return await self._fn_request(method, route, auth, **kwargs)
 
+            elif exc.message_code in ('errors.com.epicgames.common.concurrent_modification_error',):
+                return await self.fn_request(method, route, auth, **kwargs)
+
             exc.reraise()
             
     async def get(self, url, auth=None, **kwargs):
