@@ -1977,7 +1977,6 @@ class PartyInvitation:
         HTTPException
             Something went wrong when declining the invitation.
         """
-        await self.client.http.party_decline_invite(self.party.id)
         await self.client.http.party_delete_ping(self.sender.id)
 
 
