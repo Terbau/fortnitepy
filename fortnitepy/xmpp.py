@@ -31,6 +31,7 @@ import random
 import logging
 import datetime
 import uuid
+import itertools
 
 from .errors import XMPPError, PartyError
 from .message import FriendMessage, PartyMessage
@@ -137,20 +138,30 @@ class XMPPClient:
                 else:
                     data = data.get_raw()
 
+                try:
+                    timestamp = body['timestamp']
+                except (TypeError, KeyError):
+                    timestamp = datetime.datetime.utcnow()
+
                 f = Friend(self.client, {
                         **data,
                         'direction': _payload['direction'],
                         'status': _status,
                         'favorite': _payload['favorite'],
-                        'created': body['timestamp']
+                        'created': timestamp
                     }
                 )
 
                 presences = await self.client.http.presence_get_last_online()
                 presence = presences.get(_id)
-                f._update_last_logout(self.client.from_iso(presence[0]['last_online']))
+                if presence is not None:
+                    f._update_last_logout(self.client.from_iso(presence[0]['last_online']))
 
-                self.client._pending_friends.remove(f.id)
+                try:
+                    self.client._pending_friends.remove(f.id)
+                except KeyError:
+                    pass
+
                 self.client._friends.set(f.id, f)
                 self.client.dispatch_event('friend_add', f)
 
@@ -400,14 +411,9 @@ class XMPPClient:
                     )
 
             def compare_variants(a, b):
-                if len(a) != len(b):
-                    return False
-
-                b = {v['channel']:v for v in b}
-                for d in a:
-                    if d['variant'] != b[d['channel']]['variant']:
-                        return False
-                return True
+                def construct_set(v):
+                    return set(itertools.chain(*[list(x.values()) for x in v]))
+                return construct_set(a) == construct_set(b)
 
             for key, pre_value in pre_variants_values.items():
                 value = getattr(member, key)
@@ -472,7 +478,7 @@ class XMPPClient:
             confirmation = PartyJoinConfirmation(self.client, party, {
                 **body,
                 'id': body['account_id'],
-                'displayName': body['account_dn']
+                'displayName': body.get('account_dn')
             })
             self.client.dispatch_event('party_member_confirm', confirmation)
         
@@ -496,7 +502,7 @@ class XMPPClient:
 
         try:
             data = json.loads(presence.status.any())
-            if data.get('Status', '') == '':
+            if data.get('Status', '') == '' or 'bIsPlaying' not in data:
                 return
         except ValueError:
             return

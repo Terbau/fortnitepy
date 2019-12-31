@@ -186,7 +186,10 @@ class Friend(FriendBase):
 
     @property
     def last_logout(self):
-        """:class:`datetime.datetime`: The UTC time of the last time this friend logged off."""
+        """:class:`datetime.datetime`: The UTC time of the last time this friend logged off. 
+        ``None`` if this information is not available for this user (most likely cause the 
+        user has never logged on).
+        """
         return self._last_logout
 
     def is_online(self):
