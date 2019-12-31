@@ -856,6 +856,7 @@ class ClientPartyMember(PartyMemberBase):
         self.queue = asyncio.Queue(loop=self.client.loop)
         self.queue_active = False
         self.edit_lock = asyncio.Lock(loop=self.client.loop)
+        self.clear_emote_task = None
 
     def __repr__(self):
         return '<ClientPartyMember id={0.id!r} party={0.party!r} display_name={0.display_name!r} ' \
@@ -1200,7 +1201,9 @@ class ClientPartyMember(PartyMemberBase):
         )
 
         if run_for is not None:
-            asyncio.ensure_future(self._schedule_clear_emote(run_for), loop=self.client.loop)
+            if self.clear_emote_task is not None and not self.clear_emote_task.cancelled():
+                self.clear_emote_task.cancel()
+            self.clear_emote_task = self.client.loop.create_task(self._schedule_clear_emote(run_for))
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
@@ -1208,6 +1211,7 @@ class ClientPartyMember(PartyMemberBase):
     async def _schedule_clear_emote(self, seconds):
         await asyncio.sleep(seconds)
         await self.clear_emote()
+        self.clear_emote_task = None
     
     async def clear_emote(self):
         """|coro|
