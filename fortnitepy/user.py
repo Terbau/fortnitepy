@@ -231,6 +231,7 @@ class ClientUser(UserBase):
 
 
 class User(UserBase):
+    """Represents a blocked friend from Fortnite"""
 
     __slots__ = UserBase.__slots__
     
@@ -239,3 +240,31 @@ class User(UserBase):
 
     def __repr__(self):
         return '<User id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
+
+    async def block(self):
+        """|coro|
+        
+        Blocks this user.
+        
+        Raises
+        ------
+        HTTPException
+            Something went wrong while blocking this user.
+        """
+        await self.client.block_user(self.id)
+
+
+class BlockedUser(UserBase):
+    """Represents a blocked friend from Fortnite"""
+
+    __slots__ = UserBase.__slots__
+
+    def __init__(self, client, data):
+        super().__init__(client, data)
+
+    async def unblock(self):
+        """|coro|
+        
+        Unblocks this friend.
+        """
+        await self.client.unblock_user(self.id)

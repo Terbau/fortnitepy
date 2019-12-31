@@ -40,7 +40,7 @@ from .errors import EventError, PartyError, HTTPException, PurchaseException, No
 from .xmpp import XMPPClient
 from .auth import Auth
 from .http import HTTPClient
-from .user import ClientUser, User
+from .user import ClientUser, User, BlockedUser
 from .friend import Friend, PendingFriend
 from .enums import PartyPrivacy, Platform
 from .cache import Cache, WeakrefCache
@@ -237,6 +237,7 @@ class Client:
         self._friends = Cache()
         self._pending_friends = Cache()
         self._users = Cache()
+        self._blocked_users = Cache()
         self._presences = Cache()
         self._ready = asyncio.Event(loop=self.loop)
         self._leave_lock = asyncio.Lock(loop=self.loop)
@@ -298,6 +299,11 @@ class Client:
             (the bot sent the request to the pending friend).
         """
         return self._pending_friends._cache
+
+    @property
+    def blocked_users(self):
+        """:class:`dict`: Mapping of currently blocked users. {id (:class:`str`), :class:`BlockedUser`}"""
+        return self._blocked_users._cache
 
     @property
     def presences(self):
@@ -533,6 +539,7 @@ class Client:
             await self.quick_purchase_fortnite()
 
         await self.initialize_friends()
+        await self.initialize_blocklist()
 
         self.xmpp = XMPPClient(self)
         await self.xmpp.run()
@@ -583,6 +590,7 @@ class Client:
         self._friends.clear()
         self._pending_friends.clear()
         self._users.clear()
+        self._blocked_users.clear()
         self._presences.clear()
         self._ready.clear()
         
@@ -877,6 +885,15 @@ class Client:
             friend = self.get_friend(user_id)
             if friend is not None:
                 friend._update_last_logout(self.from_iso(data[0]['last_online']))
+
+    async def initialize_blocklist(self):
+        raw_blocklist = await self.http.friends_get_blocklist()
+        account_ids = [a['accountId'] for a in raw_blocklist]
+        profiles = await self.fetch_profiles(account_ids)
+
+        for profile in profiles:
+            blocked_user = BlockedUser(self, profile.get_raw())
+            self._blocked_users.set(blocked_user.id, blocked_user)
 
     def store_user(self, data):
         try:

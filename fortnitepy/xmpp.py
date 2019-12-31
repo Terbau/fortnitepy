@@ -35,6 +35,7 @@ import uuid
 from .errors import XMPPError, PartyError
 from .message import FriendMessage, PartyMessage
 from .friend import Friend, PendingFriend
+from .user import BlockedUser
 from .party import Party, PartyMember, ClientPartyMember, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence
 
@@ -194,7 +195,20 @@ class XMPPClient:
                     self.client.store_user(f.get_raw())
                     self.client._friends.remove(f.id)
                     self.client.dispatch_event('friend_remove', f)
-        
+
+        elif _type == 'com.epicgames.friends.core.apiobjects.BlockListEntryAdded':
+            account_id = body['payload']['accountId']
+            profile = await self.client.fetch_profile(account_id)
+            blocked_user = BlockedUser(self.client, profile.get_raw())
+            self.client._blocked_users.set(profile.id, blocked_user)
+            self.client.dispatch_event('user_block', blocked_user)
+
+        elif _type == 'com.epicgames.friends.core.apiobjects.BlockListEntryRemoved':
+            account_id = body['payload']['accountId']
+            profile = await self.client.fetch_profile(account_id)
+            self.client._blocked_users.remove(profile.id)
+            self.client.dispatch_event('user_unblock', profile)
+
         ##############################
         # Party
         ##############################

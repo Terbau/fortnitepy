@@ -116,7 +116,7 @@ class FriendBase(UserBase):
         HTTPException
             Something went wrong when trying to block this user.
         """
-        await self.client.http.friends_block(self.id)
+        await self.client.block_user(self.id)
 
     def get_raw(self):
         return {
@@ -415,23 +415,3 @@ class PendingFriend(FriendBase):
             Something went wrong when trying to decline this request.
         """
         await self.client.remove_or_decline_friend(self.id)
-
-
-# NOT IMPLEMENTED
-# class BlockedFriend(FriendBase):
-#     """Represents a blocked friend from Fortnite"""
-#     def __init__(self, client, data):
-#         super().__init__(client, data)
-
-#     @property
-#     def created_at(self):
-#         """:class:`datetime.datetime`: The time of when the user was blocked"""
-#         return self.created_at
-
-#     async def unblock(self):
-#         """|coro|
-        
-#         Unblocks this friend."""
-#         await self.client.http.friends_unblock(self.id)
-
-    
