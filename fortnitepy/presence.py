@@ -50,7 +50,7 @@ class PresenceGameplayStats:
         ``True`` if friend fell to death in its current game, else ``False``    
     """
 
-    __slots__ = ('state', 'playlist', 'players_alive', 'num_kills', 'fell_to_death')
+    __slots__ = ('friend', 'state', 'playlist', 'players_alive', 'num_kills', 'fell_to_death')
 
     def __init__(self, friend, data, players_alive):
         self.friend = friend
