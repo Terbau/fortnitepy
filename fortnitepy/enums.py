@@ -108,13 +108,12 @@ class V2Input(Enum):
     TOUCH            = 'touch'
 
 class Region(Enum):
-    NAEAST  = 'NAE'
-    NAWEST  = 'NAW'
-    EUROPE  = 'EU'
-    BRAZIL  = 'BR'
-    OCEANIA = 'OCE'
-    ASIA    = 'ASIA'
-    CHINA   = 'CN'
+    NAEAST     = 'NAE'
+    NAWEST     = 'NAW'
+    EUROPE     = 'EU'
+    BRAZIL     = 'BR'
+    OCEANIA    = 'OCE'
+    ASIA       = 'ASIA'
     MIDDLEEAST = 'ME'
 
 class Platform(Enum):
