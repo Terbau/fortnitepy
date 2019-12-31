@@ -481,12 +481,11 @@ class XMPPClient:
                 'displayName': body.get('account_dn')
             })
             self.client.dispatch_event('party_member_confirm', confirmation)
-        
-        elif _type == 'com.epicgames.social.party.notification.v0.INVITE_CANCELLED':
-            self.client.dispatch_event('party_invite_cancel')
 
         elif _type == 'com.epicgames.social.party.notification.v0.INVITE_DECLINED':
-            self.client.dispatch_event('party_invite_decline')
+            friend = self.client.get_friend(body['invitee_id'])
+            if friend is not None:
+                self.client.dispatch_event('party_invite_decline', friend)
 
     async def process_presence(self, presence):
         user_id = presence.from_.localpart
