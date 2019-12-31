@@ -245,11 +245,11 @@ class Client:
         self._closed = False
         self._closing = False
         self._restarting = False
-        self._forcequit = False
 
         self.refresh_i = 0
 
         self.setup_internal()
+        self.register_subclassed_events()
         self.update_default_party_config(
             kwargs.get('default_party_config')
         )
@@ -392,6 +392,14 @@ class Client:
         logger = logging.getLogger('aioxmpp')
         if logger.getEffectiveLevel() == 30:
             logger.setLevel(level=logging.ERROR)
+
+    def register_subclassed_events(self):
+        methods = [func for func in dir(self) if callable(getattr(self, func))]
+        for method_name in methods:
+            if method_name.startswith(self.event_prefix):
+                event = method_name[len(self.event_prefix):]
+                func = getattr(self, method_name)
+                self.add_event_handler(event, func)
 
     def run(self):
         """This function starts the loop and then calls :meth:`start` for you.
@@ -1152,14 +1160,7 @@ class Client:
         await self.http.friends_remove_or_decline(user_id)
 
     async def dispatch_and_wait_event(self, event, *args, **kwargs):
-        method = '{0.event_prefix}{1}'.format(self, event)
-
-        coros = self._events.get('logout', [])
-        try:
-            coros.append(getattr(self, method))
-        except AttributeError:
-            pass
-
+        coros = self._events.get(event, [])
         tasks = [coro() for coro in coros]
         if len(tasks) > 0:
             await asyncio.wait(tasks)
@@ -1193,13 +1194,6 @@ class Client:
             else:
                 for idx in reversed(removed):
                     del listeners[idx]
-        
-        try:
-            coro = getattr(self, '{0.event_prefix}{1}'.format(self, event))
-        except AttributeError:
-            pass
-        else:
-            asyncio.ensure_future(coro(*args, **kwargs), loop=self.loop)
 
         if event in self._events.keys():
             for coro in self._events[event]:
