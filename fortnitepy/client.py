@@ -556,7 +556,7 @@ class Client:
         await self.initialize_party()
         log.debug('Party created')
 
-    async def logout(self, close_http=True):
+    async def logout(self, close_http=True, dispatch_logout=True):
         """|coro|
         
         Logs the user out and closes running services.
@@ -574,7 +574,8 @@ class Client:
         """
         self._closing = True
 
-        await self.dispatch_and_wait_event('logout')
+        if dispatch_logout:
+            await self.dispatch_and_wait_event('logout')
 
         if self._refresh_task is not None and not self._refresh_task.cancelled():
             self._refresh_task.cancel()
@@ -625,7 +626,7 @@ class Client:
         self._restarting = True
 
         asyncio.ensure_future(self.recover_events(), loop=self.loop)
-        await self.logout(close_http=False)
+        await self.logout(close_http=False, dispatch_logout=False)
 
         await self.wait_until_ready()
         self.dispatch_event('restart')

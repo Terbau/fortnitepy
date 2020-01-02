@@ -108,9 +108,17 @@ this decorator if you are in a subclass of :class:`Client`.
 
     This event is called when the client has been successfully established and connected to all services.
 
+	.. warning::
+
+        This event is not called when the client starts in :class:`Client.logout()`.
+
 .. function:: event_logout()
 
 	This event is called when the client is beginning to log out. 
+
+	.. warning::
+
+        This event is not called when the client logs out in :class:`Client.logout()`.
 
 	.. note::
 
