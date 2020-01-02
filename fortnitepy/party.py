@@ -171,6 +171,9 @@ class PartyMemberMeta(MetaBase):
                     'pickaxeDef': "AthenaPickaxeItemDefinition'/Game/Athena/Items/Cosmetics/" \
                                   "Pickaxes/DefaultPickaxe.DefaultPickaxe'",
                     'pickaxeEKey': '',
+                    'contrailDef': 'None',
+                    'contrailEKey': '',
+                    'scratchpad': [],
                     'variants': [],
                 },
             }),
@@ -237,6 +240,30 @@ class PartyMemberMeta(MetaBase):
             return result[1]
 
     @property
+    def backpack(self):
+        base = self.get_prop('AthenaCosmeticLoadout_j')
+        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['backpackDef'].strip("'"))
+
+        if result is not None and result[1] != 'None':
+            return result[1]
+
+    @property
+    def pickaxe(self):
+        base = self.get_prop('AthenaCosmeticLoadout_j')
+        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['pickaxeDef'].strip("'"))
+
+        if result is not None and result[1] != 'None':
+            return result[1]
+
+    @property
+    def contrail(self):
+        base = self.get_prop('AthenaCosmeticLoadout_j')
+        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['contrailDef'].strip("'"))
+
+        if result is not None and result[1] != 'None':
+            return result[1]
+
+    @property
     def variants(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['variants']
@@ -254,20 +281,13 @@ class PartyMemberMeta(MetaBase):
         return [x for x in self.variants if x['item'] == 'AthenaPickaxe']
 
     @property
-    def backpack(self):
-        base = self.get_prop('AthenaCosmeticLoadout_j')
-        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['backpackDef'].strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result[1]
+    def contrail_variants(self):
+        return [x for x in self.variants if x['item'] == 'AthenaContrail']
 
     @property
-    def pickaxe(self):
+    def scratchpad(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
-        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['pickaxeDef'].strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result[1]
+        return base['AthenaCosmeticLoadout']['scratchpad']
 
     @property
     def emote(self):
@@ -336,8 +356,8 @@ class PartyMemberMeta(MetaBase):
         final = {'AthenaBannerInfo': data}
         return {'AthenaBannerInfo_j': self.set_prop('AthenaBannerInfo_j', final)}
 
-    def set_battlepass_info(self, has_purchased=None, level=None, self_boost_xp=None, 
-                            friend_boost_xp=None):
+    def set_battlepass_info(self, has_purchased=None, level=None, 
+                            self_boost_xp=None, friend_boost_xp=None):
         data = (self.get_prop('BattlePassInfo_j'))['BattlePassInfo']
 
         if has_purchased is not None:
@@ -352,8 +372,12 @@ class PartyMemberMeta(MetaBase):
         final = {'BattlePassInfo': data}
         return {'BattlePassInfo_j': self.set_prop('BattlePassInfo_j', final)}
 
-    def set_cosmetic_loadout(self, *, character=None, character_ekey=None, backpack=None,
-                             backpack_ekey=None, pickaxe=None, pickaxe_ekey=None, variants=None):
+    def set_cosmetic_loadout(self, *, character=None, character_ekey=None, 
+                             backpack=None, backpack_ekey=None, 
+                             pickaxe=None, pickaxe_ekey=None,
+                             contrail=None, contrail_ekey=None, 
+                             scratchpad=None, variants=None):
+        # add contrails here
         data = (self.get_prop('AthenaCosmeticLoadout_j'))['AthenaCosmeticLoadout']
 
         if character is not None:
@@ -368,6 +392,12 @@ class PartyMemberMeta(MetaBase):
             data['pickaxeDef'] = pickaxe
         if pickaxe_ekey is not None:
             data['pickaxeEKey'] = pickaxe_ekey
+        if contrail is not None:
+            data['contrailDef'] = contrail
+        if contrail_ekey is not None:
+            data['contrailEKey'] = contrail_ekey
+        if scratchpad is not None:
+            data['scratchpad'] = scratchpad
         if variants is not None:
             data['variants'] = variants
         
@@ -586,6 +616,23 @@ class PartyMemberBase(User):
         return self.meta.outfit
 
     @property
+    def backpack(self):
+        """:class:`str`: The BID of the backpack this member currently has equipped. 
+        ``None`` if no backpack is equipped.
+        """
+        return self.meta.backpack
+    
+    @property
+    def pickaxe(self):
+        """:class:`str`: The pickaxe id of the pickaxe this member currently has equipped."""
+        return self.meta.pickaxe
+
+    @property
+    def contrail(self):
+        """:class:`str`: The contrail id of the pickaxe this member currently has equipped."""
+        return self.meta.contrail
+
+    @property
     def outfit_variants(self):
         """:class:`list`: A list containing the raw variants data for the currently equipped
         outfit.
@@ -594,7 +641,7 @@ class PartyMemberBase(User):
             
             Variants doesn't seem to follow much logic. Therefore this returns the raw
             variants data received from fortnite's service. This can be directly passed with the
-            ``variants`` keyword to :meth:`PartyMember.set_outfit()`.
+            ``variants`` keyword to :meth:`ClientPartyMember.set_outfit()`.
         """
         return self.meta.outfit_variants
 
@@ -607,7 +654,7 @@ class PartyMemberBase(User):
             
             Variants doesn't seem to follow much logic. Therefore this returns the raw
             variants data received from fortnite's service. This can be directly passed with the
-            ``variants`` keyword to :meth:`PartyMember.set_backpack()`.
+            ``variants`` keyword to :meth:`ClientPartyMember.set_backpack()`.
         """
         return self.meta.backpack_variants
 
@@ -620,21 +667,22 @@ class PartyMemberBase(User):
             
             Variants doesn't seem to follow much logic. Therefore this returns the raw
             variants data received from fortnite's service. This can be directly passed with the
-            ``variants`` keyword to :meth:`PartyMember.set_pickaxe()`.
+            ``variants`` keyword to :meth:`ClientPartyMember.set_pickaxe()`.
         """
         return self.meta.pickaxe_variants
 
     @property
-    def backpack(self):
-        """:class:`str`: The BID of the backpack this member currently has equipped. 
-        ``None`` if no backpack is equipped.
+    def contrail_variants(self):
+        """:class:`list`: A list containing the raw variants data for the currently equipped
+        contrail.
+        
+        .. warning::
+            
+            Variants doesn't seem to follow much logic. Therefore this returns the raw
+            variants data received from fortnite's service. This can be directly passed with the
+            ``variants`` keyword to :meth:`ClientPartyMember.set_contrail()`.
         """
-        return self.meta.backpack
-    
-    @property
-    def pickaxe(self):
-        """:class:`str`: The pickaxe id of the pickaxe this member currently has equipped."""
-        return self.meta.pickaxe
+        return self.meta.contrail_variants
 
     @property
     def emote(self):
@@ -1102,7 +1150,7 @@ class ClientPartyMember(PartyMemberBase):
         Parameters
         ----------
         asset: :class:`str`
-            | The CID of the backpack.
+            | The BID of the backpack.
             | Defaults to the last set backpack.
 
             .. note::
@@ -1139,7 +1187,7 @@ class ClientPartyMember(PartyMemberBase):
         Parameters
         ----------
         asset: :class:`str`
-            | The CID of the pickaxe.
+            | The PID of the pickaxe.
             | Defaults to the last set pickaxe.
 
             .. note::
@@ -1162,6 +1210,43 @@ class ClientPartyMember(PartyMemberBase):
         prop = self.meta.set_cosmetic_loadout(
             pickaxe=asset,
             pickaxe_ekey=key,
+            variants=variants
+        )
+        
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
+
+    async def set_contrail(self, asset=None, *, key=None, variants=None):
+        """|coro|
+        
+        Sets the contrail of the client.
+
+        Parameters
+        ----------
+        asset: :class:`str`
+            | The ID of the contrail.
+            | Defaults to the last set contrail.
+
+            .. note::
+
+                You don't have to include the full path of the asset. The CID is
+                enough.
+        key: Optional[:class:`str`]
+            The encyption key to use for this contrail.
+        variants: Optional[:class:`list`]
+            The variants to use for this contrail. Defaults to ``None`` which resets variants.
+        """
+        if asset is not None:
+            if '.' not in asset:
+                asset = "AthenaContrailItemDefinition'/Game/Athena/Items/Cosmetics/Contrails/" \
+                        "{0}.{0}'".format(asset)
+        else:
+            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['contrailDef']
+
+        variants = [x for x in self.meta.variants if x['item'] != 'AthenaContrail'] + (variants or [])
+        prop = self.meta.set_cosmetic_loadout(
+            contrail=asset,
+            contrail_ekey=key,
             variants=variants
         )
         
