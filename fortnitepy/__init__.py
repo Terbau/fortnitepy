@@ -24,14 +24,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 from .client import Client, get_event_loop
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
 from .party import PartyMember, ClientPartyMember, Party, ClientParty, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence, PresenceGameplayStats, PresenceParty
-from .user import ClientUser, User
+from .user import ClientUser, User, BlockedUser
 from .stats import StatsV2
 from .enums import *
 from .errors import *
