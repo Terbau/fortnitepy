@@ -6,6 +6,19 @@ Changelog
 Detailed version changes.
 
 
+v1.2.1
+------
+
+Fixes small mistakes introduced in v1.2.0.
+
+Bug Fixes
+~~~~~~~~~
+
+- The client no longer sends a party message every time a new member joins (oops).
+- Using :meth:`ClientPartyMember.clear_emote()` now cancels current clear tasks created by ``run_for``.
+- Fixed some docs issues as well as a logging issue.
+
+
 v1.2.0
 ------
 
