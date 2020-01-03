@@ -116,7 +116,7 @@ class FriendBase(UserBase):
         HTTPException
             Something went wrong when trying to block this user.
         """
-        await self.client.http.friends_block(self.id)
+        await self.client.block_user(self.id)
 
     def get_raw(self):
         return {
@@ -136,6 +136,9 @@ class Friend(FriendBase):
     def __init__(self, client, data):
         super().__init__(client, data)
         self._last_logout = None
+
+    def __repr__(self):
+        return '<Friend id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
 
     def _update(self, data):
         super()._update(data)
@@ -183,7 +186,10 @@ class Friend(FriendBase):
 
     @property
     def last_logout(self):
-        """:class:`datetime.datetime`: The UTC time of the last time this friend logged off."""
+        """:class:`datetime.datetime`: The UTC time of the last time this friend logged off. 
+        ``None`` if this information is not available for this user (most likely cause the 
+        user has never logged on).
+        """
         return self._last_logout
 
     def is_online(self):
@@ -375,6 +381,9 @@ class PendingFriend(FriendBase):
     def __init__(self, client, data):
         super().__init__(client, data)
 
+    def __repr__(self):
+        return '<PendingFriend id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
+
     @property
     def created_at(self):
         """:class:`datetime.datetime`: The UTC time of when the request was created"""
@@ -409,23 +418,3 @@ class PendingFriend(FriendBase):
             Something went wrong when trying to decline this request.
         """
         await self.client.remove_or_decline_friend(self.id)
-
-
-# NOT IMPLEMENTED
-# class BlockedFriend(FriendBase):
-#     """Represents a blocked friend from Fortnite"""
-#     def __init__(self, client, data):
-#         super().__init__(client, data)
-
-#     @property
-#     def created_at(self):
-#         """:class:`datetime.datetime`: The time of when the user was blocked"""
-#         return self.created_at
-
-#     async def unblock(self):
-#         """|coro|
-        
-#         Unblocks this friend."""
-#         await self.client.http.friends_unblock(self.id)
-
-    

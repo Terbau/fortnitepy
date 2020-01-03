@@ -31,15 +31,69 @@ import random
 import logging
 import datetime
 import uuid
+import itertools
+from collections import defaultdict
 
 from .errors import XMPPError, PartyError
 from .message import FriendMessage, PartyMessage
 from .friend import Friend, PendingFriend
+from .user import BlockedUser
 from .party import Party, PartyMember, ClientPartyMember, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence
 
 log = logging.getLogger(__name__)
 
+
+class EventContext:
+
+    __slots__ = ('client', 'body', 'party', 'created_at')
+
+    def __init__(self, client, body):
+        self.client = client
+        self.body = body
+        
+        self.party = self.client.user.party
+        self.created_at = datetime.datetime.utcnow()
+
+
+class EventDispatcher:
+    def __init__(self):
+        self._listeners = defaultdict(list)
+
+    def process_event(self, client, stanza):
+        body = json.loads(stanza.body.any())
+        type_ = body['type']
+        log.debug('\n\nReceived event `{}` with body `{}`\n\n'.format(type_, body))
+
+        coros = self._listeners.get(type_, [])
+        for coro in coros:
+            ctx = EventContext(client, body)
+            
+            if __name__ == coro.__module__:  
+                asyncio.ensure_future(coro(client.xmpp, ctx))
+            else:
+                asyncio.ensure_future(coro(ctx))
+    
+    def event(self, event):
+        def decorator(coro):
+            self.add_event_handler(event, coro)
+            return coro
+        return decorator
+
+    def add_event_handler(self, event, coro):
+        self._listeners[event].append(coro)
+        log.debug('Added handler for {0} to {1}'.format(event, coro))
+
+    def remove_event_handler(self, event, coro):
+        handlers = [c for c in self._listeners[event] if c is not coro]
+        log.debug('Removed {0} handler(s) for {1}'.format(
+            len(self._listeners[event]) - len(handlers),
+            event
+        ))
+        self._listeners[event] = handlers
+
+
+dispatcher = EventDispatcher()
 
 class XMPPClient:
     def __init__(self, client):
@@ -53,28 +107,6 @@ class XMPPClient:
 
     def jid(self, id):
         return aioxmpp.JID.fromstr('{}@{}'.format(id, self.client.service_host))
-
-    def _create_invite_from_presence(self, from_id, presence):
-        now = datetime.datetime.utcnow()
-        expires_at = now + datetime.timedelta(hours=4)
-
-        inv = {
-            'party_id': presence.party.id,
-            'sent_by': from_id,
-            'sent_to': self.client.user.id,
-            'sent_at': self.client.to_iso(now),
-            'updated_at': self.client.to_iso(now),
-            'expires_at': self.client.to_iso(expires_at),
-            'status': 'SENT',
-            'meta': {
-                'urn:epic:conn:type_s': 'game',
-                'urn:epic:conn:platform_s': presence.party.platform,
-                'urn:epic:member:dn_s': presence.friend.display_name,
-                'urn:epic:cfg:build-id_s': presence.party.build_id or self.client.party_build_id,
-                'urn:epic:invite:platformdata_s': '',
-            },
-        }
-        return inv
 
     def _create_invite(self, from_id, data):
         now = datetime.datetime.utcnow()
@@ -103,7 +135,7 @@ class XMPPClient:
         }
         return inv
 
-    async def process_message(self, message):
+    async def process_chat_message(self, message):
         author = self.client.get_friend(message.from_.localpart)
 
         try:
@@ -116,357 +148,412 @@ class XMPPClient:
         except ValueError:
             pass
 
-    async def process_event_message(self, stanza):
-        body = json.loads(stanza.body.any())
-        _type = body['type']
-        log.debug('XMPP: Received event `{}` with body `{}`'.format(_type, body))
-        
-        if _type == 'com.epicgames.friends.core.apiobjects.Friend':
-            await self.client.wait_until_ready()
-            _payload = body['payload']
-            _status = _payload['status']
+    @dispatcher.event('com.epicgames.friends.core.apiobjects.Friend')
+    async def friend_event(self, ctx):
+        body = ctx.body
 
-            _id = _payload['accountId']
+        await self.client.wait_until_ready()
+        _payload = body['payload']
+        _status = _payload['status']
+        _id = _payload['accountId']
 
-            if _status == 'ACCEPTED':
+        if _status == 'ACCEPTED':
 
-                data = self.client.get_user(_id)
-                if data is None:
-                    data = await self.client.http.account_get_by_user_id(_id)
-                else:
-                    data = data.get_raw()
+            data = self.client.get_user(_id)
+            if data is None:
+                data = await self.client.http.account_get_by_user_id(_id)
+            else:
+                data = data.get_raw()
 
-                f = Friend(self.client, {
-                        **data,
-                        'direction': _payload['direction'],
-                        'status': _status,
-                        'favorite': _payload['favorite'],
-                        'created': body['timestamp']
-                    }
-                )
+            try:
+                timestamp = body['timestamp']
+            except (TypeError, KeyError):
+                timestamp = datetime.datetime.utcnow()
 
-                presences = await self.client.http.presence_get_last_online()
-                presence = presences.get(_id)
+            f = Friend(self.client, {
+                    **data,
+                    'direction': _payload['direction'],
+                    'status': _status,
+                    'favorite': _payload['favorite'],
+                    'created': timestamp
+                }
+            )
+
+            presences = await self.client.http.presence_get_last_online()
+            presence = presences.get(_id)
+            if presence is not None:
                 f._update_last_logout(self.client.from_iso(presence[0]['last_online']))
 
+            try:
                 self.client._pending_friends.remove(f.id)
-                self.client._friends.set(f.id, f)
-                self.client.dispatch_event('friend_add', f)
-
-            elif _status == 'PENDING':
-                data = self.client.get_user(_id)
-                if data is None:
-                    data = await self.client.http.account_get_by_user_id(_id)
-                else:
-                    data = data.get_raw()
-
-                f = PendingFriend(self.client, {
-                        **data,
-                        'direction': _payload['direction'],
-                        'status': _status,
-                        'favorite': _payload['favorite'],
-                        'created': body['timestamp']
-                    }
-                )
-
-                self.client._pending_friends.set(f.id, f)
-                self.client.dispatch_event('friend_request', f)
-        
-        elif _type == 'FRIENDSHIP_REMOVE':
-            if body['from'] == self.client.user.id:
-                _id = body['to']
-            else:
-                _id = body['from']
-            
-            if body['reason'] == 'ABORTED':
-                pf = self.client.get_pending_friend(_id)
-                self.client.store_user(pf.get_raw())
-                self.client._pending_friends.remove(pf.id)
-                self.client.dispatch_event('friend_request_abort', pf)
-            elif body['reason'] == 'REJECTED':
-                pf = self.client.get_pending_friend(_id)
-                self.client.store_user(pf.get_raw())
-                self.client._pending_friends.remove(pf.id)
-                self.client.dispatch_event('friend_request_decline', pf)
-            else:
-                f = self.client.get_friend(_id)
-                if f is not None:
-                    self.client.store_user(f.get_raw())
-                    self.client._friends.remove(f.id)
-                    self.client.dispatch_event('friend_remove', f)
-        
-        ##############################
-        # Party
-        ##############################
-        elif _type == 'com.epicgames.social.party.notification.v0.PING':
-            pinger = body['pinger_id']
-            data = (await self.client.http.party_lookup_ping(pinger))[0]
-
-            invite = None
-            for inv in data['invites']:
-                if inv['sent_by'] == pinger and inv['status'] == 'SENT':
-                    invite = inv
-
-            if invite is None:
-                invite = self._create_invite(pinger, data)
-
-            if 'urn:epic:cfg:build-id_s' not in invite['meta']:
-                pres = self.client.get_presence(pinger)
-                if pres is not None and pres.party is not None and not pres.party.private:
-                    net_cl = pres.party.net_cl
-                else:
-                    net_cl = self.client.net_cl
-            else:
-                s = invite['meta']['urn:epic:cfg:build-id_s']
-                net_cl = s[4:] if s.startswith('1:1:') else s
-
-            if net_cl != self.client.net_cl and self.client.net_cl != '':
-                log.debug(
-                    'Could not match the currently set net_cl ({0}) to the received value ({1})'.format(
-                        self.client.net_cl,
-                        net_cl
-                    )
-                )
-            
-            new_party = Party(self.client, data)
-            await new_party._update_members(members=data['members'])
-            
-            invitation = PartyInvitation(self.client, new_party, net_cl, invite)
-            self.client.dispatch_event('party_invite', invitation)
-        
-        elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_LEFT':
-            party = self.client.user.party
-            if party is None:
-                return
-
-            if party.id != body.get('party_id'):
-                return
-            
-            member = party.members.get(body.get('account_id'))
-            if member is None:
-                return
-
-            party._remove_member(member.id)
-            self.client.dispatch_event('party_member_leave', member)
-
-        elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_EXPIRED':
-            party = self.client.user.party
-            if party is None:
-                return
-
-            if party.id != body.get('party_id'):
-                return
-            
-            member = party.members.get(body.get('account_id'))
-            if member is None:
-                return
-
-            if member.id == self.client.user.id:
-                p = await self.client._create_party()
-
-                self.client.user.set_party(p)
-
-            party._remove_member(member.id)
-            self.client.dispatch_event('party_member_expire', member)
-            
-        elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_NEW_CAPTAIN':
-            party = self.client.user.party
-            if party is None:
-                return
-
-            if party.id != body.get('party_id'):
-                return
-            
-            member = party.members.get(body.get('account_id'))
-            if member is None:
-                return
-            
-            old_leader = party.leader
-            for m in party.members.values():
-                m.update_role(None)
-            
-            member.update_role('CAPTAIN')
-            party.update_presence()
-            self.client.dispatch_event('party_member_promote', old_leader, member)
-
-        elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_KICKED':
-            party = self.client.user.party
-            if party is None:
-                return
-
-            if party.id != body.get('party_id'):
-                return
-            
-            member = party.members.get(body.get('account_id'))
-            if member is None:
-                return
-            party._remove_member(member.id)
-
-            if member.id == self.client.user.id:
-                await self.leave_muc()
-                p = await self.client._create_party()
-                
-                self.client.user.set_party(p)
-            
-            self.client.dispatch_event('party_member_kick', member)
-
-        elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_DISCONNECTED':
-            party = self.client.user.party
-            if party is None:
-                return
-
-            if party.id != body.get('party_id'):
-                return
-            
-            member = party.members.get(body.get('account_id'))
-            if member is None:
-                return
-
-            party._remove_member(member.id)
-            self.client.dispatch_event('party_member_disconnect', member)
-
-        elif _type == 'com.epicgames.social.party.notification.v0.PARTY_UPDATED':
-            party = self.client.user.party
-            if party is None:
-                return
-
-            if party.id != body.get('party_id'):
-                return
-
-            check = {'playlist_info': 'playlist', 'squad_fill': None, 'privacy': None}
-            pre_values = {k: getattr(party, k) for k in check.keys()}
-
-            party._update(body)
-            self.client.dispatch_event('party_update', party)
-
-            for key, pre_value in pre_values.items():
-                value = getattr(party, key)
-                if pre_value != value:
-                    self.client.dispatch_event(
-                        'party_{0}_change'.format(check[key] or key),
-                        party,
-                        pre_value,
-                        value
-                    )
-
-        elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_STATE_UPDATED':
-            party = self.client.user.party
-            if party is None:
-                return
-
-            if party.id != body.get('party_id'):
-                return
-            
-            member = party.members.get(body.get('account_id'))
-            if member is None:
-                if body.get('account_id') == self.client.user.id:
-                    await party._leave()
-                    p = await self.client._create_party()
-                    self.client.user.set_party(p)
-                return
-
-            check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
-                     'pickaxe', 'emote', 'banner', 'battlepass_info')
-            pre_values = {k: getattr(member, k) for k in check}                
-
-            check_variants = ('outfit_variants', 'backpack_variants', 'pickaxe_variants')
-            pre_variants_values = {k: getattr(member, k) for k in check_variants}
-
-            member.update(body)
-            self.client.dispatch_event('party_member_update', member)
-
-            for key, pre_value in pre_values.items():
-                value = getattr(member, key)
-                if pre_value != value:
-                    self.client.dispatch_event(
-                        'party_member_{0}_change'.format(key),
-                        member,
-                        pre_value,
-                        value
-                    )
-
-            def compare_variants(a, b):
-                if len(a) != len(b):
-                    return False
-
-                b = {v['channel']:v for v in b}
-                for d in a:
-                    if d['variant'] != b[d['channel']]['variant']:
-                        return False
-                return True
-
-            for key, pre_value in pre_variants_values.items():
-                value = getattr(member, key)
-                if not compare_variants(pre_value, value):
-                    self.client.dispatch_event(
-                        'party_member_{0}_change'.format(key),
-                        member,
-                        pre_value,
-                        value
-                    )
-
-        elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_JOINED':
-            party = self.client.user.party
-            if party is None:
-                return
-
-            if party.id != body.get('party_id'):
-                return
-            
-            member = party.members.get(body.get('account_id'))
-            if member is None:
-                member = party._create_member(body)
-
-                if member.id == self.client.user.id:
-                    party._create_clientmember(body)
-
-            if party.me is not None:
-                asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
-
-            if not (member.id == self.client.user.id and member.leader):
-                if party.me and party.leader and party.me.id == party.leader.id:
-                    fut = asyncio.ensure_future(party.patch(updated={
-                        'RawSquadAssignments_j': party.meta.refresh_squad_assignments()
-                    }), loop=self.client.loop)
-
-            try:
-                if member.id == self.client.user.id:
-                    await self.client.wait_for('muc_enter', timeout=2)
-                else:
-                    def check(m):
-                        return m.direct_jid.localpart == member.id
-
-                    await self.client.wait_for('muc_member_join', check=check, timeout=2)
-            except asyncio.TimeoutError:
+            except KeyError:
                 pass
 
-            try:
-                await fut
-            except UnboundLocalError:
-                pass
+            self.client._friends.set(f.id, f)
+            self.client.dispatch_event('friend_add', f)
 
-            self.client.dispatch_event('party_member_join', member)
+        elif _status == 'PENDING':
+            data = self.client.get_user(_id)
+            if data is None:
+                data = await self.client.http.account_get_by_user_id(_id)
+            else:
+                data = data.get_raw()
 
-        elif _type == 'com.epicgames.social.party.notification.v0.MEMBER_REQUIRE_CONFIRMATION':
-            party = self.client.user.party
-            if party is None:
-                return
+            f = PendingFriend(self.client, {
+                    **data,
+                    'direction': _payload['direction'],
+                    'status': _status,
+                    'favorite': _payload['favorite'],
+                    'created': body['timestamp']
+                }
+            )
 
-            if party.id != body.get('party_id'):
-                return
-            
-            confirmation = PartyJoinConfirmation(self.client, party, {
-                **body,
-                'id': body['account_id'],
-                'displayName': body['account_dn']
-            })
-            self.client.dispatch_event('party_member_confirm', confirmation)
+            self.client._pending_friends.set(f.id, f)
+            self.client.dispatch_event('friend_request', f)
+
+    @dispatcher.event('FRIENDSHIP_REMOVE')
+    async def friend_remove_event(self, ctx):
+        body = ctx.body
+
+        if body['from'] == self.client.user.id:
+            _id = body['to']
+        else:
+            _id = body['from']
         
-        elif _type == 'com.epicgames.social.party.notification.v0.INVITE_CANCELLED':
-            self.client.dispatch_event('party_invite_cancel')
+        if body['reason'] == 'ABORTED':
+            pf = self.client.get_pending_friend(_id)
+            self.client.store_user(pf.get_raw())
+            self.client._pending_friends.remove(pf.id)
+            self.client.dispatch_event('friend_request_abort', pf)
+        elif body['reason'] == 'REJECTED':
+            pf = self.client.get_pending_friend(_id)
+            self.client.store_user(pf.get_raw())
+            self.client._pending_friends.remove(pf.id)
+            self.client.dispatch_event('friend_request_decline', pf)
+        else:
+            f = self.client.get_friend(_id)
+            if f is not None:
+                self.client.store_user(f.get_raw())
+                self.client._friends.remove(f.id)
+                self.client.dispatch_event('friend_remove', f)
 
-        elif _type == 'com.epicgames.social.party.notification.v0.INVITE_DECLINED':
-            self.client.dispatch_event('party_invite_decline')
+    @dispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryAdded')
+    async def event_blocklist_added(self, ctx):
+        body = ctx.body
+
+        account_id = body['payload']['accountId']
+        profile = await self.client.fetch_profile(account_id)
+        blocked_user = BlockedUser(self.client, profile.get_raw())
+        self.client._blocked_users.set(profile.id, blocked_user)
+        self.client.dispatch_event('user_block', blocked_user)
+
+    @dispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryRemoved')
+    async def event_blocklist_remove(self, ctx):
+        body = ctx.body
+
+        account_id = body['payload']['accountId']
+        profile = await self.client.fetch_profile(account_id)
+        self.client._blocked_users.remove(profile.id)
+        self.client.dispatch_event('user_unblock', profile)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.PING')
+    async def event_ping_received(self, ctx):
+        body = ctx.body
+
+        pinger = body['pinger_id']
+        data = (await self.client.http.party_lookup_ping(pinger))[0]
+
+        invite = None
+        for inv in data['invites']:
+            if inv['sent_by'] == pinger and inv['status'] == 'SENT':
+                invite = inv
+
+        if invite is None:
+            invite = self._create_invite(pinger, data)
+
+        if 'urn:epic:cfg:build-id_s' not in invite['meta']:
+            pres = self.client.get_presence(pinger)
+            if pres is not None and pres.party is not None and not pres.party.private:
+                net_cl = pres.party.net_cl
+            else:
+                net_cl = self.client.net_cl
+        else:
+            s = invite['meta']['urn:epic:cfg:build-id_s']
+            net_cl = s[4:] if s.startswith('1:1:') else s
+
+        if net_cl != self.client.net_cl and self.client.net_cl != '':
+            log.debug(
+                'Could not match the currently set net_cl ({0}) to the received value ({1})'.format(
+                    self.client.net_cl,
+                    net_cl
+                )
+            )
+        
+        new_party = Party(self.client, data)
+        await new_party._update_members(members=data['members'])
+        
+        invitation = PartyInvitation(self.client, new_party, net_cl, invite)
+        self.client.dispatch_event('party_invite', invitation)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_JOINED')
+    async def event_party_member_joined(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+        
+        member = party.members.get(body.get('account_id'))
+        if member is None:
+            member = party._create_member(body)
+
+            if member.id == self.client.user.id:
+                party._create_clientmember(body)
+
+        if party.me is not None:
+            asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
+
+        if not (member.id == self.client.user.id and member.leader):
+            if party.me and party.leader and party.me.id == party.leader.id:
+                fut = asyncio.ensure_future(party.patch(updated={
+                    'RawSquadAssignments_j': party.meta.refresh_squad_assignments()
+                }), loop=self.client.loop)
+
+        try:
+            if member.id == self.client.user.id:
+                await self.client.wait_for('muc_enter', timeout=2)
+            else:
+                def check(m):
+                    return m.direct_jid.localpart == member.id
+
+                await self.client.wait_for('muc_member_join', check=check, timeout=2)
+        except asyncio.TimeoutError:
+            pass
+
+        try:
+            await fut
+        except UnboundLocalError:
+            pass
+
+        self.client.dispatch_event('party_member_join', member)
+        await self.send_party_message('heelo')
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_LEFT')
+    async def event_party_member_left(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+        
+        member = party.members.get(body.get('account_id'))
+        if member is None:
+            return
+
+        party._remove_member(member.id)
+        self.client.dispatch_event('party_member_leave', member)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_EXPIRED')
+    async def event_party_member_expired(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+        
+        member = party.members.get(body.get('account_id'))
+        if member is None:
+            return
+
+        if member.id == self.client.user.id:
+            p = await self.client._create_party()
+
+            self.client.user.set_party(p)
+
+        party._remove_member(member.id)
+        self.client.dispatch_event('party_member_expire', member)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_KICKED')
+    async def event_party_member_kicked(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+        
+        member = party.members.get(body.get('account_id'))
+        if member is None:
+            return
+        party._remove_member(member.id)
+
+        if member.id == self.client.user.id:
+            await self.leave_muc()
+            p = await self.client._create_party()
+            
+            self.client.user.set_party(p)
+        
+        self.client.dispatch_event('party_member_kick', member)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_DISCONNECTED')
+    async def event_party_member_disconnected(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+        
+        member = party.members.get(body.get('account_id'))
+        if member is None:
+            return
+
+        party._remove_member(member.id)
+        self.client.dispatch_event('party_member_disconnect', member)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_NEW_CAPTAIN')
+    async def event_party_new_captain(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+        
+        member = party.members.get(body.get('account_id'))
+        if member is None:
+            return
+        
+        old_leader = party.leader
+        for m in party.members.values():
+            m.update_role(None)
+        
+        member.update_role('CAPTAIN')
+        party.update_presence()
+        self.client.dispatch_event('party_member_promote', old_leader, member)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.PARTY_UPDATED')
+    async def event_party_updated(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+
+        check = {'playlist_info': 'playlist', 'squad_fill': None, 'privacy': None}
+        pre_values = {k: getattr(party, k) for k in check.keys()}
+
+        party._update(body)
+        self.client.dispatch_event('party_update', party)
+
+        for key, pre_value in pre_values.items():
+            value = getattr(party, key)
+            if pre_value != value:
+                self.client.dispatch_event(
+                    'party_{0}_change'.format(check[key] or key),
+                    party,
+                    pre_value,
+                    value
+                )
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_STATE_UPDATED')
+    async def event_party_member_state_updated(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+        
+        member = party.members.get(body.get('account_id'))
+        if member is None:
+            if body.get('account_id') == self.client.user.id:
+                await party._leave()
+                p = await self.client._create_party()
+                self.client.user.set_party(p)
+            return
+
+        check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
+                'pickaxe', 'contrail', 'emote', 'banner', 'battlepass_info')
+        pre_values = {k: getattr(member, k) for k in check}                
+
+        check_variants = ('outfit_variants', 'backpack_variants', 'pickaxe_variants',
+                          'contrail_variants')
+        pre_variants_values = {k: getattr(member, k) for k in check_variants}
+
+        member.update(body)
+        self.client.dispatch_event('party_member_update', member)
+
+        for key, pre_value in pre_values.items():
+            value = getattr(member, key)
+            if pre_value != value:
+                self.client.dispatch_event(
+                    'party_member_{0}_change'.format(key),
+                    member,
+                    pre_value,
+                    value
+                )
+
+        def compare_variants(a, b):
+            def construct_set(v):
+                return set(itertools.chain(*[list(x.values()) for x in v]))
+            return construct_set(a) == construct_set(b)
+
+        for key, pre_value in pre_variants_values.items():
+            value = getattr(member, key)
+            if not compare_variants(pre_value, value):
+                self.client.dispatch_event(
+                    'party_member_{0}_change'.format(key),
+                    member,
+                    pre_value,
+                    value
+                )
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_REQUIRE_CONFIRMATION')
+    async def event_party_member_require_confirmation(self, ctx):
+        body = ctx.body
+        party = ctx.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+        
+        confirmation = PartyJoinConfirmation(self.client, party, {
+            **body,
+            'id': body['account_id'],
+            'displayName': body.get('account_dn')
+        })
+        self.client.dispatch_event('party_member_confirm', confirmation)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.INVITE_DECLINED')
+    async def event_party_invite_declined(self, ctx):
+        body = ctx.body
+
+        friend = self.client.get_friend(body['invitee_id'])
+        if friend is not None:
+            self.client.dispatch_event('party_invite_decline', friend)       
 
     async def process_presence(self, presence):
         user_id = presence.from_.localpart
@@ -477,12 +564,12 @@ class XMPPClient:
             return
 
         if presence.type_ not in (aioxmpp.PresenceType.AVAILABLE, 
-                                  aioxmpp.PresenceType.UNAVAILABLE):
+                                aioxmpp.PresenceType.UNAVAILABLE):
             return
 
         try:
             data = json.loads(presence.status.any())
-            if data.get('Status', '') == '':
+            if data.get('Status', '') == '' or 'bIsPlaying' not in data:
                 return
         except ValueError:
             return
@@ -525,7 +612,7 @@ class XMPPClient:
                 aioxmpp.MessageType.CHAT,
                 None,
                 lambda m: asyncio.ensure_future(
-                    self.process_message(m), 
+                    self.process_chat_message(m), 
                     loop=self.client.loop
                 ),
             )
@@ -534,10 +621,7 @@ class XMPPClient:
             message_dispatcher.register_callback(
                 aioxmpp.MessageType.NORMAL,
                 None,
-                lambda m: asyncio.ensure_future(
-                    self.process_event_message(m), 
-                    loop=self.client.loop
-                ),   
+                lambda m: dispatcher.process_event(self.client, m),   
             )
 
         if presences:
@@ -563,7 +647,7 @@ class XMPPClient:
                 to=None,
             )
             await self.stream.send(iq)
-    
+
     async def _run(self, future):
         async with self.xmpp_client.connected() as stream:
             self.stream = stream
@@ -628,7 +712,7 @@ class XMPPClient:
 
         # let loop run one iteration for events to be dispatched
         await asyncio.sleep(0)
-    
+
     def muc_on_message(self, message, member, source, **kwargs):
         user_id = member.direct_jid.localpart
         party = self.client.user.party

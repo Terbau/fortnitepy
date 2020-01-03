@@ -40,7 +40,7 @@ from .errors import EventError, PartyError, HTTPException, PurchaseException, No
 from .xmpp import XMPPClient
 from .auth import Auth
 from .http import HTTPClient
-from .user import ClientUser, User
+from .user import ClientUser, User, BlockedUser
 from .friend import Friend, PendingFriend
 from .enums import PartyPrivacy, Platform
 from .cache import Cache, WeakrefCache
@@ -209,7 +209,7 @@ class Client:
         self.two_factor_code = two_factor_code
         self.loop = loop or get_event_loop()
 
-        self.status = kwargs.get('status', None)
+        self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')
         self.platform = kwargs.get('platform', Platform.WINDOWS)
         self.net_cl = kwargs.get('net_cl', '')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
@@ -237,6 +237,7 @@ class Client:
         self._friends = Cache()
         self._pending_friends = Cache()
         self._users = Cache()
+        self._blocked_users = Cache()
         self._presences = Cache()
         self._ready = asyncio.Event(loop=self.loop)
         self._leave_lock = asyncio.Lock(loop=self.loop)
@@ -244,11 +245,11 @@ class Client:
         self._closed = False
         self._closing = False
         self._restarting = False
-        self._forcequit = False
 
         self.refresh_i = 0
 
         self.setup_internal()
+        self.register_subclassed_events()
         self.update_default_party_config(
             kwargs.get('default_party_config')
         )
@@ -298,6 +299,11 @@ class Client:
             (the bot sent the request to the pending friend).
         """
         return self._pending_friends._cache
+
+    @property
+    def blocked_users(self):
+        """:class:`dict`: Mapping of currently blocked users. {id (:class:`str`), :class:`BlockedUser`}"""
+        return self._blocked_users._cache
 
     @property
     def presences(self):
@@ -386,6 +392,14 @@ class Client:
         logger = logging.getLogger('aioxmpp')
         if logger.getEffectiveLevel() == 30:
             logger.setLevel(level=logging.ERROR)
+
+    def register_subclassed_events(self):
+        methods = [func for func in dir(self) if callable(getattr(self, func))]
+        for method_name in methods:
+            if method_name.startswith(self.event_prefix):
+                event = method_name[len(self.event_prefix):]
+                func = getattr(self, method_name)
+                self.add_event_handler(event, func)
 
     def run(self):
         """This function starts the loop and then calls :meth:`start` for you.
@@ -533,6 +547,7 @@ class Client:
             await self.quick_purchase_fortnite()
 
         await self.initialize_friends()
+        await self.initialize_blocklist()
 
         self.xmpp = XMPPClient(self)
         await self.xmpp.run()
@@ -541,7 +556,7 @@ class Client:
         await self.initialize_party()
         log.debug('Party created')
 
-    async def logout(self, close_http=True):
+    async def logout(self, close_http=True, dispatch_logout=True):
         """|coro|
         
         Logs the user out and closes running services.
@@ -559,7 +574,8 @@ class Client:
         """
         self._closing = True
 
-        await self.dispatch_and_wait_event('logout')
+        if dispatch_logout:
+            await self.dispatch_and_wait_event('logout')
 
         if self._refresh_task is not None and not self._refresh_task.cancelled():
             self._refresh_task.cancel()
@@ -583,6 +599,7 @@ class Client:
         self._friends.clear()
         self._pending_friends.clear()
         self._users.clear()
+        self._blocked_users.clear()
         self._presences.clear()
         self._ready.clear()
         
@@ -609,7 +626,7 @@ class Client:
         self._restarting = True
 
         asyncio.ensure_future(self.recover_events(), loop=self.loop)
-        await self.logout(close_http=False)
+        await self.logout(close_http=False, dispatch_logout=False)
 
         await self.wait_until_ready()
         self.dispatch_event('restart')
@@ -878,6 +895,15 @@ class Client:
             if friend is not None:
                 friend._update_last_logout(self.from_iso(data[0]['last_online']))
 
+    async def initialize_blocklist(self):
+        raw_blocklist = await self.http.friends_get_blocklist()
+        account_ids = [a['accountId'] for a in raw_blocklist]
+        profiles = await self.fetch_profiles(account_ids)
+
+        for profile in profiles:
+            blocked_user = BlockedUser(self, profile.get_raw())
+            self._blocked_users.set(blocked_user.id, blocked_user)
+
     def store_user(self, data):
         try:
             return self._users.get(data['id'], silent=False)
@@ -990,7 +1016,7 @@ class Client:
         """
         return self.get_pending_friend(user_id)
 
-    async def get_blocklist(self):
+    async def fetch_blocklist(self):
         """|coro|
         
         Retrieves the blocklist with an api call.
@@ -1005,7 +1031,7 @@ class Client:
         List[:class:`str`]
             List of ids
         """
-        return (await self.http.friends_get_blocklist())['blockedUsers']
+        return await self.http.friends_get_blocklist()
 
     async def block_user(self, user_id):
         """|coro|
@@ -1135,14 +1161,7 @@ class Client:
         await self.http.friends_remove_or_decline(user_id)
 
     async def dispatch_and_wait_event(self, event, *args, **kwargs):
-        method = '{0.event_prefix}{1}'.format(self, event)
-
-        coros = self._events.get('logout', [])
-        try:
-            coros.append(getattr(self, method))
-        except AttributeError:
-            pass
-
+        coros = self._events.get(event, [])
         tasks = [coro() for coro in coros]
         if len(tasks) > 0:
             await asyncio.wait(tasks)
@@ -1176,13 +1195,6 @@ class Client:
             else:
                 for idx in reversed(removed):
                     del listeners[idx]
-        
-        try:
-            coro = getattr(self, '{0.event_prefix}{1}'.format(self, event))
-        except AttributeError:
-            pass
-        else:
-            asyncio.ensure_future(coro(*args, **kwargs), loop=self.loop)
 
         if event in self._events.keys():
             for coro in self._events[event]:

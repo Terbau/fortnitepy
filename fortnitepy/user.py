@@ -39,6 +39,9 @@ class UserBase:
         if data:
             self._update(data)
 
+    def __str__(self):
+        return self._display_name
+
     @property
     def display_name(self):
         """:class:`str`: The users displayname"""
@@ -176,6 +179,10 @@ class ClientUser(UserBase):
         self._party = None
         self._update(data)
 
+    def __repr__(self):
+        return '<ClientUser id={0.id!r} display_name={0.display_name!r} jid={0.jid!r} ' \
+               'email={0.email!r}>'.format(self)
+
     @property
     def first_name(self):
         return self.name
@@ -224,8 +231,43 @@ class ClientUser(UserBase):
 
 
 class User(UserBase):
+    """Represents a blocked friend from Fortnite"""
 
     __slots__ = UserBase.__slots__
     
     def __init__(self, client, data, **kwargs):
         super().__init__(client, data)
+
+    def __repr__(self):
+        return '<User id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
+
+    async def block(self):
+        """|coro|
+        
+        Blocks this user.
+        
+        Raises
+        ------
+        HTTPException
+            Something went wrong while blocking this user.
+        """
+        await self.client.block_user(self.id)
+
+
+class BlockedUser(UserBase):
+    """Represents a blocked friend from Fortnite"""
+
+    __slots__ = UserBase.__slots__
+
+    def __init__(self, client, data):
+        super().__init__(client, data)
+
+    def __repr__(self):
+        return '<BlockedUser id={0.id!r} display_name={0.display_name!r}'.format(self)
+
+    async def unblock(self):
+        """|coro|
+        
+        Unblocks this friend.
+        """
+        await self.client.unblock_user(self.id)

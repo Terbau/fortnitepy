@@ -66,6 +66,9 @@ class StatsV2:
         else:
             self.end_time = datetime.datetime.utcfromtimestamp(data['endTime'])
 
+    def __repr__(self):
+        return '<StatsV2 user={0.user!r} start_time={0.start_time!r} end_time={0.end_time!r}>'.format(self)
+
     @staticmethod
     def create_stat(stat, platform, playlist):
         if stat in replacers.values():

@@ -33,6 +33,13 @@ class BattleRoyaleNewsPost:
         self._body = data['body']
         self._spotlight = data['spotlight']
         self._adspace = data.get('adspace')
+
+    def __str__(self):
+        return self.title
+
+    def __repr__(self):
+        return '<BattleRoyaleNewsPost title={0.title!r} image={0.image!r} ' \
+               'spotlight={0.spotlight}>'.format(self)
     
     @property
     def image(self):

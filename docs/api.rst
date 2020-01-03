@@ -74,12 +74,9 @@ Enumerations
 	.. attribute:: ASIA
 
 		The Asia region.
-	.. attribute:: NA
+	.. attribute:: MIDDLEEAST
 
-		The North America region.
-	.. attribute:: CHINA
-		
-		The China region.
+		The Middle East region.
 
 .. class:: Platform
 
@@ -108,9 +105,17 @@ this decorator if you are in a subclass of :class:`Client`.
 
     This event is called when the client has been successfully established and connected to all services.
 
+	.. warning::
+
+        This event is not called when the client starts in :class:`Client.logout()`.
+
 .. function:: event_logout()
 
 	This event is called when the client is beginning to log out. 
+
+	.. warning::
+
+        This event is not called when the client logs out in :class:`Client.logout()`.
 
 	.. note::
 
@@ -374,6 +379,17 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param after: The current pickaxe pid.
 	:type after: :class:`str`
 
+.. function:: event_party_member_contrail_change(member, before, after)
+
+	This event is called when a members contrail has been changed.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous contrail id.
+	:type before: :class:`str`
+	:param after: The current contrail id.
+	:type after: :class:`str`
+
 .. function:: event_party_member_emote_change(member, before, after)
 
 	This event is called when a members emote has been changed.
@@ -438,6 +454,17 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param before: The previous pickaxe variants. Same structure as :attr:`PartyMember.pickaxe_variants`.
 	:type before: :class:`list`
 	:param after: The current pickaxe variants. Same structure as :attr:`PartyMember.pickaxe_variants`.
+	:type after: :class:`list`
+
+.. function:: event_party_member_contrail_variants_change(member, before, after)
+
+	This event is called when a members contrail variants been changed.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous contrail variants. Same structure as :attr:`PartyMember.contrail_variants`.
+	:type before: :class:`list`
+	:param after: The current contrail variants. Same structure as :attr:`PartyMember.contrail_variants`.
 	:type after: :class:`list`
 
 
@@ -543,6 +570,13 @@ User
 ~~~~
 
 .. autoclass:: User()
+	:members:
+	:inherited-members:
+
+BlockedUser
+~~~~~~~~~~~
+
+.. autoclass:: BlockedUser()
 	:members:
 	:inherited-members:
 

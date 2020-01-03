@@ -239,12 +239,19 @@ class HTTPClient:
         try:
             return await self._fn_request(method, route, auth, **kwargs)
         except HTTPException as exc:
-            if exc.message_code not in ('errors.com.epicgames.common.oauth.invalid_token',
-                                        'errors.com.epicgames.common.authentication.token_verification_failed'):
-                exc.reraise()
-            
-            await self.client.restart()
-            return await self.fn_request(method, route, auth, **kwargs)
+            if exc.message_code in ('errors.com.epicgames.common.oauth.invalid_token',
+                                    'errors.com.epicgames.common.authentication.token_verification_failed'):
+                await self.client.restart()
+                return await self.fn_request(method, route, auth, **kwargs)
+
+            elif exc.message_code in ('errors.com.epicgames.common.server_error',):
+                await asyncio.sleep(0.5)
+                return await self._fn_request(method, route, auth, **kwargs)
+
+            elif exc.message_code in ('errors.com.epicgames.common.concurrent_modification_error',):
+                return await self.fn_request(method, route, auth, **kwargs)
+
+            exc.reraise()
             
     async def get(self, url, auth=None, **kwargs):
         return await self.fn_request('GET', url, auth, **kwargs)

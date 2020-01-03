@@ -36,6 +36,8 @@ class PresenceGameplayStats:
     
     Attributes
     ----------
+    friend: :class:`Friend`
+        The friend these stats belong to.
     state: :class:`str`
         The state.
     playlist: :class:`str`
@@ -48,9 +50,10 @@ class PresenceGameplayStats:
         ``True`` if friend fell to death in its current game, else ``False``    
     """
 
-    __slots__ = ('state', 'playlist', 'players_alive', 'num_kills', 'fell_to_death')
+    __slots__ = ('friend', 'state', 'playlist', 'players_alive', 'num_kills', 'fell_to_death')
 
-    def __init__(self, data, players_alive):
+    def __init__(self, friend, data, players_alive):
+        self.friend = friend
         self.state = data.get('state')
         self.playlist = data.get('playlist')
         self.players_alive = players_alive
@@ -60,6 +63,10 @@ class PresenceGameplayStats:
             self.num_kills = int(self.num_kills)
 
         self.fell_to_death = True if data.get('bFellToDeath') else False
+
+    def __repr__(self):
+        return '<PresenceGameplayStats friend={0.friend!r} players_alive={0.players_alive} ' \
+               'num_kills={0.num_kills}> playlist={0.playlist!r}'.format(self)
 
 
 class PresenceParty:
@@ -146,6 +153,9 @@ class PresenceParty:
         self.playercount = data.get('pc')
         if self.playercount is not None:
             self.playercount = int(self.playercount)
+
+    def __repr__(self):
+        return '<PresenceParty private={0.private} id={0.id!r} playercount={0.playercount}>'.format(self)
 
     async def join(self):
         """|coro|
@@ -301,7 +311,7 @@ class Presence:
             self.server_player_count = int(self.server_player_count)
 
         if 'FortGameplayStats_j' in self.raw_properties.keys():
-            self.gameplay_stats = PresenceGameplayStats(self.raw_properties['FortGameplayStats_j'], players_alive)
+            self.gameplay_stats = PresenceGameplayStats(self.friend, self.raw_properties['FortGameplayStats_j'], players_alive)
         else:
             self.gameplay_stats = None
         
@@ -314,3 +324,6 @@ class Presence:
             self.party = None
         else:
             self.party = PresenceParty(self.client, self.raw_properties[key])
+
+    def __repr__(self):
+        return '<Presence friend={0.friend!r} available={0.available} received_at={0.received_at!r}>'.format(self)

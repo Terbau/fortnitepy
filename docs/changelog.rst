@@ -5,6 +5,78 @@ Changelog
 
 Detailed version changes.
 
+
+v1.2.0
+------
+
+This update adds a lot of new stuff and also increases stability.
+
+[**ALL BREAKING**] Changes
+~~~~~~~
+
+- :func:`event_logout()` is no longer called when the client is logged out via :meth:`Client.restart()`.
+- :meth:`PartyMember.create_variants()` is now a staticmethod.
+- [**RENAME**] ``Client.get_blocklist()`` -> :meth:`Client.fetch_blocklist()`
+- [**RENAME**] ``DefaultCharacters`` -> :class:`DefaultCharactersChapter1`
+
+Added
+~~~~~
+
+- When setting the clients status, you can now use two placeholders ``{party_size}`` and ``{party_max_size}`` which is replaced automatically when status is sent.
+- Added :class:`BlockedUser` with a single unique method being :meth:`BlockedUser.unblock()`.
+- Added a cache for blocked users.
+- Added :attr:`Client.blocked_users`.
+- Added :meth:`User.block()`.
+- Added :attr:`PartyMember.contrail` and :attr:`ClientPartyMember.contrail`.
+- Added :attr:`PartyMember.contrail_variants` and :attr:`ClientPartyMember.contrail_variants`.
+- Added :meth:`ClientPartyMember.set_contrail()`.
+- Added event :func:`event_party_member_contrail_change()`.
+- Added event :func:`event_party_member_contrail_variants_change()`.
+- Added :class:`DefaultCharactersChapter2`. A random skin for :class:`ClientPartyMember` is now chosen from this enum.
+- Added kwarg ``profile_banner`` to :meth:`PartyMember.create_variants()`.
+- Added :attr:`Region.MIDDLEEAST` and removed :attr:`Region.CHINA`.
+- Added :attr:`PresenceGameplayStats.friend`.
+- Added magic methods to some classes where it made sense:
+    - :class:`Friend` (``__repr__``, ``__str__``)
+    - :class:`PendingFriend` (``__repr__``, ``__str__``)
+    - :class:`ClientUser` (``__repr__``, ``__str__``)
+    - :class:`User` (``__repr__``, ``__str__``)
+    - :class:`BlockedUser` (``__repr__``, ``__str__``)
+    - :class:`PartyMember` (``__repr__``, ``__str__``)
+    - :class:`ClientPartyMember` (``__repr__``, ``__str__``)
+    - :class:`Party` (``__repr__``, ``__str__``)
+    - :class:`ClientParty` (``__repr__``, ``__str__``)
+    - :class:`PartyInvitation` (``__repr__``)
+    - :class:`PartyJoinConfirmation` (``__repr__``)
+    - :class:`FriendMessage` (``__repr__``)
+    - :class:`PartyMessage` (``__repr__``)
+    - :class:`BattleRoyaleNewsPost` (``__repr__``, ``__str__``)
+    - :class:`Playlist` (``__repr__``, ``__str__``)
+    - :class:`PresenceGameplayStats` (``__repr__``)
+    - :class:`PresenceParty` (``__repr__``)
+    - :class:`Presence` (``__repr__``)
+    - :class:`StatsV2` (``__repr__``)
+    - :class:`Store` (``__repr__``)
+    - :class:`FeaturedStoreItem` (``__repr__``, ``__str__``)
+    - :class:`DailyStoreItem` (``__repr__``, ``__str__``)
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed two factor authentication.
+- Fixed an issue that caused :func:`event_party_member_confirm()` to not work when defined in a subclass of :class:`Client`.
+- Fixed an issue that caused :meth:`Client.fetch_blocklist()` to not work.
+- The HTTP client now attempts to resend a request if ``server_error`` or ``concurrent_modifaction_error`` is received.
+- Fixed an issue that caused :meth:`PartyMember.kick()` to raise an incorrect error.
+- Calling :meth:`ClientPartyMember.set_emote()` with the ``run_for`` keyword argument will now cancel any existing emote cancelling tasks created by ``run_for`` before.
+- Fixed an issue where an error would be raised if the client was friends with someone that had never entered fortnite before.
+- Fixed two rare errors raised because of missing attributes in xmpp event payloads.
+- Fixed an noisy issue where the client sometimes attempted to remove a missing pending friend from the cache.
+- Fixed an issue that caused the processing of variant changes from other party members to fail.
+- Fixed a noisy issue that was raised on startup of some clients (bIsPlaying).
+- Fixed an issue that caused :meth:`PartyInvitation.decline()` to raise an error.
+
+
 v1.1.0
 ------
 

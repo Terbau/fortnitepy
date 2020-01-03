@@ -44,6 +44,9 @@ class Store:
         self._featured_items = self._create_featured_items(data)
         self._daily_items = self._create_daily_items(data)
 
+    def __repr__(self):
+        return '<Store created_at={0.created_at!r} expires_at={0.expires_at!r}>'.format(self)
+
     @property
     def featured_items(self):
         """List[:class:`FeaturedStoreItem`]: A list containing data about
@@ -127,6 +130,9 @@ class StoreItemBase:
         self._items_grants = data['itemGrants']
         self._meta_info = data.get('metaInfo', [])
         self._meta = data.get('meta', {})
+
+    def __str__(self):
+        return self.dev_name
 
     @property
     def display_names(self):
@@ -261,6 +267,9 @@ class FeaturedStoreItem(StoreItemBase):
         super().__init__(data)
         self._panel = int((data['categories'][0].split(' '))[1])
 
+    def __repr__(self):
+        return '<FeaturedStoreItem dev_name={0.dev_name!r} asset={0.asset!r} price={0.price!r}>'.format(self)
+
     @property
     def panel(self):
         """:class:`int`: The panel the item is listed in from left
@@ -273,3 +282,6 @@ class DailyStoreItem(StoreItemBase):
     """Daily store item."""
     def __init__(self, data):
         super().__init__(data)
+
+    def __repr__(self):
+        return '<DailyStoreItem dev_name={0.dev_name!r} asset={0.asset!r} price={0.price!r}>'.format(self)
