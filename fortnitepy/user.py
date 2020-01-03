@@ -262,6 +262,9 @@ class BlockedUser(UserBase):
     def __init__(self, client, data):
         super().__init__(client, data)
 
+    def __repr__(self):
+        return '<BlockedUser id={0.id!r} display_name={0.display_name!r}'.format(self)
+
     async def unblock(self):
         """|coro|
         

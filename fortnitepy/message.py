@@ -89,7 +89,7 @@ class PartyMessage(MessageBase):
         self.party = party
 
     def __repr__(self):
-        return '<FriendMessage party={0.party!r} author={0.author!r} ' \
+        return '<PartyMessage party={0.party!r} author={0.author!r} ' \
                'created_at={0.created_at!r}>'.format(self)
 
     @property

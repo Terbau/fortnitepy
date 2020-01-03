@@ -74,12 +74,9 @@ Enumerations
 	.. attribute:: ASIA
 
 		The Asia region.
-	.. attribute:: NA
+	.. attribute:: MIDDLEEAST
 
-		The North America region.
-	.. attribute:: CHINA
-		
-		The China region.
+		The Middle East region.
 
 .. class:: Platform
 
@@ -573,6 +570,13 @@ User
 ~~~~
 
 .. autoclass:: User()
+	:members:
+	:inherited-members:
+
+BlockedUser
+~~~~~~~~~~~
+
+.. autoclass:: BlockedUser()
 	:members:
 	:inherited-members:
 
