@@ -1295,19 +1295,23 @@ class ClientPartyMember(PartyMemberBase):
 
     async def _schedule_clear_emote(self, seconds):
         await asyncio.sleep(seconds)
-        await self.clear_emote()
         self.clear_emote_task = None
-    
+        await self.clear_emote()
+        
     async def clear_emote(self):
         """|coro|
         
         Clears/stops the emote currently playing.
         """
+
         prop = self.meta.set_emote(
             emote='None',
             emote_ekey='',
             section=-1
         )
+
+        if self.clear_emote_task is not None and not self.clear_emote_task.cancelled():
+            self.clear_emote_task.cancel()
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
