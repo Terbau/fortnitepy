@@ -231,7 +231,7 @@ class ClientUser(UserBase):
 
 
 class User(UserBase):
-    """Represents a blocked friend from Fortnite"""
+    """Represents a user from Fortnite"""
 
     __slots__ = UserBase.__slots__
     
@@ -255,7 +255,7 @@ class User(UserBase):
 
 
 class BlockedUser(UserBase):
-    """Represents a blocked friend from Fortnite"""
+    """Represents a blocked user from Fortnite"""
 
     __slots__ = UserBase.__slots__
 

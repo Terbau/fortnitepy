@@ -63,7 +63,7 @@ class EventDispatcher:
     def process_event(self, client, stanza):
         body = json.loads(stanza.body.any())
         type_ = body['type']
-        log.debug('\n\nReceived event `{}` with body `{}`\n\n'.format(type_, body))
+        log.debug('Received event `{}` with body `{}`'.format(type_, body))
 
         coros = self._listeners.get(type_, [])
         for coro in coros:
@@ -339,7 +339,6 @@ class XMPPClient:
             pass
 
         self.client.dispatch_event('party_member_join', member)
-        await self.send_party_message('heelo')
 
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_LEFT')
     async def event_party_member_left(self, ctx):
