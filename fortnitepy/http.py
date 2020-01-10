@@ -283,7 +283,8 @@ class HTTPClient:
         payload = {
             'email': email,
             'password': password,
-            'rememberMe': False
+            'rememberMe': False,
+            'captcha': ''
         }
 
         return await self.post(EpicGames('/id/api/login'), headers=headers, data=payload)

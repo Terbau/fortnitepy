@@ -209,7 +209,7 @@ class ClientUser(UserBase):
         self.email = data['email']
         self.failed_login_attempts = data['failedLoginAttempts']
         self.last_failed_login = self.client.from_iso(data['lastFailedLogin']) if 'lastFailedLogin' in data else None
-        self.last_login = self.client.from_iso(data['lastLogin'])
+        self.last_login = self.client.from_iso(data['lastLogin']) if 'lastLogin' in data else None
         self.number_of_display_name_changes = data['numberOfDisplayNameChanges']
         self.age_group = data['ageGroup']
         self.headless = data['headless']
