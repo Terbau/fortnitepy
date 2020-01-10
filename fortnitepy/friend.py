@@ -41,7 +41,6 @@ class FriendBase(UserBase):
         super()._update(data)
         self._status = data['status']
         self._direction = data['direction']
-        self._favorite = str(data['favorite']).lower() == 'true'
         self._created_at = self.client.from_iso(data['created'])
 
     @property
@@ -95,13 +94,6 @@ class FriendBase(UserBase):
         return self._direction == 'OUTGOING'
 
     @property
-    def favorite(self):
-        """:class:`bool`: ``True`` if the friend is favorited by :class:`ClientUser`
-        else ``False``.
-        """
-        return self._favorite
-
-    @property
     def created_at(self):
         """:class:`datetime.datetime`: The UTC time of when the friendship was created."""
         return self._created_at
@@ -142,6 +134,7 @@ class Friend(FriendBase):
 
     def _update(self, data):
         super()._update(data)
+        self._favorite = str(data['favorite']).lower() == 'true'
         self._nickname = data.get('alias')
         self._note = data.get('note')
         self._favorite = data.get('favorite')
@@ -159,6 +152,13 @@ class Friend(FriendBase):
         """:class:`str`: The friends id"""
         return self._id
     
+    @property
+    def favorite(self):
+        """:class:`bool`: ``True`` if the friend is favorited by :class:`ClientUser`
+        else ``False``.
+        """
+        return self._favorite
+
     @property
     def nickname(self):
         """:class:`str`: The friend's nickname. ``None`` if no nickname is set for this friend."""
