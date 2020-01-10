@@ -6,6 +6,23 @@ Changelog
 Detailed version changes.
 
 
+v1.2.2
+------
+
+Fixes the login flow and another breaking login bug.
+
+Changes
+~~~~~~~
+
+- [**BREAKING**] Attribute ``favorite`` removed from :class:`PendingFriend`.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed the login flow (you can now actually log in to an account).
+- Fixed an issue where login would break because of a missing parameter in a payload.
+
+
 v1.2.1
 ------
 
