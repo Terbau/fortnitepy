@@ -203,11 +203,12 @@ class Client:
         The event loop that client implements.
     """
 
-    def __init__(self, email, password, *, two_factor_code=None, loop=None, **kwargs):
+    def __init__(self, email, password, *, two_factor_code=None, loop=None, cache_users=True, **kwargs):
         self.email = email
         self.password = password
         self.two_factor_code = two_factor_code
         self.loop = loop or get_event_loop()
+        self.cache_users = cache_users
 
         self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')
         self.platform = kwargs.get('platform', Platform.WINDOWS)
@@ -909,7 +910,8 @@ class Client:
             return self._users.get(data['id'], silent=False)
         except KeyError:
             u = User(self, data)
-            self._users.set(u.id, u)
+            if self.cache_users:
+                self._users.set(u.id, u)
             return u
 
     def get_user(self, user_id):
@@ -930,7 +932,8 @@ class Client:
             friend = self.get_friend(user_id)
             if friend is not None:
                 user = User(self, friend.get_raw())
-                self._users.set(user.id, user)
+                if self.cache_users:
+                    self._users.set(user.id, user)
         return user
 
     def store_friend(self, data):
