@@ -492,8 +492,8 @@ class XMPPClient:
                 self.client.user.set_party(p)
             return
 
-        check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
-                'pickaxe', 'contrail', 'emote', 'banner', 'battlepass_info')
+        check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack', 'pet',
+                'pickaxe', 'contrail', 'emote', 'emoji', 'banner', 'battlepass_info')
         pre_values = {k: getattr(member, k) for k in check}                
 
         check_variants = ('outfit_variants', 'backpack_variants', 'pickaxe_variants',
