@@ -115,7 +115,6 @@ class FriendBase(UserBase):
             **(super().get_raw()),
             'status': self.status,
             'direction': self.direction,
-            'favorite': self.favorite,
             'created': self.created_at
         }
 
