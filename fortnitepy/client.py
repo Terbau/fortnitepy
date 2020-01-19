@@ -52,7 +52,8 @@ from .playlist import Playlist
 
 log = logging.getLogger(__name__) 
 
-# all credit for this function goes to discord.py. Great task cancelling.
+
+# all credit for this function goes to discord.py.
 def _cancel_tasks(loop):
     task_retriever = asyncio.Task.all_tasks
     tasks = {t for t in task_retriever(loop=loop) if not t.done()}
@@ -72,7 +73,7 @@ def _cancel_tasks(loop):
             continue
         if task.exception() is not None:
             loop.call_exception_handler({
-                'message': 'Unhandled exception during Client.run shutdown.',
+                'message': 'Unhandled exception during run shutdown.',
                 'exception': task.exception(),
                 'task': task
             })
@@ -438,11 +439,10 @@ class Client:
         self._ready = asyncio.Event(loop=self.loop)
         self._leave_lock = asyncio.Lock(loop=self.loop)
         self._refresh_task = None
+        self._start_runner_task = None
         self._closed = False
         self._closing = False
         self._restarting = False
-
-        self.refresh_i = 0
 
         self.setup_internal()
         self.register_subclassed_events()
@@ -566,7 +566,7 @@ class Client:
         names = []
         results = []
 
-        unfiltered = [*list(reversed(config)), *list(reversed(self.default_party_member_config))]
+        unfiltered = [*config[::-1], *self.default_party_member_config[::-1]]
         for elem in unfiltered:
             coro = elem.func
             if coro.__qualname__ not in names:
@@ -782,7 +782,9 @@ class Client:
         ----------
         close_http: :class:`bool`
             Whether or not to close the clients :class:`aiohttp.ClientSession` when 
-            logged out. 
+            logged out.
+        dispatch_logout: :class:`bool`
+            Whether or not to dispatch the logout event. 
 
         Raises
         ------
@@ -931,17 +933,15 @@ class Client:
         ----------
         display_name: :class:`str`
             The display name of the user you want to fetch the profile for.
-        cache: Optional[:class:`bool`]
+        cache: :class:`bool`
             If set to True it will try to get the profile from the friends or user cache.
-            *Defaults to ``True``*
 
             .. note::
 
                 Setting this parameter to False will make it an api call.
 
-        raw: Optional[:class:`bool`]
+        raw: :class:`bool`
             If set to True it will return the data as you would get it from the api request.
-            *Defaults to ``False``*
 
             .. note::
 
@@ -1016,18 +1016,16 @@ class Client:
         ----------
         user: :class:`str`
             Id or display name
-        cache: Optional[:class:`bool`]
+        cache: :class:`bool`
             If set to True it will try to get the profile from the friends or user cache
             and fall back to an api request if not found.
-            *Defaults to ``True``*
 
             .. note::
 
                 Setting this parameter to False will make it an api call.
 
-        raw: Optional[:class:`bool`]
+        raw: :class:`bool`
             If set to True it will return the data as you would get it from the api request.
-            *Defaults to ``False``*
 
             .. note::
 
@@ -1057,18 +1055,16 @@ class Client:
         ----------
         users: List[:class:`str`]
             A list/tuple containing ids/displaynames.
-        cache: Optional[:class:`bool`]
+        cache: :class:`bool`
             If set to True it will try to get the profiles from the friends or user cache
             and fall back to an api request if not found.
-            *Defaults to ``True``*
 
             .. note::
 
                 Setting this parameter to False will make it an api call.
 
-        raw: Optional[:class:`bool`]
+        raw: :class:`bool`
             If set to True it will return the data as you would get it from the api request.
-            *Defaults to ``False``*
 
             .. note::
 
@@ -1455,7 +1451,7 @@ class Client:
         coros = self._events.get(event, [])
         tasks = [coro() for coro in coros]
         if len(tasks) > 0:
-            await asyncio.wait(tasks)
+            await asyncio.gather(*tasks)
 
     def dispatch_event(self, event, *args, **kwargs):
         listeners = self._listeners.get(event)
@@ -1545,7 +1541,7 @@ class Client:
                 Wrong = ``event_friend_message``.
                 Correct = ``friend_message``.
 
-        check: Optional[Callable function]
+        check: Optional[Callable]
             A predicate to check what to wait for.
             *Defaults to a predicate that always returns ``True``. This means it will return the first
             result.*
@@ -1706,10 +1702,7 @@ class Client:
             self.fetch_profile(user_id, cache=True),
             self.http.stats_get_v2(user_id, start_time=start_time, end_time=end_time)
         ]
-        d, _ = await asyncio.wait(tasks)
-        results = [r.result() for r in d]
-        if isinstance(results[0], dict):
-            results = list(reversed(results))
+        results = await asyncio.gather(*tasks)
         if results[1] == '':
             raise Forbidden('This user has chosen to be hidden from public stats.')
 
@@ -1798,10 +1791,9 @@ class Client:
             self.fetch_profiles(user_ids, cache=True),
             self.http.stats_get_mutliple_v2(user_ids, stats)
         ]
-        d, _ = await asyncio.wait(tasks)
-        results = [r.result() for r in d]
+        results = await asyncio.gather(*tasks)
         if len(results[0]) > 0 and isinstance(results[0][0], dict):
-            results = list(reversed(results))
+            results = results[::-1]
 
         res = {}
         for udata in results[1]:
@@ -1918,7 +1910,7 @@ class Client:
                 break
             except HTTPException as exc:
                 if exc.message_code != 'errors.com.epicgames.social.party.user_has_party':
-                    raise HTTPException(exc.response, exc.raw)
+                    exc.reraise()
 
                 data = await self.http.party_lookup_user(self.user.id)
                 async with self._leave_lock:
@@ -2070,9 +2062,8 @@ class Client:
 
         Parameters
         ----------
-        service_id: Optional[:class:`str`]
+        service_id: :class:`str`
             The service id to check status for.
-            *Defaults to ``Fortnite``.
 
         Raises
         ------

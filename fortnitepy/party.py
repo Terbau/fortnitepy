@@ -819,6 +819,8 @@ class PartyMemberBase(User):
             The material number you want to use.
         emissive: Optional[:class:`int`]
             The emissive number you want to use.
+        profile_banner: Optional[:class:`str`]
+            The profile banner to use. The value should almost always be ``ProfileBanner``.
 
         Returns
         -------
@@ -977,7 +979,7 @@ class ClientPartyMember(PartyMemberBase):
                         if exc.message_code == 'errors.com.epicgames.social.party.stale_revision':
                             self.revision = int(exc.message_vars[1])
                             continue
-                        raise HTTPException(exc.response, exc.raw)
+                        exc.reraise()
                     except FortniteException as exc:
                         future.set_exception(exc)
                         break
@@ -1128,7 +1130,7 @@ class ClientPartyMember(PartyMemberBase):
             tasks = [self.patch(updated=prop)]
             if value is None:
                 tasks.append(random.choice(list(self.party.members.values())).promote())
-            await asyncio.wait(tasks)
+            await asyncio.gather(*tasks)
 
         else:
             if value is None:
@@ -1144,7 +1146,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The CID of the outfit.
             | Defaults to the last set outfit.
 
@@ -1181,7 +1183,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The BID of the backpack.
             | Defaults to the last set backpack.
 
@@ -1218,7 +1220,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The ID of the pet.
             | Defaults to the last set pet.
 
@@ -1255,7 +1257,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The PID of the pickaxe.
             | Defaults to the last set pickaxe.
 
@@ -1292,7 +1294,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The ID of the contrail.
             | Defaults to the last set contrail.
 
@@ -1329,7 +1331,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: Required[:class:`str`]
+        asset: :class:`str`
             The EID of the emote.
 
             .. note::
@@ -1368,7 +1370,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: Required[:class:`str`]
+        asset: :class:`str`
             The ID of the emoji.
 
             .. note::
@@ -1448,8 +1450,8 @@ class ClientPartyMember(PartyMemberBase):
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
     
-    async def set_battlepass_info(self, has_purchased=None, level=None, self_boost_xp=None,
-                                  friend_boost_xp=None):
+    async def set_battlepass_info(self, has_purchased=None, level=None, 
+                                  self_boost_xp=None, friend_boost_xp=None):
         """|coro|
         
         Sets the battlepass info of the client.
@@ -1489,19 +1491,22 @@ class ClientPartyMember(PartyMemberBase):
         
         Parameters
         ----------
-        quest: :class:`str`
+        quest: Optional[:class:`str`]
             The quest to set.
 
             .. note::
 
                 You don't have to include the full path of the quest. The quest id is
                 enough.
-        num_completed: :class:`int`
+        num_completed: Optional[:class:`int`]
             How many quests you have completed, I think (didn't test this).
         """
-        if '.' not in quest:
-            quest = "FortQuestItemDefinition'/Game/Athena/Items/Quests/DailyQuests/Quests/" \
-                    "{0}.{0}'".format(quest)
+        if asset is not None:
+            if '.' not in quest:
+                quest = "FortQuestItemDefinition'/Game/Athena/Items/Quests/DailyQuests/Quests/" \
+                        "{0}.{0}'".format(quest)
+        else:
+            asset = self.meta.get_prop('AssistedChallengeInfo_j')['AssistedChallengeInfo']['questItemDef']
 
         prop = self.meta.set_assisted_challenge(
             quest=quest,
@@ -1928,7 +1933,7 @@ class ClientParty(PartyBase):
                         if exc.message_code == 'errors.com.epicgames.social.party.stale_revision':
                             self.revision = int(exc.message_vars[1])
                             continue
-                        raise HTTPException(exc.response, exc.raw)
+                        exc.reraise()
                     except FortniteException as exc:
                         future.set_exception(exc)
                         break
@@ -1972,15 +1977,6 @@ class ClientParty(PartyBase):
             e.reraise()
 
     async def _leave(self, ignore_not_found=True):
-        """|coro|
-        
-        Leaves the party.
-        
-        Raises
-        ------
-        HTTPException
-            Something went wrong when trying to leave the party.
-        """
         await self.client.xmpp.leave_muc()
 
         async with self.client._leave_lock:

@@ -600,6 +600,12 @@ ClientUser
 	:members:
 	:inherited-members:
 
+ExternalAuth
+~~~~~~~~~~~~
+
+.. autoclass:: ExternalAuth()
+	:members:
+
 User
 ~~~~
 
@@ -747,6 +753,8 @@ Exceptions
 .. autoexception:: AuthException
 
 .. autoexception:: HTTPException
+
+.. autoexception:: ValidationFailure
 
 .. autoexception:: PurchaseException
 

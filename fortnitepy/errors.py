@@ -64,6 +64,30 @@ class NoMoreItems(FortniteException):
     """This exception is raised whenever an iterator does not have any more items."""
     pass
 
+class ValidationFailure(FortniteException):
+    """Represents a validation failure returned.
+
+    Attributes
+    ----------
+    field_name: :class:`str`
+        Name of the field that was invalid.
+    invalid_value: :class:`str`
+        The invalid value.
+    message: :class:`str`
+        The message explaining why the field value was invalid.
+    message_code: :class:`str`
+        The raw error message code received.
+    message_vars: Dict[:class:`str`, :class:`str`]
+        The message variables received.
+    """
+
+    def __init__(self, data):
+        self.field_name = data['fieldName']
+        self.invalid_value = data['invalidValue']
+        self.message = data['errorMessage']
+        self.message_code = data['errorCode']
+        self.message_vars = data['messageVars']
+
 class HTTPException(FortniteException):
     """This exception is raised when an error is received by Fortnite services.
     
@@ -89,6 +113,9 @@ class HTTPException(FortniteException):
         The originating service this error was received from.
     intent: :class:`str`
         The prod this error was received from.
+    validation_failures: List[:exc:`ValidationFailure`]
+        A list containing information about the validation failures. 
+        ``None`` if the error was not raised a validation issue.
     """
     
     def __init__(self, response, message):
@@ -103,6 +130,12 @@ class HTTPException(FortniteException):
         self.code = _err.get('numericErrorCode')
         self.originating_service = _err.get('originatingService')
         self.intent = _err.get('intent')
+        
+        validation_failures_data = _err.get('validationFailures')
+        if validation_failures_data is not None:
+            self.validation_failures = [ValidationFailure(d) for d in validation_failures_data.values()]
+        else:
+            self.validation_failures = None
 
         self.text = 'Code: "{0}" - {1}'.format(
             self.message_code,
@@ -112,4 +145,4 @@ class HTTPException(FortniteException):
         super().__init__(self.text)
 
     def reraise(self):
-        raise HTTPException(self.response, self.raw)
+        raise HTTPException(self.response, self.raw) from None

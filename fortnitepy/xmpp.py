@@ -563,7 +563,7 @@ class XMPPClient:
             return
 
         if presence.type_ not in (aioxmpp.PresenceType.AVAILABLE, 
-                                aioxmpp.PresenceType.UNAVAILABLE):
+                                  aioxmpp.PresenceType.UNAVAILABLE):
             return
 
         try:
