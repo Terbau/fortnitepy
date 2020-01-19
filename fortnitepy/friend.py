@@ -35,10 +35,8 @@ class FriendBase(UserBase):
 
     def __init__(self, client, data):
         super().__init__(client, data)
-        self._update(data)
         
-    def _update(self, data):
-        super()._update(data)
+    def _update_external(self, data):
         self._status = data['status']
         self._direction = data['direction']
         self._created_at = self.client.from_iso(data['created'])
@@ -46,7 +44,7 @@ class FriendBase(UserBase):
     @property
     def display_name(self):
         """:class:`str`: The friend's displayname"""
-        return self._display_name
+        return super().display_name
     
     @property
     def id(self):
@@ -144,7 +142,7 @@ class Friend(FriendBase):
     @property
     def display_name(self):
         """:class:`str`: The friends displayname"""
-        return self._display_name
+        return super().display_name
     
     @property
     def id(self):

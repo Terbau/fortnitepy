@@ -31,8 +31,56 @@ import aioxmpp
 log = logging.getLogger(__name__)
 
 
+class ExternalAuth:
+    """Represents an external auth belonging to a user.
+    
+    Attributes
+    ----------
+    client: :class:`Client`
+        The client.
+    type: :class:`str`:
+        The type/platform of the external auth. 
+    id: :class:`str`:
+        The users universal fortnite id.
+    external_id: :class:`str`:
+        The id belonging to this user on the platform.
+    external_display_name: :class:`str`
+        The display name belonging to this user on the platform.
+    extra_info: Dict[:class:`str`, Any]
+        Extra info from the payload. Usually empty on accounts other
+        than :class:`ClientUser`.
+    """
+
+    __slots__ = ('client', 'type', 'id', 'external_id', 'external_display_name', 'extra_info')
+
+    def __init__(self, client, data):
+        self.client = client
+        self.type = data['type']
+        self.id = data['accountId']
+        self.external_id = data['externalAuthId']
+        self.external_display_name = data['externalDisplayName']
+
+    def _update_extra_info(self, data):
+        to_be_removed = ('type', 'accountId', 'externalAuthId', 'externalDisplayName')
+        for field in to_be_removed:
+            try:
+                del data[field]
+            except KeyError:
+                pass
+
+        self.extra_info = data
+
+    def __str__(self):
+        return self.external_display_name
+
+    def __repr__(self):
+        return '<ExternalAuth type={0.type!r} id={0.id!r} external_display_name=' \
+               '{0.external_display_name!r} external_id={0.external_id!r}>'.format(self)
+
+
 class UserBase:
-    __slots__ = ('client', '_display_name', '_id', '_external_auths')
+    __slots__ = ('client', '_epicgames_display_name', '_external_display_name', '_id', 
+                 '_external_auths', '_raw_external_auths')
 
     def __init__(self, client, data, **kwargs):
         self.client = client
@@ -40,12 +88,19 @@ class UserBase:
             self._update(data)
 
     def __str__(self):
-        return self._display_name
+        return self.display_name
 
     @property
     def display_name(self):
-        """:class:`str`: The users displayname"""
-        return self._display_name
+        """:class:`str`: The users displayname
+        
+        .. warning::
+        
+            The display name will be the one registered to the epicgames account.
+            If an epicgames account is not found it defaults to the display name 
+            of an external auth.    
+        """
+        return self._epicgames_display_name or self._external_display_name
     
     @property
     def id(self):
@@ -54,9 +109,22 @@ class UserBase:
     
     @property
     def external_auths(self):
-        """:class:`list`: List containing information about external auths.
-        Might be empty if the user does not have any external auths"""
+        """List[:class:`ExternalAuth`]: List containing information about external auths.
+        Might be empty if the user does not have any external auths."""
         return self._external_auths
+
+    @property
+    def epicgames_account(self):
+        """:class:`bool`: Tells you if the user is an account registered to epicgames
+        services. ``False`` if the user is from another platform without having linked
+        their account to an epicgames account.
+        
+        .. warning::
+        
+            If this is True, the display name will be the one registered to the epicgames account,
+            if not it defaults to the display name of an external auth.    
+        """
+        return self._epicgames_display_name is not None
 
     @property
     def jid(self):
@@ -110,22 +178,42 @@ class UserBase:
         return await self.client.fetch_battlepass_level(self.id)
 
     def _update(self, data):
-        self._display_name = data.get('displayName', data.get('account_dn'))
-        self._external_auths = data.get('external_auths', [])
+        self._epicgames_display_name = data.get('displayName', data.get('account_dn'))
+        self._update_external_auths(
+            data.get('externalAuths', data.get('external_auths', [])),
+            extra_external_auths=data.get('extraExternalAuths', []),
+        )
 
         try:
             self._id = data['id']
         except KeyError:
             self._id = data.get('accountId', data.get('account_id'))
 
-    def _update_display_name(self, display_name):
-        self._display_name = display_name
+        self._external_display_name = None
+        for ext_auth in reversed([x for x in self._external_auths if x.type.lower() not in ('twitch',)]):
+            self._external_display_name = ext_auth.external_display_name
+            break
+
+    def _update_external_auths(self, external_auths, extra_external_auths=[]):
+        extra_ext = {v['authIds'][0]['type'].split('_')[0].lower(): v for v in extra_external_auths}
+
+        ext_list = []
+        for e in external_auths:
+            ext = ExternalAuth(self.client, e)
+            ext._update_extra_info(extra_ext.get(ext.type, {}))
+            ext_list.append(ext)
+
+        self._external_auths = ext_list
+        self._raw_external_auths = external_auths
+
+    def _update_epicgames_display_name(self, display_name):
+        self._epicgames_display_name = display_name
 
     def get_raw(self):
         return {
             'displayName': self.display_name,
             'id': self.id,
-            'externalAuths': self.external_auths
+            'externalAuths': self._raw_external_auths
         }
 
 
