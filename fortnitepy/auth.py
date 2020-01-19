@@ -45,6 +45,7 @@ class Auth:
         self.device_id = self.client.device_id or uuid.uuid4().hex
         self._refresh_event = asyncio.Event(loop=self.client.loop)
         self._refreshing = False
+        self.refresh_i = 0
 
     @property
     def launcher_authorization(self):
@@ -59,15 +60,14 @@ class Auth:
             log.info('Fetching valid xsrf token.')
             token = await self.fetch_xsrf_token()
 
+            await self.client.http.epicgames_reputation(token)
+
             try:
                 log.info('Logging in.')
                 await self.client.http.epicgames_login(self.client.email, self.client.password, token)
             except HTTPException as e:
-                if e.message_code == 'errors.com.epicgames.accountportal.session_invalidated':
-                    return await self.authenticate()
-
                 if e.message_code != 'errors.com.epicgames.common.two_factor_authentication.required':
-                    raise HTTPException(e.response, e.raw)
+                    e.reraise()
                 
                 log.info('Logging in interrupted. 2fa required.')
                 log.info('Fetching new valid xsrf token.')
@@ -90,7 +90,7 @@ class Auth:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            raise AuthException('Could not authenticate. Error: {}'.format(e))
+            raise AuthException('Could not authenticate. Error: {}'.format(e)) from None
 
     async def fetch_xsrf_token(self):
         response = await self.client.http.epicgames_get_csrf()
@@ -200,6 +200,8 @@ class Auth:
         await self.client.xmpp.run()
 
         await self.client._create_party()
+
+        self.refresh_i += 1
         self.client.dispatch_event('auth_refresh')
         self._refreshing = False        
 

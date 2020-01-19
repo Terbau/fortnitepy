@@ -39,11 +39,46 @@ from .errors import HTTPException
 log = logging.getLogger(__name__)
 
 
+class GraphQLRequest:
+    def __init__(self, query, operation_name=None, variables=None, 
+                 validate=None, headers=None, schema=None):
+        self.query = query
+        self.operation_name = operation_name
+        self.variables = variables
+        self.validate = validate
+        self.headers = headers
+        self.schema = schema
+
+    def _to_camel_case(self, text):
+        components = text.split('_')
+        return components[0] + ''.join(x.title() for x in components[1:])
+
+    def __iter__(self):
+        for key, value in self.__dict__.items():
+            if value is None:
+                continue
+
+            yield (self._to_camel_case(key), value)
+
+    def as_dict(self):
+        return dict(self)
+
+    def as_multiple_payload(self):
+        return {
+            'operationName': self.operation_name or self.get_operation_name_by_query(),
+            'variables': self.variables,
+            'query': self.query
+        }
+
+    def get_operation_name_by_query(self):
+        return re.search(r'(?:mutation|query) (\w+)', self.query)[1]
+        
+
 class Route:
     BASE = ''
     AUTH = None
 
-    def __init__(self, path, auth=None, **params):
+    def __init__(self, path='', auth=None, **params):
         self.path = path
         self.params = {k: (quote(v) if isinstance(v, str) else v)
                        for k, v in params.items()}
@@ -57,6 +92,10 @@ class Route:
         if auth:
             self.AUTH = auth
 
+
+class EpicGamesGraphQL(Route):
+    BASE = 'https://graphql.epicgames.com/graphql'
+    AUTH = None
 
 class EpicGames(Route):
     BASE = 'https://www.epicgames.com'
@@ -204,7 +243,7 @@ class HTTPClient:
             data = await self.json_or_text(r)
             return r, data
 
-    async def _fn_request(self, method, route, auth, **kwargs):
+    async def _fn_request(self, method, route, auth, graphql, **kwargs):
         url = route.url if not isinstance(route, str) else route
 
         headers = {**kwargs.get('headers', {}), **self.headers}
@@ -218,6 +257,13 @@ class HTTPClient:
         if device_id is not None:
             headers['X-Epic-Device-ID'] = self.device_id if device_id is True else device_id
 
+        if graphql is not None:
+            is_multiple = isinstance(graphql, (list, tuple))
+
+            if not is_multiple:
+                graphql = (graphql,)
+            kwargs['json'] = [gql_query.as_multiple_payload() for gql_query in graphql]
+
         kwargs['headers'] = headers
 
         raw = kwargs.pop('raw', False)
@@ -228,28 +274,49 @@ class HTTPClient:
 
         try:
             _data = json.loads(data)
-            if 'errorCode' in _data.keys():
+            if 'errorCode' in _data:
                 raise HTTPException(r, _data)
         except (KeyError, TypeError, json.decoder.JSONDecodeError):
             pass
 
+        if graphql is not None:
+            error_data = None
+            for child_data in data:
+                if 'errors' in child_data:
+                    error_data = child_data['errors']
+
+            if error_data is not None:
+                selected = error_data[0]
+
+                service_response = selected['serviceResponse']
+                if service_response == '':
+                    error_payload = {'errorMessage': selected['message']}
+                else:
+                    error_payload = json.loads(service_response)
+
+                raise HTTPException(r, error_payload)
+
+            get_payload = lambda d: next(iter(d['data'].values()))
+            if len(data) == 1:
+                return get_payload(data[0])
+            return [get_payload(d) for d in data]
         return data
 
-    async def fn_request(self, method, route, auth, **kwargs):
+    async def fn_request(self, method, route, auth, graphql=None, **kwargs):
         try:
-            return await self._fn_request(method, route, auth, **kwargs)
+            return await self._fn_request(method, route, auth, graphql, **kwargs)
         except HTTPException as exc:
             if exc.message_code in ('errors.com.epicgames.common.oauth.invalid_token',
                                     'errors.com.epicgames.common.authentication.token_verification_failed'):
                 await self.client.restart()
-                return await self.fn_request(method, route, auth, **kwargs)
+                return await self.fn_request(method, route, auth, graphql, **kwargs)
 
             elif exc.message_code in ('errors.com.epicgames.common.server_error',):
                 await asyncio.sleep(0.5)
-                return await self._fn_request(method, route, auth, **kwargs)
+                return await self._fn_request(method, route, auth, graphql, **kwargs)
 
             elif exc.message_code in ('errors.com.epicgames.common.concurrent_modification_error',):
-                return await self.fn_request(method, route, auth, **kwargs)
+                return await self.fn_request(method, route, auth, graphql, **kwargs)
 
             exc.reraise()
             
@@ -268,12 +335,109 @@ class HTTPClient:
     async def put(self, url, auth=None, **kwargs):
         return await self.fn_request('PUT', url, auth, **kwargs)
 
+    async def graphql_request(self, graphql, auth=None, **kwargs):
+        return await self.fn_request('POST', EpicGamesGraphQL(), auth, graphql, **kwargs)
+
+    ###################################
+    #        Epicgames GraphQL        #
+    ###################################
+
+    async def graphql_friends_set_alias(self):
+        variables = {
+            "friendId": "65db72079052463cb345d23ee27ae6a1",
+            "alias": "Hallo1233"
+        }
+
+        query = """
+        mutation FriendsMutation($friendId: String!, $alias: String!) {
+            Friends {
+                # Put Alias / Nickname
+                setAlias(friendId: $friendId, alias: $alias) { #Type: MutationResponse
+                    success #Type: Boolean
+                }
+            }
+        }"""
+
+        return await self.graphql_request(GraphQLRequest(query, variables=variables))
+
+    async def graphql_initialize_friends_request(self):
+        queries = (
+            GraphQLRequest(
+                query="""
+                query FriendsQuery($displayNames: Boolean!) {
+                    Friends {
+                        summary(displayNames: $displayNames) {
+                            friends { 
+                                alias
+                                note 
+                                favorite
+                                ...friendFields
+                            }
+                            incoming { 
+                                ...friendFields
+                            }
+                            outgoing { 
+                                ...friendFields
+                            }
+                            blocklist { 
+                                ...friendFields
+                            }
+                        }
+                    }
+                }
+
+                fragment friendFields on Friend {
+                    accountId 
+                    displayName 
+                    account {
+                        externalAuths { 
+                            type 
+                            accountId 
+                            externalAuthId 
+                            externalDisplayName 
+                        }
+                    }
+                }
+                """,
+                variables={
+                    'displayNames': True
+                }
+            ),
+            GraphQLRequest(
+                query="""
+                query PresenceV2Query($namespace: String!, $circle: String!) {
+                    PresenceV2 {
+                        getLastOnlineSummary(namespace: $namespace, circle: $circle) {
+                            summary { #Type: [LastOnline]
+                                friendId #Type: String
+                                last_online #Type: String
+                            }
+                        }
+                    }
+                }
+                """,
+                variables={
+                    'namespace': 'Fortnite',
+                    'circle': 'friends'
+                }
+            )
+        )
+        
+        return await self.graphql_request(queries)
+
     ###################################
     #            Epicgames            #
     ###################################
 
     async def epicgames_get_csrf(self):
         return await self.get(EpicGames('/id/api/csrf'), raw=True)
+
+    async def epicgames_reputation(self, xsrf_token):
+        headers = {
+            'x-xsrf-token': xsrf_token
+        }
+
+        return await self.get(EpicGames('/id/api/reputation'), headers=headers)
 
     async def epicgames_login(self, email, password, xsrf_token):
         headers = {
@@ -414,7 +578,7 @@ class HTTPClient:
             'syncToken': order['syncToken']
         }
 
-        return self.post(PaymentWebsite('/purchase/confirm-order'), headers=headers, data=payload)
+        return await self.post(PaymentWebsite('/purchase/confirm-order'), headers=headers, data=payload)
 
     ###################################
     #           Lightswitch           #
@@ -461,9 +625,87 @@ class HTTPClient:
         r = AccountPublicService('/account/api/public/account/{user_id}', user_id=user_id)
         return await self.get(r)
 
+    async def account_get_external_auths_by_id(self, user_id):
+        r = AccountPublicService('/account/api/public/account/{user_id}/externalAuths', user_id=user_id)
+        return await self.get(r)
+
     async def account_get_multiple_by_user_id(self, user_ids):
         params = [('accountId', user_id) for user_id in user_ids]
         return await self.get(AccountPublicService('/account/api/public/account'), params=params)
+
+    async def account_graphql_get_multiple_by_user_id(self, user_ids):
+        return await self.graphql_request(GraphQLRequest(
+            query="""
+            query AccountQuery($accountIds: [String]!) {
+                Account {
+                    # Get details about an account given an account ID
+                    accounts(accountIds: $accountIds) { #Type: [Account]
+                        # The AccountID for this account
+                        id #Type: String
+                        # The epic display name for this account
+                        displayName #Type: String
+                        # External auths associated with this account
+                        externalAuths { #Type: [ExternalAuth]
+                            type #Type: String
+                            accountId #Type: String
+                            externalAuthId #Type: String
+                            externalDisplayName #Type: String
+                        }
+                    }
+                }
+            }
+            """,
+            variables={
+                'accountIds': user_ids
+            }
+        ))
+
+    async def account_graphql_get_by_display_name(self, display_name):
+        return await self.graphql_request(GraphQLRequest(
+            query="""
+            query AccountQuery($displayName: String!) {
+                Account {
+                    # Get details about an account given an account ID, displayName or email
+                    account(displayName: $displayName) { #Type: [Account]
+                        # The AccountID for this account
+                        id #Type: String
+                        # The epic display name for this account
+                        displayName #Type: String
+                        # The email associated with this account, only returned if the requestor is the account owner
+                        externalAuths { #Type: [ExternalAuth]
+                            type #Type: String
+                            accountId #Type: String
+                            externalAuthId #Type: String
+                            externalDisplayName #Type: String
+                        }
+                    }
+                }
+            }
+            """,
+            variables={
+                'displayName': display_name
+            }
+        ))
+
+    async def account_graphql_get_clients_external_auths(self):
+        return await self.graphql_request(GraphQLRequest(
+            query="""
+            query AccountQuery {
+                Account {
+                    # Get details about the currently logged in users' account
+                    myAccount { #Type: Account
+                        # External auths associated with this account
+                        externalAuths { #Type: [ExternalAuth]
+                            type #Type: String
+                            accountId #Type: String
+                            externalAuthId #Type: String
+                            externalDisplayName #Type: String
+                        }
+                    }
+                }
+            }
+            """
+        ))
 
     ###################################
     #          Eula Tracking          #

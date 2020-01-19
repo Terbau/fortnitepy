@@ -226,42 +226,27 @@ class PartyMemberMeta(MetaBase):
     @property
     def assisted_challenge(self):
         base = self.get_prop('AssistedChallengeInfo_j')
-        result = re.search(r".*\.(.*)", base['AssistedChallengeInfo']['questItemDef'].strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result[1]
+        return base['AssistedChallengeInfo']['questItemDef']
 
     @property
     def outfit(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
-        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['characterDef'].strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result[1]
+        return base['AthenaCosmeticLoadout']['characterDef']
 
     @property
     def backpack(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
-        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['backpackDef'].strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result[1]
+        return base['AthenaCosmeticLoadout']['backpackDef']
 
     @property
     def pickaxe(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
-        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['pickaxeDef'].strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result[1]
+        return base['AthenaCosmeticLoadout']['pickaxeDef']
 
     @property
     def contrail(self):
         base = self.get_prop('AthenaCosmeticLoadout_j')
-        result = re.search(r".*\.(.*)", base['AthenaCosmeticLoadout']['contrailDef'].strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result[1]
+        return base['AthenaCosmeticLoadout']['contrailDef']
 
     @property
     def variants(self):
@@ -292,10 +277,7 @@ class PartyMemberMeta(MetaBase):
     @property
     def emote(self):
         base = self.get_prop('FrontendEmote_j')
-        result = re.search(r".*\.(.*)", base['FrontendEmote']['emoteItemDef'].strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result[1]
+        return base['FrontendEmote']['emoteItemDef']
 
     @property
     def banner(self):
@@ -608,29 +590,62 @@ class PartyMemberBase(User):
         """:class:`str`: The current assisted challenge chosen by this member.
         ``None`` if no assisted challenge is set.
         """
-        return self.meta.assisted_challenge
+        asset = self.meta.assisted_challenge
+        result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
+
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def outfit(self):
         """:class:`str`: The CID of the outfit this user currently has equipped."""
-        return self.meta.outfit
+        asset = self.meta.outfit
+        result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
+
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def backpack(self):
         """:class:`str`: The BID of the backpack this member currently has equipped. 
         ``None`` if no backpack is equipped.
         """
-        return self.meta.backpack
+        asset = self.meta.backpack
+        if '/petcarriers/' not in asset.lower():
+            result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
+
+            if result is not None and result[1] != 'None':
+                return result[1]
+
+    @property
+    def pet(self):
+        """:class:`str`: The ID of the pet this member currently has equipped. 
+        ``None`` if no pet is equipped.
+        """
+        asset = self.meta.backpack
+        if '/petcarriers/' in asset.lower():
+            result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
+
+            if result is not None and result[1] != 'None':
+                return result[1]
     
     @property
     def pickaxe(self):
         """:class:`str`: The pickaxe id of the pickaxe this member currently has equipped."""
-        return self.meta.pickaxe
+        asset = self.meta.pickaxe
+        result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
+
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def contrail(self):
         """:class:`str`: The contrail id of the pickaxe this member currently has equipped."""
-        return self.meta.contrail
+        asset = self.meta.contrail
+        result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
+
+        if result is not None and result[1] != 'None':
+            return result[1]
 
     @property
     def outfit_variants(self):
@@ -689,7 +704,24 @@ class PartyMemberBase(User):
         """:class:`str`: The EID of the emote this member is currenyly playing.
         ``None`` if no emote is currently playing.
         """
-        return self.meta.emote
+        asset = self.meta.emote
+        if '/emoji/' not in asset.lower():
+            result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
+
+            if result is not None and result[1] != 'None':
+                return result[1]
+
+    @property
+    def emoji(self):
+        """:class:`str`: The ID of the emoji this member is currenyly playing.
+        ``None`` if no emoji is currently playing.
+        """
+        asset = self.meta.emote
+        if '/emoji/' in asset.lower():
+            result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
+
+            if result is not None and result[1] != 'None':
+                return result[1]
 
     @property
     def banner(self):
@@ -787,6 +819,8 @@ class PartyMemberBase(User):
             The material number you want to use.
         emissive: Optional[:class:`int`]
             The emissive number you want to use.
+        profile_banner: Optional[:class:`str`]
+            The profile banner to use. The value should almost always be ``ProfileBanner``.
 
         Returns
         -------
@@ -945,7 +979,7 @@ class ClientPartyMember(PartyMemberBase):
                         if exc.message_code == 'errors.com.epicgames.social.party.stale_revision':
                             self.revision = int(exc.message_vars[1])
                             continue
-                        raise HTTPException(exc.response, exc.raw)
+                        exc.reraise()
                     except FortniteException as exc:
                         future.set_exception(exc)
                         break
@@ -1096,7 +1130,7 @@ class ClientPartyMember(PartyMemberBase):
             tasks = [self.patch(updated=prop)]
             if value is None:
                 tasks.append(random.choice(list(self.party.members.values())).promote())
-            await asyncio.wait(tasks)
+            await asyncio.gather(*tasks)
 
         else:
             if value is None:
@@ -1112,7 +1146,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The CID of the outfit.
             | Defaults to the last set outfit.
 
@@ -1149,7 +1183,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The BID of the backpack.
             | Defaults to the last set backpack.
 
@@ -1178,6 +1212,43 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
+
+    async def set_pet(self, asset=None, *, key=None, variants=None):
+        """|coro|
+        
+        Sets the pet of the client.
+
+        Parameters
+        ----------
+        asset: Optional[:class:`str`]
+            | The ID of the pet.
+            | Defaults to the last set pet.
+
+            .. note::
+
+                You don't have to include the full path of the asset. The ID is
+                enough.
+        key: Optional[:class:`str`]
+            The encyption key to use for this pet.
+        variants: Optional[:class:`list`]
+            The variants to use for this pet. Defaults to ``None`` which resets variants.
+        """
+        if asset is not None:
+            if '.' not in asset:
+                asset = "AthenaPetItemDefinition'/Game/Athena/Items/Cosmetics/PetCarriers/" \
+                        "{0}.{0}'".format(asset)
+        else:
+            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['backpackDef']
+
+        variants = [x for x in self.meta.variants if x['item'] != 'AthenaBackpack'] + (variants or [])
+        prop = self.meta.set_cosmetic_loadout(
+            backpack=asset,
+            backpack_ekey=key,
+            variants=variants
+        )
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
     
     async def set_pickaxe(self, asset=None, *, key=None, variants=None):
         """|coro|
@@ -1186,7 +1257,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The PID of the pickaxe.
             | Defaults to the last set pickaxe.
 
@@ -1223,13 +1294,13 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: :class:`str`
+        asset: Optional[:class:`str`]
             | The ID of the contrail.
             | Defaults to the last set contrail.
 
             .. note::
 
-                You don't have to include the full path of the asset. The CID is
+                You don't have to include the full path of the asset. The ID is
                 enough.
         key: Optional[:class:`str`]
             The encyption key to use for this contrail.
@@ -1260,7 +1331,7 @@ class ClientPartyMember(PartyMemberBase):
 
         Parameters
         ----------
-        asset: Required[:class:`str`]
+        asset: :class:`str`
             The EID of the emote.
 
             .. note::
@@ -1285,13 +1356,51 @@ class ClientPartyMember(PartyMemberBase):
             section=section
         )
 
+        self._cancel_clear_emote()
         if run_for is not None:
-            if self.clear_emote_task is not None and not self.clear_emote_task.cancelled():
-                self.clear_emote_task.cancel()
             self.clear_emote_task = self.client.loop.create_task(self._schedule_clear_emote(run_for))
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
+
+    async def set_emoji(self, asset, *, key=None, section=None):
+        """|coro|
+        
+        Sets the emoji of the client.
+
+        Parameters
+        ----------
+        asset: :class:`str`
+            The ID of the emoji.
+
+            .. note::
+
+                You don't have to include the full path of the asset. The ID is
+                enough.
+        key: Optional[:class:`str`]
+            The encyption key to use for this emoji.
+        section: Optional[:class:`int`]
+            The section.
+        """
+        if '.' not in asset:
+            asset = "AthenaDanceItemDefinition'/Game/Athena/Items/Cosmetics/Dances/Emoji/" \
+                    "{0}.{0}'".format(asset)
+
+        prop = self.meta.set_emote(
+            emote=asset,
+            emote_ekey=key,
+            section=section
+        )
+
+        self._cancel_clear_emote()
+        self.clear_emote_task = self.client.loop.create_task(self._schedule_clear_emote(2))
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
+
+    def _cancel_clear_emote(self):
+        if self.clear_emote_task is not None and not self.clear_emote_task.cancelled():
+            self.clear_emote_task.cancel()
 
     async def _schedule_clear_emote(self, seconds):
         await asyncio.sleep(seconds)
@@ -1310,8 +1419,7 @@ class ClientPartyMember(PartyMemberBase):
             section=-1
         )
 
-        if self.clear_emote_task is not None and not self.clear_emote_task.cancelled():
-            self.clear_emote_task.cancel()
+        self._cancel_clear_emote()
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
@@ -1342,8 +1450,8 @@ class ClientPartyMember(PartyMemberBase):
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
     
-    async def set_battlepass_info(self, has_purchased=None, level=None, self_boost_xp=None,
-                                  friend_boost_xp=None):
+    async def set_battlepass_info(self, has_purchased=None, level=None, 
+                                  self_boost_xp=None, friend_boost_xp=None):
         """|coro|
         
         Sets the battlepass info of the client.
@@ -1383,19 +1491,22 @@ class ClientPartyMember(PartyMemberBase):
         
         Parameters
         ----------
-        quest: :class:`str`
+        quest: Optional[:class:`str`]
             The quest to set.
 
             .. note::
 
                 You don't have to include the full path of the quest. The quest id is
                 enough.
-        num_completed: :class:`int`
+        num_completed: Optional[:class:`int`]
             How many quests you have completed, I think (didn't test this).
         """
-        if '.' not in quest:
-            quest = "FortQuestItemDefinition'/Game/Athena/Items/Quests/DailyQuests/Quests/" \
-                    "{0}.{0}'".format(quest)
+        if asset is not None:
+            if '.' not in quest:
+                quest = "FortQuestItemDefinition'/Game/Athena/Items/Quests/DailyQuests/Quests/" \
+                        "{0}.{0}'".format(quest)
+        else:
+            asset = self.meta.get_prop('AssistedChallengeInfo_j')['AssistedChallengeInfo']['questItemDef']
 
         prop = self.meta.set_assisted_challenge(
             quest=quest,
@@ -1822,7 +1933,7 @@ class ClientParty(PartyBase):
                         if exc.message_code == 'errors.com.epicgames.social.party.stale_revision':
                             self.revision = int(exc.message_vars[1])
                             continue
-                        raise HTTPException(exc.response, exc.raw)
+                        exc.reraise()
                     except FortniteException as exc:
                         future.set_exception(exc)
                         break
@@ -1866,15 +1977,6 @@ class ClientParty(PartyBase):
             e.reraise()
 
     async def _leave(self, ignore_not_found=True):
-        """|coro|
-        
-        Leaves the party.
-        
-        Raises
-        ------
-        HTTPException
-            Something went wrong when trying to leave the party.
-        """
         await self.client.xmpp.leave_muc()
 
         async with self.client._leave_lock:

@@ -1,7 +1,8 @@
-"""This example makes use of one main account and multiple sub-accounts."""
+"""This example makes use of multiple accounts."""
 
 import fortnitepy
 import asyncio
+import functools
 
 # sub-account credentials
 credentials = {
@@ -17,63 +18,37 @@ credentials = {
     "email10": "password10",
 }
 
-class MyClient(fortnitepy.Client):
-    def __init__(self):
-        super().__init__(
-            email="email",
-            password="password"
+instances = {}
+
+async def event_sub_ready(client):
+    instances[client.user.id] = client
+    print('{0.user.display_name} ready.'.format(client))
+
+async def event_sub_friend_request(request):
+    print('{0.client.user.display_name} received a friend request.'.format(request))
+    await request.accept()
+
+async def event_sub_party_member_join(member):
+    print("{0.display_name} joined {0.client.user.display_name}'s party.".format(member))            
+
+clients = []
+for email, password in credentials.items():
+    client = fortnitepy.Client(
+        email=email,
+        password=password,
+        default_party_member_config=(
+            functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
         )
-        self.instances = {}
+    )
 
-    async def event_sub_friend_request(self, request):
-        print('{0.client.user.display_name} received a friend request.'.format(request))
-        await request.accept()
+    # register events here
+    client.add_event_handler('friend_request', event_sub_friend_request)
+    client.add_event_handler('party_member_join', event_sub_party_member_join)
 
-    async def event_sub_party_member_join(self, member):
-        print("{0.display_name} joined {0.client.user.display_name}'s party.".format(member))
+    clients.append(client)
 
-        if member.id == member.client.user.id:
-            # set outfit to galaxy
-            await member.client.user.party.me.set_outfit('CID_175_Athena_Commando_M_Celestial')
-    
-    async def load_sub_account(self, email, password):
-        client = fortnitepy.Client(
-            email=email,
-            password=password,
-            loop=self.loop
-        )
-
-        # register events here with Client.add_event_handler()
-        client.add_event_handler('friend_request', self.event_sub_friend_request)
-
-        self.loop.create_task(client.start())
-        await client.wait_until_ready()
-        self.instances[client.user.id] = client
-
-        # add code here that should be executed once this client is ready
-        print('{0.user.display_name} ready.'.format(client))
-
-    async def event_ready(self):
-        print('Main client ready. Launching sub-accounts...')
-
-        tasks = []
-        for email, password in credentials.items():
-            tasks.append(self.load_sub_account(email, password))
-        
-        await asyncio.wait(tasks)
-        print('All clients ready')
-
-    async def event_logout(self):
-        tasks = []
-        for client in self.instances.values():
-            tasks.append(client.logout())
-
-        await asyncio.wait(tasks)
-        print('Successfully logged out of all sub accounts.')
-
-    async def event_friend_request(self, request):
-        await request.accept()
-    
-client = MyClient()
-client.run()
-
+fortnitepy.run_multiple(
+    clients, 
+    ready_callback=event_sub_ready,
+    all_ready_callback=lambda: print('All clients ready')
+)

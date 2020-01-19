@@ -9,6 +9,19 @@ Client
 .. autoclass:: Client
     :members:
 
+
+Utility Functions
+-----------------
+
+Utility functions provided by the package.
+
+.. autofunction:: run_multiple
+
+.. autofunction:: start_multiple
+	
+.. autofunction:: close_multiple
+
+
 Enumerations
 ------------
 
@@ -368,6 +381,17 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param after: The current backpack bid.
 	:type after: :class:`str`
 
+.. function:: event_party_member_pet_change(member, before, after)
+
+	This event is called when a members pet has been changed.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous pet id.
+	:type before: :class:`str`
+	:param after: The current pet id.
+	:type after: :class:`str`
+
 .. function:: event_party_member_pickaxe_change(member, before, after)
 
 	This event is called when a members pickaxe has been changed.
@@ -399,6 +423,17 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param before: The previous emote eid. ``None`` if no emote was currently playing.
 	:type before: :class:`str`
 	:param after: The current emote eid. ``None`` if the emote was stopped.
+	:type after: :class:`str`
+
+.. function:: event_party_member_emoji_change(member, before, after)
+
+	This event is called when a members emoji has been changed.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous emoji id. ``None`` if no emoji was currently playing.
+	:type before: :class:`str`
+	:param after: The current emoji id. ``None`` if the emoji was stopped.
 	:type after: :class:`str`
 
 .. function:: event_party_member_banner_change(member, before, after)
@@ -566,6 +601,12 @@ ClientUser
 	:members:
 	:inherited-members:
 
+ExternalAuth
+~~~~~~~~~~~~
+
+.. autoclass:: ExternalAuth()
+	:members:
+
 User
 ~~~~
 
@@ -713,6 +754,8 @@ Exceptions
 .. autoexception:: AuthException
 
 .. autoexception:: HTTPException
+
+.. autoexception:: ValidationFailure
 
 .. autoexception:: PurchaseException
 

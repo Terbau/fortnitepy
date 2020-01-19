@@ -3,9 +3,11 @@ import fortnitepy
 import asyncio
 import random
 
-class MyClient(fortnitepy.Client):
-    TERAX_API_BASE = 'https://fnserver.terax235.com/'
+FORTNITE_API_BASE = 'https://fortnite-api.com'
+API_KEY = '' # get your api key from https://fortnite-api.com/
 
+
+class MyClient(fortnitepy.Client):
     def __init__(self):
         super().__init__(
             email='',
@@ -18,18 +20,22 @@ class MyClient(fortnitepy.Client):
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.session_event.set()
 
-    async def fetch_cosmetic(self, type, query):
+    async def event_friend_request(self, request):
+        await request.accept()
+
+    async def fetch_cosmetic(self, type_, name):
         async with self.session.get(
-            self.TERAX_API_BASE + '/api/v1.2/cosmetics/search',
-            headers={'type': type, 'query': query},
+            FORTNITE_API_BASE + '/cosmetics/br/search',
+            headers={'x-api-key': API_KEY},
+            params={'type': type_, 'name': name}
         ) as r:
             if r.status == 404:
                 return None
             return await r.json()
 
-    def build_random_variants(self, type, data):
+    def build_random_variants(self, type_, data):
         types = {
-            'skin': 'AthenaCharacter',
+            'outfit': 'AthenaCharacter',
             'backpack': 'AthenaBackpack',
             'pickaxe': 'AthenaPickaxe'
         }
@@ -37,9 +43,9 @@ class MyClient(fortnitepy.Client):
         variants = []
         for variant in data:
             variants.append({
-                'item': types[type],
+                'item': types[type_],
                 'channel': variant['channel'],
-                'variant': random.choice(variant['tags'])['tag']
+                'variant': random.choice(variant['options'])['tag']
             })
 
         return variants
@@ -51,33 +57,31 @@ class MyClient(fortnitepy.Client):
         split = message.content.split()
         command = split[0].lower()
         args = split[1:]
+        joined_args = ' '.join(args)
 
         # sets the current outfit
         if command == '!setoutfit':
-            data = await self.fetch_cosmetic('skin', ' '.join(args))
+            data = await self.fetch_cosmetic('outfit', joined_args)
             if data is None:
                 return await message.reply('Could not find the requested outfit.')
 
             outfit_data = data['data']
             await self.user.party.me.set_outfit(
                 asset=outfit_data['id'],
-                variants=self.build_random_variants('skin', outfit_data['variants'])
+                variants=self.build_random_variants('outfit', outfit_data.get('variants', []))
             )
 
-        # sets the current emote (emotes are infinite)
+        # runs the emote specified for 10 seconds
         elif command == '!setemote':
-            data = await self.fetch_cosmetic('emote', ' '.join(args))
+            data = await self.fetch_cosmetic('emote', joined_args)
             if data is None:
                 return await message.reply('Could not find the requested emote.')
 
             emote_data = data['data']
             await self.user.party.me.set_emote(
-                asset=emote_data['id']
+                asset=emote_data['id'],
+                run_for=10
             )
-
-        # clears/stops the current emote
-        elif command == '!clearemote':
-            await self.user.party.me.clear_emote()
 
 
 c = MyClient()

@@ -109,3 +109,5 @@ test*
 voice.py
 output.txt
 todo.txt
+
+examples/integrations/terax_api.py
