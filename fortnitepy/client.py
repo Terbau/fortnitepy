@@ -77,6 +77,7 @@ def _cancel_tasks(loop):
                 'task': task
             })
 
+
 def _cleanup_loop(loop):
     try:
         _cancel_tasks(loop)
@@ -85,6 +86,7 @@ def _cleanup_loop(loop):
     finally:
         log.info('Closing the event loop.')
         loop.close()
+
 
 def get_event_loop():
     if sys.platform == 'win32':
@@ -103,6 +105,199 @@ def get_event_loop():
         loop = asyncio.get_event_loop()
 
     return loop
+
+
+async def _start_client(client, *, shutdown_on_error=True, after=None):
+    loop = get_event_loop()
+
+    if not isinstance(client, Client):
+        raise TypeError('client must be an instance of fortnitepy.Client')
+
+    async def starter():
+        try:
+            await client.start()
+        except Exception as e:
+            return e
+
+    tasks = (loop.create_task(starter()), loop.create_task(client.wait_until_ready()))
+    try:
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    except asyncio.CancelledError:
+        for task in tasks:
+            task.cancel()
+    else:
+        done_task = done.pop()
+        e = done_task.result()
+        if e is not None:
+            if shutdown_on_error:
+                raise type(e)('{0.email} - {1}'.format(client, e)) from e
+            else:
+                # e.message = 'LOL ' + e.message
+                return loop.call_exception_handler({
+                    'message': 'An exception occured while running client {0.email}'.format(client),
+                    'exception': e,
+                    'task': done_task
+                })
+
+        if after:
+            if asyncio.iscoroutinefunction(after):
+                asyncio.ensure_future(after(client), loop=loop)
+            else:
+                after(client)
+
+        await pending.pop()
+
+
+async def start_multiple(clients, *, shutdown_on_error=True, ready_callback=None, all_ready_callback=None):
+    """|coro|
+    
+    Starts multiple clients at the same time.
+
+    .. warning::
+
+        This function is blocking and should be the last function to run.
+
+	.. info::
+
+		Due to throttling by epicgames on login, the clients are started with a 0.2 second gap.
+
+    Parameters
+    ----------
+    clients: List[:class:`Client`]
+        A list of the clients you wish to start.
+    shutdown_on_error: :class:`bool`
+        If the function should cancel all other start tasks if one of the tasks fails.
+    ready_callback: Optional[Union[Callable[:class:`Client`], Awaitable[:class:`Client`]]]
+        A callable/async callback taking a single parameter ``client``. The callback is called
+        whenever a client is ready.
+    all_ready_callback: Optional[Union[Callable, Awaitable]]
+        A callback/async callback that is called whenever all clients are ready.
+
+    Raises
+    ------
+    AuthException
+        An error occured when attempting to log in.
+    """
+    loop = get_event_loop()
+
+    async def all_ready_callback_runner():
+        tasks = [loop.create_task(client.wait_until_ready()) for client in clients]
+        await asyncio.gather(*tasks)
+
+        log.info('All clients started.')
+
+        if all_ready_callback:
+            if asyncio.iscoroutinefunction(all_ready_callback):
+                asyncio.ensure_future(all_ready_callback(), loop=loop)
+            else:
+                all_ready_callback()
+
+    asyncio.ensure_future(all_ready_callback_runner())
+
+    tasks = {}
+    for client in clients:
+        tasks[client] = loop.create_task(
+            _start_client(client, shutdown_on_error=shutdown_on_error, after=ready_callback)
+        )
+
+        # sleeping between starting to avoid throttling
+        await asyncio.sleep(0.2)
+
+    log.debug('Starting all clients')
+    return_when = asyncio.FIRST_EXCEPTION if shutdown_on_error else asyncio.ALL_COMPLETED
+    done, pending = await asyncio.wait(list(tasks.values()), return_when=return_when)
+
+    done_task = done.pop()
+    if pending and done_task.exception() is not None:
+        raise done_task.exception()
+
+
+async def close_multiple(clients):
+    """|coro|
+
+    Closes multiple clients at the same time by calling :meth:`Client.logout()` on
+    all of them.
+
+    Parameters
+    ----------
+    clients: List[:class:`Client`]
+        A list of the clients you wish to close.
+    """
+    loop = get_event_loop()
+
+    tasks = [loop.create_task(client.logout()) for client in clients if not client._closing]
+    await asyncio.gather(*tasks)
+
+
+def run_multiple(clients, *, shutdown_on_error=True, ready_callback=None, all_ready_callback=None):
+    """This function sets up a loop and then calls :func:`start_multiple()` for you.
+    If you already have a running event loop, you should start the clients with 
+    :func:`start_multiple()`. On shutdown, all clients will be closed
+    gracefully.
+
+    .. warning::
+
+        This function is blocking and should be the last function to run.
+
+	.. info::
+
+		Due to throttling by epicgames on login, the clients are started with a 0.2 second gap.
+
+    Parameters
+    ----------
+    clients: List[:class:`Client`]
+        A list of the clients you wish to start.
+    shutdown_on_error: :class:`bool`
+        If the function should shut down all other start tasks gracefully if
+        one of the tasks fails.
+    ready_callback: Optional[Union[Callable[:class:`Client`], Awaitable[:class:`Client`]]]
+        A callable/async callback taking a single parameter ``client``. The callback is called
+        whenever a client is ready.
+    all_ready_callback: Optional[Union[Callable, Awaitable]]
+        A callback/async callback that is called whenever all clients are ready.
+
+    Raises
+    ------
+    AuthException
+        An error occured when attempting to log in.
+    """
+    loop = get_event_loop()
+    _stopped = False
+
+    def stopper(*args):
+        nonlocal _stopped
+
+        if not _stopped:
+            loop.stop()
+            _stopped = True
+
+    try:
+        loop.add_signal_handler(signal.SIGINT, stopper)
+        loop.add_signal_handler(signal.SIGTERM, stopper)
+    except NotImplementedError:
+        pass
+
+    async def runner():
+        await start_multiple(
+            clients, 
+            shutdown_on_error=shutdown_on_error, 
+            ready_callback=ready_callback,
+            all_ready_callback=all_ready_callback,
+        )
+    
+    future = asyncio.ensure_future(runner(), loop=loop)
+    future.add_done_callback(stopper)
+
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        _stopped = True
+        log.info('Terminating event loop.') 
+    finally:
+        future.remove_done_callback(stopper)
+        loop.run_until_complete(close_multiple(clients))
+        log.info('Cleaning up loop')
+        _cleanup_loop(loop)
 
 
 class Client:
@@ -417,32 +612,31 @@ class Client:
             An error occured when attempting to log in.
         """
         loop = self.loop
+        _stopped = False
+
+        def stopper(*args):
+            nonlocal _stopped
+
+            if not _stopped:
+                loop.stop()
+                _stopped = True
 
         try:
-            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
-            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGINT, stopper)
+            loop.add_signal_handler(signal.SIGTERM, stopper)
         except NotImplementedError:
             pass
-            
-        future = None
-        def stop_loop_on_completion(f):
-            nonlocal future
-
-            if not self._restarting:
-                loop.stop()
-            else:
-                future = asyncio.ensure_future(self.start(dispatch_ready=False), loop=loop)
-                future.add_done_callback(stop_loop_on_completion)
 
         future = asyncio.ensure_future(self.start(), loop=loop)
-        future.add_done_callback(stop_loop_on_completion)
+        future.add_done_callback(stopper)
 
         try:
             loop.run_forever()
         except KeyboardInterrupt:
             log.info('Terminating event loop.')
+            _stopped = True
         finally:
-            future.remove_done_callback(stop_loop_on_completion)
+            future.remove_done_callback(stopper)
             if not self._closing:
                 log.info('Client not logged out when terminating loop. Logging out now.')
                 loop.run_until_complete(self.logout())
@@ -474,6 +668,8 @@ class Client:
         AuthException
             An error occured when attempting to log in.
         """
+        _started_while_restarting = self._restarting
+
         self._check_party_confirmation()
 
         self.loop.set_exception_handler(self.exc_handler)
@@ -492,6 +688,17 @@ class Client:
             await self._refresh_task
         except asyncio.CancelledError:
             pass
+
+        if not _started_while_restarting and self._restarting:
+            async def runner():
+                while True:
+                    await asyncio.sleep(1)
+            
+            self._start_runner_task = self.loop.create_task(runner())
+            try:
+                await self._start_runner_task
+            except asyncio.CancelledError:
+                pass
 
     async def account_owns_fortnite(self):
         entitlements = await self.http.entitlement_get_all()
@@ -533,12 +740,22 @@ class Client:
         self.auth = Auth(self)
         await self.auth.authenticate()
 
-        data = await self.http.account_get_by_user_id(self.auth.account_id)
-        self.user = ClientUser(self, data)        
+        tasks = [
+            self.http.account_get_by_user_id(self.auth.account_id),
+            self.http.account_graphql_get_clients_external_auths(),
+            self.http.account_get_external_auths_by_id(self.auth.account_id),
+        ]
 
         if self.kill_other_sessions:
-            await self.http.account_sessions_kill('OTHERS_ACCOUNT_CLIENT_SERVICE')
-            log.debug('Other sessions killed')
+            tasks.append(self.http.account_sessions_kill('OTHERS_ACCOUNT_CLIENT_SERVICE'))
+            log.debug('Killing other sessions')
+
+        data, ext_data, extra_ext_data, *_ = await asyncio.gather(*tasks)
+        data['extraExternalAuths'] = extra_ext_data
+        data['externalAuths'] = ext_data['myAccount']['externalAuths']
+        self.user = ClientUser(self, data)        
+
+        state_fut = asyncio.ensure_future(self.initialize_states(), loop=self.loop)
 
         if self.accept_eula:
             await self.auth.accept_eula()
@@ -547,8 +764,7 @@ class Client:
         if not await self.account_owns_fortnite():
             await self.quick_purchase_fortnite()
 
-        await self.initialize_friends()
-        await self.initialize_blocklist()
+        await state_fut
 
         self.xmpp = XMPPClient(self)
         await self.xmpp.run()
@@ -578,9 +794,6 @@ class Client:
         if dispatch_logout:
             await self.dispatch_and_wait_event('logout')
 
-        if self._refresh_task is not None and not self._refresh_task.cancelled():
-            self._refresh_task.cancel()
-
         try:
             if self.user.party is not None:
                 await self.user.party._leave()
@@ -607,6 +820,13 @@ class Client:
         if close_http:
             await self.http.close()
             self._closed = True
+
+        if self._refresh_task is not None and not self._refresh_task.cancelled():
+            self._refresh_task.cancel()
+
+        if not self._restarting:
+            if self._start_runner_task is not None and not self._start_runner_task.cancelled():
+                self._start_runner_task.cancel()
         
         self._closing = False
         log.debug('Successfully logged out')
@@ -629,7 +849,23 @@ class Client:
         asyncio.ensure_future(self.recover_events(), loop=self.loop)
         await self.logout(close_http=False, dispatch_logout=False)
 
-        await self.wait_until_ready()
+        async def runner():
+            try:
+                await self.start(dispatch_ready=False)
+            except Exception as e:
+                return e
+
+        tasks = (
+            self.loop.create_task(runner()),
+            self.loop.create_task(self.wait_until_ready()),
+        )
+        d, p = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+        done_task = d.pop()
+        if done_task.result() is not None:
+            p.pop().cancel()
+            raise done_task.result()
+
         self.dispatch_event('restart')
         self._restarting = False
 
@@ -728,16 +964,48 @@ class Client:
                         return u
                 except AttributeError:
                     pass
-        try:
-            res = await self.http.account_get_by_display_name(display_name)
-        except HTTPException as exc:
-            if exc.message_code != 'errors.com.epicgames.account.account_not_found':
-                raise HTTPException(exc.response, exc.raw)
+
+        res = await self.http.account_graphql_get_by_display_name(display_name)
+        accounts = res['account']
+        if len(accounts) == 0:
             return None
 
+        for account_data in accounts:
+            if account_data['displayName'] is not None:
+                account = account_data
+                break
+        else:
+            for account_data in accounts:
+                if account_data['displayName'] is None:
+                    account = account_data
+                    break
+
         if raw:
-            return res
-        return self.store_user(res)
+            return account
+        return self.store_user(account)
+
+    async def fetch_profiles_by_display_name(self, display_name, *, raw=False):
+        """|coro|
+        
+        Fetches all users including external users (accounts from other platforms) that matches
+        the given the display name.
+
+        .. warning::
+
+            This function is not for requesting multiple profiles by multiple display names. Use
+            :meth:`Client.fetch_profile()` for that.
+
+        Parameters
+        ----------
+        display_name: :class:`str`
+            The display name of the profiles you want to get.
+
+        raw: :class:`bool`
+            If set to True it will return the data as you would get it from the api request.
+            *Defaults to ``False``*
+        """
+        res = await self.http.account_graphql_get_by_display_name(display_name)
+        return [User(self, account) for account in res['account']]
 
     async def fetch_profile(self, user, *, cache=False, raw=False):
         """|coro|
@@ -822,18 +1090,22 @@ class Client:
         profiles = []
         new = []
         tasks = []
+
+        def find_by_display_name(dn):
+            for u in self._users.values():
+                try:
+                    if u.display_name.lower() == dn.lower():
+                        profiles.append(u)
+                        break
+                except AttributeError:
+                    pass
+            else:
+                task = self.http.account_graphql_get_by_display_name(elem)
+                tasks.append(task)
+
         for elem in users:
             if self.is_display_name(elem):
-                for u in self._users.values():
-                    try:
-                        if u.display_name.lower() == elem.lower():
-                            profiles.append(u)
-                            continue
-                    except AttributeError:
-                        pass
-
-                task = self.http.account_get_by_display_name(elem)
-                tasks.append(task)
+                find_by_display_name(elem)
             else:
                 if cache:
                     p = self.get_user(elem)
@@ -846,20 +1118,29 @@ class Client:
                 new.append(elem)
 
         if len(tasks) > 0:
-            done, _ = await asyncio.wait(tasks)
-            for f in done:
-                new.append((f.result())['id'])
+            pfs = await asyncio.gather(*tasks)
+            for p_data in pfs:
+                accounts = p_data['account']
+                for account_data in accounts:
+                    if account_data['displayName'] is not None:
+                        new.append(account_data['id'])
+                        break
+                else:
+                    for account_data in accounts:
+                        if account_data['displayName'] is None:
+                            new.append(account_data['id'])
+                            break
 
         chunk_tasks = []
         chunks = [new[i:i + 100] for i in range(0, len(new), 100)]
         for chunk in chunks:
-            task = self.http.account_get_multiple_by_user_id(chunk)
+            task = self.http.account_graphql_get_multiple_by_user_id(chunk)
             chunk_tasks.append(task)
         
         if len(chunks) > 0:
-            d, _ = await asyncio.wait(chunk_tasks)
+            d = await asyncio.gather(*chunk_tasks)
             for results in d:
-                for result in results.result():
+                for result in results['accounts']:
                     if raw:
                         profiles.append(result)
                     else:
@@ -867,43 +1148,50 @@ class Client:
                         profiles.append(u)
         return profiles
 
-    async def initialize_friends(self):
-        raw_friends = await self.http.friends_get_all(include_pending=True)
-        ids = [r['accountId'] for r in raw_friends]
-        friends = await self.fetch_profiles(ids, raw=True)
-        m = {}
-        for friend in friends:
-            m[friend['id']] = friend
+    async def initialize_states(self):
+        requests = (
+            self.http.graphql_initialize_friends_request(),
+            self.http.friends_get_all(include_pending=True),
+        )
+        data, friends_data = await asyncio.gather(*requests)
 
-        for friend in raw_friends:
-            if friend['status'] == 'PENDING':
-                try:
-                    f = PendingFriend(self, {**friend, **m[friend['accountId']]})
-                    self._pending_friends.set(f.id, f)
-                except KeyError:
-                    continue
+        summary = data[0]['summary']
+        for friend_data in summary['friends']:
+            f = Friend(self, friend_data)
+            f._update_external_auths(friend_data['account']['externalAuths'])
+            self._friends.set(f.id, f)
+            
+        for pending_friend_data in (summary['incoming'] + summary['outgoing']):
+            try:
+                f = PendingFriend(self, pending_friend_data)
+                f._update_external_auths(pending_friend_data['account']['externalAuths'])
+                self._pending_friends.set(f.id, f)
+            except KeyError:
+                continue
 
-            elif friend['status'] == 'ACCEPTED':
-                try:
-                    f = Friend(self, {**friend, **m[friend['accountId']]})
-                    self._friends.set(f.id, f)
-                except KeyError:
-                    continue
+        for blocked_user_data in summary['blocklist']:
+            try:
+                f = BlockedUser(self, blocked_user_data)
+                self._blocked_users.set(u.id, u)
+            except KeyError:
+                continue
+        
+        presences = data[1]['getLastOnlineSummary']['summary']
+        for presence_data in presences:
+            friend = self.get_friend(presence_data['friendId'])
+            friend._update_last_logout(self.from_iso(presence_data['last_online']))
 
-        presences = await self.http.presence_get_last_online()
-        for user_id, data in presences.items():
-            friend = self.get_friend(user_id)
-            if friend is not None:
-                friend._update_last_logout(self.from_iso(data[0]['last_online']))
+        for extra_friend_data in friends_data:
+            status = extra_friend_data['status']
+            if status == 'ACCEPTED':
+                friend = self._friends.get(extra_friend_data['accountId'])
+            elif status == 'PENDING':
+                friend = self._pending_friends.get(extra_friend_data['accountId'])
+            
+            if friend is None:
+                continue
 
-    async def initialize_blocklist(self):
-        raw_blocklist = await self.http.friends_get_blocklist()
-        account_ids = [a['accountId'] for a in raw_blocklist]
-        profiles = await self.fetch_profiles(account_ids)
-
-        for profile in profiles:
-            blocked_user = BlockedUser(self, profile.get_raw())
-            self._blocked_users.set(blocked_user.id, blocked_user)
+            friend._update_external(extra_friend_data)
 
     def store_user(self, data):
         try:

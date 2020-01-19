@@ -3,6 +3,18 @@
 API Reference
 =============
 
+Utility Functions
+-----------------
+
+Utility functions provided by the package.
+
+.. autofunction:: run_multiple
+
+.. autofunction:: start_multiple
+	
+.. autofunction:: close_multiple
+
+
 Client
 ------
 
