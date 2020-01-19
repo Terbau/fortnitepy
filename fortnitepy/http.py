@@ -437,6 +437,13 @@ class HTTPClient:
     async def epicgames_get_csrf(self):
         return await self.get(EpicGames('/id/api/csrf'), raw=True)
 
+    async def epicgames_reputation(self, xsrf_token):
+        headers = {
+            'x-xsrf-token': xsrf_token
+        }
+
+        return await self.get(EpicGames('/id/api/reputation'), headers=headers)
+
     async def epicgames_login(self, email, password, xsrf_token):
         headers = {
             'x-xsrf-token': xsrf_token

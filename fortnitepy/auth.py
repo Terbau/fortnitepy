@@ -59,13 +59,12 @@ class Auth:
             log.info('Fetching valid xsrf token.')
             token = await self.fetch_xsrf_token()
 
+            await self.client.http.epicgames_reputation(token)
+
             try:
                 log.info('Logging in.')
                 await self.client.http.epicgames_login(self.client.email, self.client.password, token)
             except HTTPException as e:
-                if e.message_code == 'errors.com.epicgames.accountportal.session_invalidated':
-                    return await self.authenticate()
-
                 if e.message_code != 'errors.com.epicgames.common.two_factor_authentication.required':
                     raise HTTPException(e.response, e.raw)
                 
