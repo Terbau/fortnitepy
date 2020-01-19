@@ -576,7 +576,7 @@ class HTTPClient:
             'syncToken': order['syncToken']
         }
 
-        return self.post(PaymentWebsite('/purchase/confirm-order'), headers=headers, data=payload)
+        return await self.post(PaymentWebsite('/purchase/confirm-order'), headers=headers, data=payload)
 
     ###################################
     #           Lightswitch           #
