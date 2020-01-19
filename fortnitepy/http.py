@@ -40,13 +40,8 @@ log = logging.getLogger(__name__)
 
 
 class GraphQLRequest:
-    def __init__(self, 
-                 query, 
-                 operation_name=None, 
-                 variables=None, 
-                 validate=None, 
-                 headers=None, 
-                 schema=None):
+    def __init__(self, query, operation_name=None, variables=None, 
+                 validate=None, headers=None, schema=None):
         self.query = query
         self.operation_name = operation_name
         self.variables = variables

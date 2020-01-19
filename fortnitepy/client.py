@@ -133,7 +133,6 @@ async def _start_client(client, *, shutdown_on_error=True, after=None):
             if shutdown_on_error:
                 raise type(e)('{0.email} - {1}'.format(client, e)) from e
             else:
-                # e.message = 'LOL ' + e.message
                 return loop.call_exception_handler({
                     'message': 'An exception occured while running client {0.email}'.format(client),
                     'exception': e,

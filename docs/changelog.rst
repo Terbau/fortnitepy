@@ -6,6 +6,47 @@ Changelog
 Detailed version changes.
 
 
+v1.3.0
+------
+
+Introduces some much awaited utility functions for starting multiple accounts at once and more stability in general.
+
+Changes
+~~~~~~~
+
+- [**Breaking**] Member meta attributes ``assisted_challenge``, ``outfit``, ``backpack``, ``pickaxe``, ``contrail`` and ``emote`` now returns the asset path instead of just the id.
+- [**Breaking**] :attr:`User.external_auths` has been changed and fully utilized.
+- Optimized the auth flow and general startup speeds by ~1 second.
+- Lookup methods now also searches for non-epic accounts.
+- :attr:`User.display_name` now uses an external display name if the account is not linked to an epic account.
+- :meth:`Client.fetch_br_stats()` now raises :exc:`Forbidden` if the account requested has private stats.
+- Changed some examples to reflect some of this updates changes.
+
+Added
+~~~~~
+
+- Added a parameter ``cache_users`` to :class:`Client` and can be used to turn off the users cache and therefore in some cases save some memory but sacrificing a little speed on some user lookups.
+- Added utility functions :func:`run_multiple()`, :func:`start_multiple()` and :func:`close_multiple()` to help with controlling multiple clients at once.
+- Added support for pets with :meth:`ClientPartyMember.set_pet()`, :attr:`ClientPartyMember.pet` and the event :func:`event_party_member_pet_change`.
+- Added support for emojis with :meth:`ClientPartyMember.set_emoji()`, :attr:`ClientPartyMember.emoji` and the event :func:`event_party_member_emoji_change`.
+- Added :attr:`HTTPException.validation_failures`.
+- Added :attr:`User.epicgames_account` to check if an account is an epicgames account.
+- Added an example for usage with the api https://fortnite-api.com/.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused :meth:`Client.start()` to return whenever :meth:`Client.restart()` was returned.
+- :meth:`Client.restart()` now correctly returns errors.
+- Fixed an issue that in some rare cases caused task cancelling on shutdown to break.
+- Fixed an issue that caused :meth:`Client.fetch_profiles()` to break in some cases where you looked up an id and a display name.
+- Some annoyingly long error stack traces should now be a little smaller (without losing any context).
+- Fixed an issue that caused buying fortnite on accounts that did not already own it to fail.
+- Fixed an issue that caused :meth:`ClientPartyMember.set_assisted_challenge()` to break if no asset was passed.
+- Fixed a rare issue that caused some presences to break.
+- Fixed a trailing issue from last update that caused some events regarding pending friend requests to not work properly.
+
+
 v1.2.2
 ------
 

@@ -3,6 +3,13 @@
 API Reference
 =============
 
+Client
+------
+
+.. autoclass:: Client
+    :members:
+
+
 Utility Functions
 -----------------
 
@@ -14,12 +21,6 @@ Utility functions provided by the package.
 	
 .. autofunction:: close_multiple
 
-
-Client
-------
-
-.. autoclass:: Client
-    :members:
 
 Enumerations
 ------------
