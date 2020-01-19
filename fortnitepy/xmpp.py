@@ -568,7 +568,10 @@ class XMPPClient:
 
         try:
             data = json.loads(presence.status.any())
-            if data.get('Status', '') == '' or 'bIsPlaying' not in data:
+            if (data.get('Status', '') == '' 
+                or 'bIsPlaying' not in data
+                or not isinstance(data.get('Properties', {}), dict)):
+                
                 return
         except ValueError:
             return
