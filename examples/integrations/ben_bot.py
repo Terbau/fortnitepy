@@ -2,9 +2,10 @@ import aiohttp
 import fortnitepy
 import asyncio
 
-class MyClient(fortnitepy.Client):
-    BEN_BOT_BASE = 'http://benbotfn.tk:8080/api/cosmetics/search'
+BEN_BOT_BASE = 'http://benbotfn.tk:8080'
 
+
+class MyClient(fortnitepy.Client):
     def __init__(self):
         super().__init__(
             email='',
@@ -18,9 +19,12 @@ class MyClient(fortnitepy.Client):
         self.session_event.set()
 
     async def fetch_cosmetic_id(self, display_name):
-        async with self.session.get(self.BEN_BOT_BASE, params={'displayName': display_name}) as r:
+        async with self.session.get(
+            BEN_BOT_BASE + '/api/cosmetics/search', 
+            params={'displayName': display_name}
+        ) as r:
             data = await r.json()
-            return data.get('id')
+            return data
 
     async def event_party_message(self, message):
         # wait until session is set
@@ -29,30 +33,30 @@ class MyClient(fortnitepy.Client):
         split = message.content.split()
         command = split[0].lower()
         args = split[1:]
+        joined_args = ' '.join(args)
 
         # sets the current outfit
         if command == '!setoutfit':
-            cid = await self.fetch_cosmetic_id(' '.join(args))
-            if cid is None:
+            data = await self.fetch_cosmetic_id(joined_args)
+            cid = data.get('id')
+            if cid is None or data['type'] != 'Outfit':
                 return await message.reply('Could not find the requested outfit.')
 
             await self.user.party.me.set_outfit(
                 asset=cid
             )
 
-        # sets the current emote (since emotes are infinite)
+        # runs the emote specified for 10 seconds
         elif command == '!setemote':
-            eid = await self.fetch_cosmetic_id(' '.join(args))
-            if eid is None:
+            data = await self.fetch_cosmetic_id(' '.join(args))
+            eid = data.get('id')
+            if eid is None or data['type'] != 'Emote':
                 return await message.reply('Could not find the requested emote.')
 
             await self.user.party.me.set_emote(
-                asset=eid
+                asset=eid,
+                run_for=10
             )
-
-        # clears/stops the current emote
-        elif command == '!clearemote':
-            await self.user.party.me.clear_emote()
 
 c = MyClient()
 c.run()
