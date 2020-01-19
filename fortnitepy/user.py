@@ -149,6 +149,10 @@ class UserBase:
 
         Raises
         ------
+        Forbidden
+            | The user has chosen to be hidden from public stats by disabling the fortnite
+            setting below.
+            |  ``Settings`` -> ``Account and Privacy`` -> ``Show on career leaderboard``
         HTTPException
             An error occured while requesting.
         
