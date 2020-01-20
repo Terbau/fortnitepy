@@ -161,7 +161,7 @@ class XMPPClient:
 
             data = self.client.get_user(_id)
             if data is None:
-                data = await self.client.http.account_get_by_user_id(_id)
+                data = await self.client.fetch_profile(_id, raw=True)
             else:
                 data = data.get_raw()
 
@@ -172,12 +172,15 @@ class XMPPClient:
 
             f = Friend(self.client, {
                     **data,
-                    'direction': _payload['direction'],
-                    'status': _status,
                     'favorite': _payload['favorite'],
-                    'created': timestamp
                 }
             )
+            f._update_external({
+                'direction': _payload['direction'],
+                'status': _status,
+                'created': timestamp,
+            })
+            f._update_external_auths(data['externalAuths'])
 
             presences = await self.client.http.presence_get_last_online()
             presence = presences.get(_id)
