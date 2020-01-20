@@ -12,6 +12,10 @@ General
 How can I fix the "Incompatible net_cl" error?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. note::
+
+    Since fortnitepy v0.9.0 net_cl is not needed and this error will therefore not be an issue.
+
 When fortnite releases a new content update they also update a specific number named netcl needed for the party 
 service to work. When updating this lib I also update the net_cl to match the new one. However, since fortnite 
 seems to update their game every week I sometimes don't keep up and you have to find and initialize the client 
@@ -72,9 +76,9 @@ How can I get the CID of skin?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 There is no good easy way to obtain these yourself. However, some great minds
-have created tools to make this easier for others. One of these tools is  
-`FunGames' API
-<http://benbotfn.tk:8080/api/docs>`_.
+have created tools to make this easier for others. Here are some of them: 
+- `FunGames' API <http://benbotfn.tk:8080/api/docs>`_.
+- `NotOfficer's API <https://fortnite-api.com/>`_.
 
 
 How can I use Two Factor Authentication when logging into the client?
