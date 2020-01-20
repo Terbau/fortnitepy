@@ -1144,53 +1144,50 @@ class Client:
         return profiles
 
     async def initialize_states(self):
-        requests = (
-            self.http.graphql_initialize_friends_request(),
+        tasks = (
             self.http.friends_get_all(include_pending=True),
+            self.http.friends_get_summary(),
+            self.http.presence_get_last_online(),
         )
-        data, friends_data = await asyncio.gather(*requests)
+        raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
 
-        summary = data[0]['summary']
-        for friend_data in summary['friends']:
-            f = Friend(self, friend_data)
-            f._update_external_auths(friend_data['account']['externalAuths'])
-            self._friends.set(f.id, f)
-            
-        for pending_friend_data in (summary['incoming'] + summary['outgoing']):
-            try:
-                f = PendingFriend(self, pending_friend_data)
-                f._update_external_auths(pending_friend_data['account']['externalAuths'])
-                self._pending_friends.set(f.id, f)
-            except KeyError:
-                continue
+        ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
+        profiles = await self.fetch_profiles(ids, raw=True)
 
-        for blocked_user_data in summary['blocklist']:
-            try:
-                f = BlockedUser(self, blocked_user_data)
-                self._blocked_users.set(u.id, u)
-            except KeyError:
-                continue
-        
-        presences = data[1]['getLastOnlineSummary']['summary']
-        for presence_data in presences:
-            friend = self.get_friend(presence_data['friendId'])
-            friend._update_last_logout(self.from_iso(presence_data['last_online']))
+        profiles = {profile['id']: profile for profile in profiles}
 
-        for extra_friend_data in friends_data:
-            status = extra_friend_data['status']
-            if status == 'ACCEPTED':
-                friend = self._friends.get(extra_friend_data['accountId'])
-            elif status == 'PENDING':
-                friend = self._pending_friends.get(extra_friend_data['accountId'])
-            
-            if friend is None:
-                continue
+        for friend in raw_friends:
+            if friend['status'] == 'ACCEPTED':
+                try:
+                    data = profiles[friend['accountId']]
+                    self.store_friend({**friend, **data})
+                except KeyError:
+                    continue
 
-            friend._update_external(extra_friend_data)
+            elif friend['status'] == 'PENDING':
+                try:
+                    data = profiles[friend['accountId']]
+                    self.store_pending_friend({**friend, **data})
+                except KeyError:
+                    continue
+
+        for data in raw_summary['friends']:
+            friend = self.get_friend(data['accountId'])
+            if friend is not None:
+                friend._update_summary(data)
+
+        for user_id, data in raw_presences.items():
+            friend = self.get_friend(user_id)
+            if friend is not None:
+                friend._update_last_logout(self.from_iso(data[0]['last_online']))
+
+        for data in raw_summary['blocklist']:
+            self.store_blocked_user(profiles[data['accountId']])
 
     def store_user(self, data):
         try:
-            return self._users.get(data['id'], silent=False)
+            user_id = data.get('accountId', data.get('id', data.get('account_id')))
+            return self._users.get(user_id, silent=False)
         except KeyError:
             u = User(self, data)
             if self.cache_users:
@@ -1207,8 +1204,8 @@ class Client:
 
         Returns
         -------
-        :class:`User`
-            :class:`User` if found, else ``None``
+        Optional[:class:`User`]
+            The user if found, else ``None``
         """
         user = self._users.get(user_id)
         if user is None:
@@ -1219,11 +1216,14 @@ class Client:
                     self._users.set(user.id, user)
         return user
 
-    def store_friend(self, data):
+    def store_friend(self, data, summary=None):
         try:
-            return self._friends.get(data['accountId'], silent=False)
+            user_id = data.get('accountId', data.get('id', data.get('account_id')))
+            return self._friends.get(user_id, silent=False)
         except KeyError:
             f = Friend(self, data)
+            if summary:
+                f._update_summary(summary)
             self._friends.set(f.id, f)
             return f
 
@@ -1237,10 +1237,58 @@ class Client:
 
         Returns
         -------
-        :class:`Friend`
-            :class:`Friend` if found, else ``None``
+        Optional[:class:`Friend`]
+            The friend if found, else ``None``
         """
         return self._friends.get(user_id)
+    
+    def store_pending_friend(self, data):
+        try:
+            user_id = data.get('accountId', data.get('id', data.get('account_id')))
+            return self._pending_friends.get(user_id, silent=False)
+        except KeyError:
+            pf = PendingFriend(self, data)
+            self._pending_friends.set(pf.id, pf)
+            return pf
+
+    def get_pending_friend(self, user_id):
+        """Tries to get a pending friend from the pending friend cache by the given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the pending friend.
+
+        Returns
+        -------
+        Optional[:class:`PendingFriend`]
+            The pending friend if found, else ``None``
+        """
+        return self._pending_friends.get(user_id)
+
+    def store_blocked_user(self, data):
+        try:
+            user_id = data.get('accountId', data.get('id', data.get('account_id')))
+            return self._blocked_users.get(user_id, silent=False)
+        except KeyError:
+            bu = BlockedUser(self, data)
+            self._blocked_users.set(bu.id, bu)
+            return bu
+
+    def get_blocked_user(self, user_id):
+        """Tries to get a blocked user from the blocked users cache by th given user id.
+        
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the blocked user.
+
+        Returns
+        -------
+        Optional[:class:`BlockedUser`]
+            The blocked user if found, else ``None``
+        """
+        return self._blocked_users.get(user_id)
 
     def get_presence(self, user_id):
         """Tries to get the latest received presence from the presence cache.
@@ -1252,25 +1300,10 @@ class Client:
 
         Returns
         -------
-        :class:`Presence`
-            :class:`Presence` if found, else ``None``
+        Optional[:class:`Presence`]
+            The presence if found, else ``None``
         """
         return self._presences.get(user_id)
-    
-    def get_pending_friend(self, user_id):
-        """Tries to get a pending friend from the pending friend cache by the given user id.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the pending friend.
-
-        Returns
-        -------
-        :class:`PendingFriend`: 
-            :class:`PendingFriend` if found, else ``None``
-        """
-        return self._pending_friends.get(user_id)
 
     def has_friend(self, user_id):
         """Checks if the client is friends with the given user id.
@@ -1300,7 +1333,22 @@ class Client:
         :class:`bool`
             ``True`` if user is a pending friend else ``False``
         """
-        return self.get_pending_friend(user_id)
+        return self.get_pending_friend(user_id) is not None
+
+    def is_blocked(self, user_id):
+        """Checks if the given user id is blocked by the client.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the user you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if user is blocked else ``False``
+        """
+        return self.get_blocked_user(user_id) is not None
 
     async def fetch_blocklist(self):
         """|coro|

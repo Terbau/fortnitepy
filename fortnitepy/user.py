@@ -188,15 +188,7 @@ class UserBase:
             extra_external_auths=data.get('extraExternalAuths', []),
         )
 
-        try:
-            self._id = data['id']
-        except KeyError:
-            self._id = data.get('accountId', data.get('account_id'))
-
-        self._external_display_name = None
-        for ext_auth in reversed([x for x in self._external_auths if x.type.lower() not in ('twitch',)]):
-            self._external_display_name = ext_auth.external_display_name
-            break
+        self._id = data.get('accountId', data.get('id', data.get('account_id')))
 
     def _update_external_auths(self, external_auths, extra_external_auths=[]):
         extra_ext = {v['authIds'][0]['type'].split('_')[0].lower(): v for v in extra_external_auths}
@@ -206,6 +198,11 @@ class UserBase:
             ext = ExternalAuth(self.client, e)
             ext._update_extra_info(extra_ext.get(ext.type, {}))
             ext_list.append(ext)
+
+        self._external_display_name = None
+        for ext_auth in reversed([x for x in ext_list if x.type.lower() not in ('twitch',)]):
+            self._external_display_name = ext_auth.external_display_name
+            break
 
         self._external_auths = ext_list
         self._raw_external_auths = external_auths

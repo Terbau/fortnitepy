@@ -36,7 +36,8 @@ class FriendBase(UserBase):
     def __init__(self, client, data):
         super().__init__(client, data)
         
-    def _update_external(self, data):
+    def _update(self, data):
+        super()._update(data)
         self._status = data['status']
         self._direction = data['direction']
         self._created_at = self.client.from_iso(data['created'])
@@ -125,19 +126,25 @@ class Friend(FriendBase):
     def __init__(self, client, data):
         super().__init__(client, data)
         self._last_logout = None
+        self._nickname = None
+        self._note = None
 
     def __repr__(self):
         return '<Friend id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
 
     def _update(self, data):
         super()._update(data)
-        self._favorite = str(data['favorite']).lower() == 'true'
-        self._nickname = data.get('alias')
-        self._note = data.get('note')
         self._favorite = data.get('favorite')
 
     def _update_last_logout(self, dt):
         self._last_logout = dt
+
+    def _update_summary(self, data):
+        _alias = data['alias']
+        self._nickname = _alias if _alias != '' else None
+
+        _note = data['note']
+        self._note = _note if _note != '' else None
 
     @property
     def display_name(self):

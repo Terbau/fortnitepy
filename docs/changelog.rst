@@ -6,6 +6,29 @@ Changelog
 Detailed version changes.
 
 
+v1.3.1
+------
+
+Fixes some issues from the last update.
+
+Added
+~~~~~
+
+- :meth:`Client.get_blocked_user()` to get a blocked user from the internal cache.
+- :meth:`Client.is_blocked()` to check if a user is blocked.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that broke startup of accounts with a large amount of friends.
+- Optimized startup speed of accounts with a large amount of friends.
+- Fixed an issue that caused the internal blocked users cache to not get initialized correctly.
+- Fixed another breaking issue that would break cache initializations.
+- :attr:`Friend.nickname` and :attr:`Friend.note` now correctly is ``None`` if not set.
+- Fixed an issue causing :meth:`Client.has_friend()` to return the wrong value (even though technically it did work).
+- Fixed an issue where some dataclasses inheriting from :class:`User` was missing external auths at some times.
+
+
 v1.3.0
 ------
 
