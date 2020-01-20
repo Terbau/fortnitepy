@@ -1275,6 +1275,21 @@ class Client:
         """
         return self._pending_friends.get(user_id)
 
+    def get_blocked_user(self, user_id):
+        """Tries to get a blocked user from the blocked users cache by th given user id.
+        
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the blocked user.
+
+        Returns
+        -------
+        Optional[:class:`BlockedUser`]
+            The blocked user if found, else ``None``
+        """
+        return self._blocked_users.get(user_id)
+
     def has_friend(self, user_id):
         """Checks if the client is friends with the given user id.
 
@@ -1304,6 +1319,21 @@ class Client:
             ``True`` if user is a pending friend else ``False``
         """
         return self.get_pending_friend(user_id) is not None
+
+    def is_blocked(self, user_id):
+        """Checks if the given user id is blocked by the client.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the user you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if user is blocked else ``False``
+        """
+        return self.get_blocked_user(user_id) is not None
 
     async def fetch_blocklist(self):
         """|coro|
