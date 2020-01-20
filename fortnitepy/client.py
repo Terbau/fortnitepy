@@ -1210,8 +1210,8 @@ class Client:
 
         Returns
         -------
-        :class:`User`
-            :class:`User` if found, else ``None``
+        Optional[:class:`User`]
+            The user if found, else ``None``
         """
         user = self._users.get(user_id)
         if user is None:
@@ -1240,8 +1240,8 @@ class Client:
 
         Returns
         -------
-        :class:`Friend`
-            :class:`Friend` if found, else ``None``
+        Optional[:class:`Friend`]
+            The friend if found, else ``None``
         """
         return self._friends.get(user_id)
 
@@ -1255,8 +1255,8 @@ class Client:
 
         Returns
         -------
-        :class:`Presence`
-            :class:`Presence` if found, else ``None``
+        Optional[:class:`Presence`]
+            The presence if found, else ``None``
         """
         return self._presences.get(user_id)
     
@@ -1270,8 +1270,8 @@ class Client:
 
         Returns
         -------
-        :class:`PendingFriend`: 
-            :class:`PendingFriend` if found, else ``None``
+        Optional[:class:`PendingFriend`]
+            The pending friend if found, else ``None``
         """
         return self._pending_friends.get(user_id)
 
@@ -1303,7 +1303,7 @@ class Client:
         :class:`bool`
             ``True`` if user is a pending friend else ``False``
         """
-        return self.get_pending_friend(user_id)
+        return self.get_pending_friend(user_id) is not None
 
     async def fetch_blocklist(self):
         """|coro|
