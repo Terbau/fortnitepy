@@ -36,7 +36,8 @@ class FriendBase(UserBase):
     def __init__(self, client, data):
         super().__init__(client, data)
         
-    def _update_external(self, data):
+    def _update(self, data):
+        super()._update(data)
         self._status = data['status']
         self._direction = data['direction']
         self._created_at = self.client.from_iso(data['created'])

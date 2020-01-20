@@ -1150,28 +1150,24 @@ class Client:
             self.http.presence_get_last_online(),
         )
         raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
-        
+
         ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
         profiles = await self.fetch_profiles(ids, raw=True)
 
         profiles = {profile['id']: profile for profile in profiles}
 
         for friend in raw_friends:
-            if friend['status'] == 'PENDING':
+            if friend['status'] == 'ACCEPTED':
                 try:
                     data = profiles[friend['accountId']]
-                    pf = PendingFriend(self, {**friend, **data})
-                    pf._update_external_auths(data['externalAuths'])
-                    self._pending_friends.set(pf.id, pf)
+                    self.store_friend({**friend, **data})
                 except KeyError:
                     continue
 
-            elif friend['status'] == 'ACCEPTED':
+            elif friend['status'] == 'PENDING':
                 try:
                     data = profiles[friend['accountId']]
-                    f = Friend(self, {**friend, **data})
-                    f._update_external_auths(data['externalAuths'])
-                    self._friends.set(f.id, f)
+                    self.store_pending_friend({**friend, **data})
                 except KeyError:
                     continue
 
@@ -1186,14 +1182,12 @@ class Client:
                 friend._update_last_logout(self.from_iso(data[0]['last_online']))
 
         for data in raw_summary['blocklist']:
-            profile = profiles[data['accountId']]
-            bf = BlockedUser(self, profile)
-            bf._update_external_auths(profile['externalAuths'])
-            self._blocked_users.set(bf.id, bf)
+            self.store_blocked_user(profiles[data['accountId']])
 
     def store_user(self, data):
         try:
-            return self._users.get(data['id'], silent=False)
+            user_id = data.get('accountId', data.get('id', data.get('account_id')))
+            return self._users.get(user_id, silent=False)
         except KeyError:
             u = User(self, data)
             if self.cache_users:
@@ -1222,11 +1216,14 @@ class Client:
                     self._users.set(user.id, user)
         return user
 
-    def store_friend(self, data):
+    def store_friend(self, data, summary=None):
         try:
-            return self._friends.get(data['accountId'], silent=False)
+            user_id = data.get('accountId', data.get('id', data.get('account_id')))
+            return self._friends.get(user_id, silent=False)
         except KeyError:
             f = Friend(self, data)
+            if summary:
+                f._update_summary(summary)
             self._friends.set(f.id, f)
             return f
 
@@ -1244,22 +1241,16 @@ class Client:
             The friend if found, else ``None``
         """
         return self._friends.get(user_id)
-
-    def get_presence(self, user_id):
-        """Tries to get the latest received presence from the presence cache.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the friend you want the last presence of.
-
-        Returns
-        -------
-        Optional[:class:`Presence`]
-            The presence if found, else ``None``
-        """
-        return self._presences.get(user_id)
     
+    def store_pending_friend(self, data):
+        try:
+            user_id = data.get('accountId', data.get('id', data.get('account_id')))
+            return self._pending_friends.get(user_id, silent=False)
+        except KeyError:
+            pf = PendingFriend(self, data)
+            self._pending_friends.set(pf.id, pf)
+            return pf
+
     def get_pending_friend(self, user_id):
         """Tries to get a pending friend from the pending friend cache by the given user id.
 
@@ -1275,6 +1266,15 @@ class Client:
         """
         return self._pending_friends.get(user_id)
 
+    def store_blocked_user(self, data):
+        try:
+            user_id = data.get('accountId', data.get('id', data.get('account_id')))
+            return self._blocked_users.get(user_id, silent=False)
+        except KeyError:
+            bu = BlockedUser(self, data)
+            self._blocked_users.set(bu.id, bu)
+            return bu
+
     def get_blocked_user(self, user_id):
         """Tries to get a blocked user from the blocked users cache by th given user id.
         
@@ -1289,6 +1289,21 @@ class Client:
             The blocked user if found, else ``None``
         """
         return self._blocked_users.get(user_id)
+
+    def get_presence(self, user_id):
+        """Tries to get the latest received presence from the presence cache.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the friend you want the last presence of.
+
+        Returns
+        -------
+        Optional[:class:`Presence`]
+            The presence if found, else ``None``
+        """
+        return self._presences.get(user_id)
 
     def has_friend(self, user_id):
         """Checks if the client is friends with the given user id.

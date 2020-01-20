@@ -36,8 +36,6 @@ from collections import defaultdict
 
 from .errors import XMPPError, PartyError
 from .message import FriendMessage, PartyMessage
-from .friend import Friend, PendingFriend
-from .user import BlockedUser
 from .party import Party, PartyMember, ClientPartyMember, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence
 
@@ -170,17 +168,14 @@ class XMPPClient:
             except (TypeError, KeyError):
                 timestamp = datetime.datetime.utcnow()
 
-            f = Friend(self.client, {
-                    **data,
-                    'favorite': _payload['favorite'],
-                }
-            )
-            f._update_external({
+
+            f = self.client.store_friend({
+                **data,
+                'favorite': _payload['favorite'],
                 'direction': _payload['direction'],
                 'status': _status,
                 'created': timestamp,
             })
-            f._update_external_auths(data['externalAuths'])
 
             presences = await self.client.http.presence_get_last_online()
             presence = presences.get(_id)
@@ -192,27 +187,23 @@ class XMPPClient:
             except KeyError:
                 pass
 
-            self.client._friends.set(f.id, f)
             self.client.dispatch_event('friend_add', f)
 
         elif _status == 'PENDING':
             data = self.client.get_user(_id)
             if data is None:
-                data = await self.client.http.account_get_by_user_id(_id)
+                data = await self.client.fetch_profile(_id, raw=True)
             else:
                 data = data.get_raw()
 
-            f = PendingFriend(self.client, {
-                    **data,
-                    'direction': _payload['direction'],
-                    'status': _status,
-                    'favorite': _payload['favorite'],
-                    'created': body['timestamp']
-                }
-            )
+            pf = self.client.store_pending_friend({
+                **data,
+                'direction': _payload['direction'],
+                'status': _status,
+                'created': body['timestamp']
+            })
 
-            self.client._pending_friends.set(f.id, f)
-            self.client.dispatch_event('friend_request', f)
+            self.client.dispatch_event('friend_request', pf)
 
     @dispatcher.event('FRIENDSHIP_REMOVE')
     async def friend_remove_event(self, ctx):
@@ -245,9 +236,8 @@ class XMPPClient:
         body = ctx.body
 
         account_id = body['payload']['accountId']
-        profile = await self.client.fetch_profile(account_id)
-        blocked_user = BlockedUser(self.client, profile.get_raw())
-        self.client._blocked_users.set(profile.id, blocked_user)
+        data = await self.client.fetch_profile(account_id, raw=True)
+        blocked_user = self.client.store_blocked_user(data)
         self.client.dispatch_event('user_block', blocked_user)
 
     @dispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryRemoved')
