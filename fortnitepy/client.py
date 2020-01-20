@@ -1144,49 +1144,52 @@ class Client:
         return profiles
 
     async def initialize_states(self):
-        requests = (
-            self.http.graphql_initialize_friends_request(),
+        tasks = (
             self.http.friends_get_all(include_pending=True),
+            self.http.friends_get_summary(),
+            self.http.presence_get_last_online(),
         )
-        data, friends_data = await asyncio.gather(*requests)
-
-        summary = data[0]['summary']
-        for friend_data in summary['friends']:
-            f = Friend(self, friend_data)
-            f._update_external_auths(friend_data['account']['externalAuths'])
-            self._friends.set(f.id, f)
-            
-        for pending_friend_data in (summary['incoming'] + summary['outgoing']):
-            try:
-                f = PendingFriend(self, pending_friend_data)
-                f._update_external_auths(pending_friend_data['account']['externalAuths'])
-                self._pending_friends.set(f.id, f)
-            except KeyError:
-                continue
-
-        for blocked_user_data in summary['blocklist']:
-            try:
-                f = BlockedUser(self, blocked_user_data)
-                self._blocked_users.set(u.id, u)
-            except KeyError:
-                continue
+        raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
         
-        presences = data[1]['getLastOnlineSummary']['summary']
-        for presence_data in presences:
-            friend = self.get_friend(presence_data['friendId'])
-            friend._update_last_logout(self.from_iso(presence_data['last_online']))
+        ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
+        profiles = await self.fetch_profiles(ids, raw=True)
 
-        for extra_friend_data in friends_data:
-            status = extra_friend_data['status']
-            if status == 'ACCEPTED':
-                friend = self._friends.get(extra_friend_data['accountId'])
-            elif status == 'PENDING':
-                friend = self._pending_friends.get(extra_friend_data['accountId'])
-            
-            if friend is None:
-                continue
+        profiles = {profile['id']: profile for profile in profiles}
 
-            friend._update_external(extra_friend_data)
+        for friend in raw_friends:
+            if friend['status'] == 'PENDING':
+                try:
+                    data = profiles[friend['accountId']]
+                    pf = PendingFriend(self, {**friend, **data})
+                    pf._update_external_auths(data['externalAuths'])
+                    self._pending_friends.set(pf.id, pf)
+                except KeyError:
+                    continue
+
+            elif friend['status'] == 'ACCEPTED':
+                try:
+                    data = profiles[friend['accountId']]
+                    f = Friend(self, {**friend, **data})
+                    f._update_external_auths(data['externalAuths'])
+                    self._friends.set(f.id, f)
+                except KeyError:
+                    continue
+
+        for data in raw_summary['friends']:
+            friend = self.get_friend(data['accountId'])
+            if friend is not None:
+                friend._update_summary(data)
+
+        for user_id, data in raw_presences.items():
+            friend = self.get_friend(user_id)
+            if friend is not None:
+                friend._update_last_logout(self.from_iso(data[0]['last_online']))
+
+        for data in raw_summary['blocklist']:
+            profile = profiles[data['accountId']]
+            bf = BlockedUser(self, profile)
+            bf._update_external_auths(profile['externalAuths'])
+            self._blocked_users.set(bf.id, bf)
 
     def store_user(self, data):
         try:
