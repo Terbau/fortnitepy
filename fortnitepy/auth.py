@@ -27,20 +27,21 @@ SOFTWARE.
 import datetime
 import asyncio
 import logging
-import traceback
 import uuid
-import re
-import json
 
 from aioconsole import ainput
-from bs4 import BeautifulSoup
+from typing import TYPE_CHECKING
+
 from .errors import AuthException, HTTPException
+
+if TYPE_CHECKING:
+    from .client import Client
 
 log = logging.getLogger(__name__)
 
 
 class Auth:
-    def __init__(self, client):
+    def __init__(self, client: Client):
         self.client = client
         self.device_id = self.client.device_id or uuid.uuid4().hex
         self._refresh_event = asyncio.Event(loop=self.client.loop)
@@ -48,14 +49,14 @@ class Auth:
         self.refresh_i = 0
 
     @property
-    def launcher_authorization(self):
+    def launcher_authorization(self) -> str:
         return 'bearer {0}'.format(self.launcher_access_token)
 
     @property
-    def authorization(self):
+    def authorization(self) -> str:
         return 'bearer {0}'.format(self.access_token)
 
-    async def authenticate(self):
+    async def authenticate(self) -> None:
         try:
             log.info('Fetching valid xsrf token.')
             token = await self.fetch_xsrf_token()
@@ -64,23 +65,36 @@ class Auth:
 
             try:
                 log.info('Logging in.')
-                await self.client.http.epicgames_login(self.client.email, self.client.password, token)
+                await self.client.http.epicgames_login(
+                    self.client.email,
+                    self.client.password,
+                    token
+                )
             except HTTPException as e:
-                if e.message_code != 'errors.com.epicgames.common.two_factor_authentication.required':
+                if e.message_code != ('errors.com.epicgames.common.'
+                                      'two_factor_authentication.required'):
                     e.reraise()
-                
+
                 log.info('Logging in interrupted. 2fa required.')
                 log.info('Fetching new valid xsrf token.')
                 token = await self.fetch_xsrf_token()
 
-                code = self.client.two_factor_code or await ainput('Please enter the 2fa code:\n', loop=self.client.loop)
-                await self.client.http.epicgames_mfa_login(e.raw['metadata']['twoFactorMethod'], code, token)
- 
+                code = (self.client.two_factor_code
+                        or await ainput(
+                            'Please enter the 2fa code:\n',
+                            loop=self.client.loop
+                        ))
+                await self.client.http.epicgames_mfa_login(
+                    e.raw['metadata']['twoFactorMethod'],
+                    code,
+                    token
+                )
+
             await self.client.http.epicgames_redirect(token)
 
             log.info('Fetching exchange code.')
             data = await self.client.http.epicgames_get_exchange_data(token)
-            
+
             log.info('Exchanging code.')
             data = await self.exchange_epicgames_code(data['code'])
             self.launcher_access_token = data['access_token']
@@ -90,13 +104,14 @@ class Auth:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            raise AuthException('Could not authenticate. Error: {}'.format(e)) from None
+            raise AuthException('Could not authenticate. '
+                                'Error: {}'.format(e)) from None
 
-    async def fetch_xsrf_token(self):
+    async def fetch_xsrf_token(self) -> str:
         response = await self.client.http.epicgames_get_csrf()
         return response.cookies['XSRF-TOKEN'].value
 
-    async def exchange_epicgames_code(self, code):
+    async def exchange_epicgames_code(self, code: str) -> dict:
         payload = {
             'grant_type': 'exchange_code',
             'exchange_code': code,
@@ -109,7 +124,7 @@ class Auth:
             data=payload
         )
 
-    async def grant_refresh_token(self, refresh_token):
+    async def grant_refresh_token(self, refresh_token: str) -> dict:
         payload = {
             'grant_type': 'refresh_token',
             'refresh_token': refresh_token
@@ -121,11 +136,13 @@ class Auth:
             data=payload
         )
 
-    async def get_exchange_code(self):
-        data = await self.client.http.account_get_exchange_data(auth='LAUNCHER_ACCESS_TOKEN')
+    async def get_exchange_code(self) -> str:
+        data = await self.client.http.account_get_exchange_data(
+            auth='LAUNCHER_ACCESS_TOKEN'
+        )
         return data.get('code')
 
-    async def exchange_code(self):
+    async def exchange_code(self) -> None:
         code = await self.get_exchange_code()
         if code is None:
             raise AuthException('Could not get exchange code')
@@ -135,25 +152,25 @@ class Auth:
             'token_type': 'eg1',
             'exchange_code': code
         }
-        
+
         data = await self.client.http.account_oauth_grant(
             auth='FORTNITE_BASIC_TOKEN',
-            device_id=True, 
+            device_id=True,
             data=payload
         )
         self._update(data)
 
-    async def get_eula_version(self):
+    async def get_eula_version(self) -> int:
         data = await self.client.http.eulatracking_get_data()
         return data['version'] if isinstance(data, dict) else 0
 
-    async def accept_eula(self):
+    async def accept_eula(self) -> None:
         version = await self.get_eula_version()
         if version != 0:
             await self.client.http.eulatracking_accept(version)
             await self.client.http.fortnite_grant_access()
 
-    def _update(self, data):
+    def _update(self, data: dict) -> None:
         self.access_token = data['access_token']
         self.expires_in = data['expires_in']
         self.expires_at = self.client.from_iso(data["expires_at"])
@@ -167,12 +184,13 @@ class Auth:
         self.client_service = data['client_service']
         self.app = data['app']
         self.in_app_id = data['in_app_id']
-    
-    async def schedule_token_refresh(self):
-        self.token_timeout = (self.expires_at - datetime.datetime.utcnow()).total_seconds() - 300
+
+    async def schedule_token_refresh(self) -> None:
+        subtracted = self.expires_at - datetime.datetime.utcnow()
+        self.token_timeout = (subtracted).total_seconds() - 300
         await asyncio.sleep(self.token_timeout)
-    
-    async def run_refresh_loop(self):
+
+    async def run_refresh_loop(self) -> None:
         loop = self.client.loop
 
         while True:
@@ -184,10 +202,9 @@ class Auth:
 
             await self.do_refresh()
 
-    async def do_refresh(self):
+    async def do_refresh(self) -> None:
         log.debug('Refreshing session')
         self._refreshing = True
-        
         if self.client.user.party is not None:
             await self.client.user.party._leave()
 
@@ -203,11 +220,11 @@ class Auth:
 
         self.refresh_i += 1
         self.client.dispatch_event('auth_refresh')
-        self._refreshing = False        
+        self._refreshing = False
 
-    async def run_refresh(self):
+    async def run_refresh(self) -> None:
         self._refresh_event.set()
         await self.client.wait_for('auth_refresh')
 
-    def refreshing(self):
+    def refreshing(self) -> bool:
         return self._refreshing

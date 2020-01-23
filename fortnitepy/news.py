@@ -24,8 +24,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+
 class BattleRoyaleNewsPost:
-    def __init__(self, data):
+    def __init__(self, data: dict) -> None:
         self._image = data['image']
         self._hidden = data['hidden']
         self._type = data['_type']
@@ -34,44 +35,48 @@ class BattleRoyaleNewsPost:
         self._spotlight = data['spotlight']
         self._adspace = data.get('adspace')
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
 
-    def __repr__(self):
-        return '<BattleRoyaleNewsPost title={0.title!r} image={0.image!r} ' \
-               'spotlight={0.spotlight}>'.format(self)
-    
+    def __repr__(self) -> str:
+        return ('<BattleRoyaleNewsPost title={0.title!r} image={0.image!r} '
+                'spotlight={0.spotlight}>'.format(self))
+
     @property
-    def image(self):
+    def image(self) -> str:
         """:class:`str`: The image url of this post."""
         return self._image
 
     @property
-    def hidden(self):
+    def hidden(self) -> bool:
         """:class:`bool`: ``True`` if post is hidden else ``False``."""
         return self._hidden
 
     @property
-    def type(self):
+    def type(self) -> str:
         """:class:`str`: The type of this message."""
         return self._type
 
     @property
-    def title(self):
+    def title(self) -> str:
         """:class:`str`: The title of this post."""
         return self._title
 
     @property
-    def body(self):
+    def body(self) -> str:
         """:class:`str`: The actual message of this post."""
         return self._body
 
     @property
-    def spotlight(self):
-        """:class:`bool`: ``True`` if this post is in the spotlight else ``False``."""
+    def spotlight(self) -> bool:
+        """:class:`bool`: ``True`` if this post is in the spotlight
+        else ``False``.
+        """
         return self._spotlight
 
     @property
-    def adspace(self):
-        """:class:`str`: The adspace of this post. ``None`` if no adspace is found."""
+    def adspace(self) -> str:
+        """:class:`str`: The adspace of this post. ``None`` if no adspace
+        is found.
+        """
         return self._adspace

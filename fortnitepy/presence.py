@@ -28,12 +28,19 @@ import json
 import re
 import datetime
 
-from .party import Party
+from typing import TYPE_CHECKING
+
 from .errors import Forbidden, PartyError
+
+if TYPE_CHECKING:
+    from .client import Client
+    from .friend import Friend
+    from .party import ClientParty
+
 
 class PresenceGameplayStats:
     """Represents gameplaystats received from presence.
-    
+
     Attributes
     ----------
     friend: :class:`Friend`
@@ -47,12 +54,13 @@ class PresenceGameplayStats:
     num_kills: :class:`int`
         The amount of kills the friend currently has.
     fell_to_death: :class:`bool`
-        ``True`` if friend fell to death in its current game, else ``False``    
+        ``True`` if friend fell to death in its current game, else ``False``
     """
 
-    __slots__ = ('friend', 'state', 'playlist', 'players_alive', 'num_kills', 'fell_to_death')
+    __slots__ = ('friend', 'state', 'playlist', 'players_alive', 'num_kills',
+                 'fell_to_death')
 
-    def __init__(self, friend, data, players_alive):
+    def __init__(self, friend: Friend, data: str, players_alive: int) -> None:
         self.friend = friend
         self.state = data.get('state')
         self.playlist = data.get('playlist')
@@ -65,8 +73,9 @@ class PresenceGameplayStats:
         self.fell_to_death = True if data.get('bFellToDeath') else False
 
     def __repr__(self):
-        return '<PresenceGameplayStats friend={0.friend!r} players_alive={0.players_alive} ' \
-               'num_kills={0.num_kills}> playlist={0.playlist!r}'.format(self)
+        return ('<PresenceGameplayStats friend={0.friend!r} '
+                'players_alive={0.players_alive} num_kills={0.num_kills} '
+                'playlist={0.playlist!r}>'.format(self))
 
 
 class PresenceParty:
@@ -74,7 +83,7 @@ class PresenceParty:
 
     Before accessing any of this class' attributes or functions
     you should always check if the party is private: ::
-    
+
         @client.event
         async def event_friend_presence(presence):
 
@@ -84,15 +93,15 @@ class PresenceParty:
             # to demonstrate.
             if presence.friend.display_name != 'Terbau':
                 return
-            
+
             # check if party is private
             if presence.party.private:
                 return
-            
+
             # if all the checks above succeeds we join the party
             await presence.party.join()
-        
-    
+
+
     .. note::
 
         If the party is private, all attributes below private will
@@ -127,10 +136,10 @@ class PresenceParty:
     """
 
     __slots__ = ('client', 'raw', 'private', 'platform', 'id', 'party_type_id',
-                 'key', 'app_id', 'build_id', 'net_cl', 'party_flags', 
+                 'key', 'app_id', 'build_id', 'net_cl', 'party_flags',
                  'not_accepting_reason', 'playercount')
 
-    def __init__(self, client, data):
+    def __init__(self, client: Client, data: dict) -> None:
         self.client = client
         self.raw = data
         self.private = data.get('bIsPrivate', False)
@@ -141,7 +150,7 @@ class PresenceParty:
         self.key = data.get('key')
         self.app_id = data.get('appId')
         self.build_id = data.get('buildId')
-        
+
         if self.build_id is not None and self.build_id.startswith('1:1:'):
             self.net_cl = self.build_id[4:]
         else:
@@ -149,17 +158,18 @@ class PresenceParty:
 
         self.party_flags = data.get('partyFlags')
         self.not_accepting_reason = data.get('notAcceptingReason')
-        
+
         self.playercount = data.get('pc')
         if self.playercount is not None:
             self.playercount = int(self.playercount)
 
-    def __repr__(self):
-        return '<PresenceParty private={0.private} id={0.id!r} playercount={0.playercount}>'.format(self)
+    def __repr__(self) -> str:
+        return ('<PresenceParty private={0.private} id={0.id!r} '
+                'playercount={0.playercount}>'.format(self))
 
-    async def join(self):
+    async def join(self) -> ClientParty:
         """|coro|
-        
+
         Joins the friends' party.
 
         Raises
@@ -187,7 +197,7 @@ class PresenceParty:
 
 class Presence:
     """Represents a presence received from a friend
-    
+
     Attributes
     ----------
     client: :class:`Client`
@@ -211,7 +221,7 @@ class Presence:
         in a game.
     has_properties: :class:`bool`
         ``True`` if the presence has properties else ``False``.
-        
+
         .. warning::
 
             All attributes below this point will be ``None`` if
@@ -244,14 +254,18 @@ class Presence:
         The playercount of the friend's server.
     """
 
-    __slots__ = ('client', 'raw', 'available', 'friend', 'received_at', 'status', 
-                 'playing', 'joinable', 'has_voice_support', 'session_id', 
-                 'raw_properties', 'has_properties', 'avatar', 'avatar_colors', 
-                 'homebase_rating', 'lfg', 'sub_game', 'in_unjoinable_match', 
-                 'playlist', 'party_size', 'max_party_size', 'game_session_join_key', 
+    __slots__ = ('client', 'raw', 'available', 'friend', 'received_at',
+                 'status', 'playing', 'joinable', 'has_voice_support',
+                 'session_id', 'raw_properties', 'has_properties', 'avatar',
+                 'avatar_colors', 'homebase_rating', 'lfg', 'sub_game',
+                 'in_unjoinable_match', 'playlist', 'party_size',
+                 'max_party_size', 'game_session_join_key',
                  'server_player_count', 'gameplay_stats', 'party')
 
-    def __init__(self, client, from_id, available, data):
+    def __init__(self, client: Client,
+                 from_id: str,
+                 available: bool,
+                 data: dict) -> None:
         self.client = client
         self.raw = data
         self.available = available
@@ -262,17 +276,18 @@ class Presence:
         self.playing = data['bIsPlaying']
         self.joinable = data['bIsJoinable']
         self.has_voice_support = data['bHasVoiceSupport']
-        self.session_id = data['SessionId'] if data['SessionId'] != "" else None
+        self.session_id = (data['SessionId'] if
+                           data['SessionId'] != "" else None)
 
         self.raw_properties = data['Properties']
         self.has_properties = self.raw_properties != {}
-        
+
         # all values below will be "None" if properties is empty
 
         kairos_profile = self.raw_properties.get('KairosProfile_s', {})
         if kairos_profile != {}:
             kairos_profile = json.loads(kairos_profile)
-        
+
         self.avatar = kairos_profile.get('avatar')
         self.avatar_colors = kairos_profile.get('avatarBackground')
 
@@ -282,11 +297,13 @@ class Presence:
         if self.raw_properties.get('FortLFG_I') is None:
             self.lfg = None
         else:
-            self.lfg = True if int(self.raw_properties.get('FortLFG_I')) == 1 else False
+            self.lfg = int(self.raw_properties.get('FortLFG_I')) == 1
 
         self.sub_game = self.raw_properties.get('FortSubGame_i')
 
-        self.in_unjoinable_match = self.raw_properties.get('InUnjoinableMatch_b')
+        self.in_unjoinable_match = self.raw_properties.get(
+            'InUnjoinableMatch_b'
+        )
         if self.in_unjoinable_match is not None:
             self.in_unjoinable_match = int(self.in_unjoinable_match)
 
@@ -304,17 +321,25 @@ class Presence:
         if self.max_party_size is not None:
             self.max_party_size = int(self.max_party_size)
 
-        self.game_session_join_key = self.raw_properties.get('GameSessionJoinKey_s')
+        self.game_session_join_key = self.raw_properties.get(
+            'GameSessionJoinKey_s'
+        )
 
-        self.server_player_count = self.raw_properties.get('ServerPlayerCount_i')
+        self.server_player_count = self.raw_properties.get(
+            'ServerPlayerCount_i'
+        )
         if self.server_player_count is not None:
             self.server_player_count = int(self.server_player_count)
 
         if 'FortGameplayStats_j' in self.raw_properties.keys():
-            self.gameplay_stats = PresenceGameplayStats(self.friend, self.raw_properties['FortGameplayStats_j'], players_alive)
+            self.gameplay_stats = PresenceGameplayStats(
+                self.friend,
+                self.raw_properties['FortGameplayStats_j'],
+                players_alive
+            )
         else:
             self.gameplay_stats = None
-        
+
         key = None
         for k in self.raw_properties.keys():
             if re.search(r'party\.joininfodata\.\d+_j', k) is not None:
@@ -326,4 +351,5 @@ class Presence:
             self.party = PresenceParty(self.client, self.raw_properties[key])
 
     def __repr__(self):
-        return '<Presence friend={0.friend!r} available={0.available} received_at={0.received_at!r}>'.format(self)
+        return ('<Presence friend={0.friend!r} available={0.available} '
+                'received_at={0.received_at!r}>'.format(self))

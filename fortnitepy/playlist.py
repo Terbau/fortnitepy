@@ -24,12 +24,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from typing import Optional
+
+
 class Playlist:
 
     __slots__ = ('_image', '_internal_name', '_special_border', '_type',
                  '_violator', '_display_subname', '_description')
 
-    def __init__(self, data):
+    def __init__(self, data: dict) -> None:
         self._image = data['image']
         self._internal_name = data['playlist_name']
         self._special_border = data.get('special_border')
@@ -38,31 +41,31 @@ class Playlist:
         self._display_subname = data.get('display_subname')
         self._description = data.get('description')
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.internal_name
 
-    def __repr__(self):
-        return '<Playlist internal_name={0.internal_name!r} image_url={0.image_url!r} ' \
-               'type={0.type!r}>'.format(self)
-    
+    def __repr__(self) -> str:
+        return ('<Playlist internal_name={0.internal_name!r} '
+                'image_url={0.image_url!r}type={0.type!r}>'.format(self))
+
     @property
-    def image_url(self):
+    def image_url(self) -> str:
         """:class:`str`: Image url for the playlist."""
         return self._image
 
     @property
-    def internal_name(self):
+    def internal_name(self) -> str:
         """:class:`str`: The internal name of the playlist."""
         return self._internal_name
 
     @property
-    def type(self):
+    def type(self) -> str:
         """:class:`str`: The type of this playlist object."""
         return self._type
 
     @property
-    def special_border(self):
-        """:class:`str`: Special border of the playlist. 
+    def special_border(self) -> Optional[str]:
+        """Optional[:class:`str`]: Special border of the playlist.
         Will be ``None`` if no special border is found for this playlist.
         """
         if self._special_border == 'None':
@@ -70,8 +73,8 @@ class Playlist:
         return self._special_border
 
     @property
-    def violator(self):
-        """:class:`str`: The violater displayed for this playlist. This is
+    def violator(self) -> Optional[str]:
+        """Optional[:class:`str`]: The violater displayed for this playlist. This is
         the little red tag displaying short text on some of the playlists
         in-game.
         Will be ``None`` if no violator is found for this playlist.
@@ -81,15 +84,15 @@ class Playlist:
         return self._violator
 
     @property
-    def display_subname(self):
-        """:class:`str`: The display subname of this playlist.
+    def display_subname(self) -> Optional[str]:
+        """Optional[:class:`str`]: The display subname of this playlist.
         Will be ``None`` if no display subname is found for this playlist.
         """
         return self._display_subname
 
     @property
-    def description(self):
-        """:class:`str`: The description of this playlist.
+    def description(self) -> Optional[str]:
+        """Optional[:class:`str`]: The description of this playlist.
         Will be ``None`` if no description is found for this playlist.
         """
         return self._description

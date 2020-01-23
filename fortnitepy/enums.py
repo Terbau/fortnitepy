@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# flake8: noqa
 
 """
 MIT License
@@ -25,6 +26,7 @@ SOFTWARE.
 """
 
 from enum import Enum
+
 
 class PartyPrivacy(Enum):
     PUBLIC = {
@@ -68,6 +70,7 @@ class PartyPrivacy(Enum):
         'acceptingMembers': False,
     }
 
+
 class DefaultCharactersChapter1(Enum):
     CID_001_Athena_Commando_F_Default = 1
     CID_002_Athena_Commando_F_Default = 2
@@ -77,6 +80,7 @@ class DefaultCharactersChapter1(Enum):
     CID_006_Athena_Commando_M_Default = 6
     CID_007_Athena_Commando_M_Default = 7
     CID_008_Athena_Commando_M_Default = 8
+
 
 class DefaultCharactersChapter2(Enum):
     CID_556_Athena_Commando_F_RebirthDefaultA = 1
@@ -88,24 +92,29 @@ class DefaultCharactersChapter2(Enum):
     CID_562_Athena_Commando_M_RebirthDefaultC = 7
     CID_563_Athena_Commando_M_RebirthDefaultD = 8
 
+
 class V1Gamemode(Enum):
-    SOLO =  'p2'
-    DUO =   'p10'
+    SOLO  = 'p2'
+    DUO   = 'p10'
     SQUAD = 'p9'
 
+
 class V1Platform(Enum):
-    PC =   'pc'
+    PC   = 'pc'
     XBOX = 'xb1'
-    PS4 =  'ps4'
+    PS4  = 'ps4'
+
 
 class V1Window(Enum):
     ALLTIME = 'alltime'
-    WEEKLY =  'weekly'
+    WEEKLY  = 'weekly'
+
 
 class V2Input(Enum):
     KEYBOARDANDMOUSE = 'keyboardmouse'
     GAMEPAD          = 'gamepad'
     TOUCH            = 'touch'
+
 
 class Region(Enum):
     NAEAST     = 'NAE'
@@ -116,6 +125,7 @@ class Region(Enum):
     ASIA       = 'ASIA'
     MIDDLEEAST = 'ME'
 
+
 class Platform(Enum):
     WINDOWS     = 'WIN'
     MAC         = 'MAC'
@@ -124,5 +134,3 @@ class Platform(Enum):
     SWITCH      = 'SWT'
     IOS         = 'IOS'
     ANDROID     = 'AND'
-    
-

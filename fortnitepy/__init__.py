@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# flake8: noqa
 
 """
 MIT License
@@ -26,10 +27,12 @@ SOFTWARE.
 
 __version__ = '1.3.1'
 
-from .client import Client, get_event_loop, run_multiple, start_multiple, close_multiple
+from .client import (Client, get_event_loop, run_multiple, start_multiple,
+                     close_multiple)
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
-from .party import PartyMember, ClientPartyMember, Party, ClientParty, PartyInvitation, PartyJoinConfirmation
+from .party import (PartyMember, ClientPartyMember, Party, ClientParty,
+                    PartyInvitation, PartyJoinConfirmation)
 from .presence import Presence, PresenceGameplayStats, PresenceParty
 from .user import ClientUser, User, BlockedUser
 from .stats import StatsV2

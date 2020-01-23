@@ -27,43 +27,45 @@ SOFTWARE.
 import asyncio
 import weakref
 
+from typing import Optional, Any
+
+
 class Cache:
-    def __init__(self, loop=None):
+    def __init__(self,
+                 loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         self.loop = loop
         self._cache = {}
-    
-    def set(self, key, value, timeout=None):
+
+    def set(self, key: str, value: Any, *,
+            timeout: int = None) -> None:
         self._cache[key] = value
 
         if timeout is not None:
-            asyncio.ensure_future(self.schedule_removal(key, timeout), loop=self.loop)
+            asyncio.ensure_future(self.schedule_removal(key, timeout),
+                                  loop=self.loop)
 
-    def remove(self, key):
+    def remove(self, key: str) -> Any:
         return self._cache.pop(key)
 
-    def get(self, key, silent=True):
+    def get(self, key: str, *,
+            silent: bool = True) -> Any:
         if silent:
             return self._cache.get(key)
         return self._cache[key]
 
-    def keys(self):
-        return self._cache.keys()
-
-    def values(self):
-        return self._cache.values()
-
-    async def schedule_removal(self, key, seconds):
+    async def schedule_removal(self, key: str, seconds: int) -> None:
         await asyncio.sleep(seconds, loop=self.loop)
         try:
             del self._cache[key]
         except KeyError:
             pass
 
-    def clear(self):
+    def clear(self) -> None:
         self._cache = {}
 
 
 class WeakrefCache(Cache):
-    def __init__(self, loop=None):
+    def __init__(self,
+                 loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         super().__init__(loop=loop)
         self._cache = weakref.WeakValueDictionary()
