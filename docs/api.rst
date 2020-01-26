@@ -9,7 +9,7 @@ Authentication
 --------------
 
 As of v1.4.0, you now have to specify which authentication method you want to 
-use for login. The one used up until this version was :class:`EmailAndPassword`. However,
+use for login. The one used up until this version was :class:`EmailAndPasswordAuth`. However,
 after that authentication method recently has started to require captcha to login in quite a lot
 of cases, this is no longer the preferred method in the long run.
 

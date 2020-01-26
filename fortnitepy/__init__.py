@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '1.3.1'
+__version__ = '1.4.0'
 
 from .client import (Client, get_event_loop, run_multiple, start_multiple,
                      close_multiple)

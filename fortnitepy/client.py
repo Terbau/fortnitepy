@@ -356,7 +356,7 @@ class Client:
     ----------
     auth: :class:`Auth`
         The authentication method to use. You can read more about available authentication methods
-         :ref:`here <authentication>`.
+        :ref:`here <authentication>`.
     loop: Optional[:class:`asyncio.AbstractEventLoop`]
         The event loop to use for asynchronous operations.
     status: :class:`str`
@@ -575,24 +575,6 @@ class Client:
 
         if leave_party:
             await self.user.party.me.leave()
-
-    async def generate_device_auth(self):
-        """|coro|
-
-        Generate device auth details for a safe and reliable login.
-
-        Raises
-        ------
-        HTTPException
-            An error occured while generating the device auth.
-
-        Returns
-        -------
-        Dict[str]
-            A dictionary with the details needed for later login. Keys:
-            ``device_id``, ``account_id`` and ``secret``.
-        """
-        return await self.auth.generate_device_auth()
 
     def update_default_party_config(self, config: dict) -> None:
         if config is None:

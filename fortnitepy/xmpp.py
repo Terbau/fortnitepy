@@ -297,8 +297,7 @@ class XMPPClient:
         invitation = PartyInvitation(self.client, new_party, net_cl, invite)
         self.client.dispatch_event('party_invite', invitation)
 
-    @dispatcher.event(
-        'com.epicgames.social.party.notification.v0.MEMBER_JOINED')
+    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_JOINED')  # noqa
     async def event_party_member_joined(self,
                                         ctx: EventContext) -> None:
         body = ctx.body
