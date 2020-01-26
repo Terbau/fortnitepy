@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# flake8: noqa
 
 """
 MIT License
@@ -24,12 +25,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '1.3.1'
+__version__ = '1.4.0'
 
-from .client import Client, get_event_loop, run_multiple, start_multiple, close_multiple
+from .client import (Client, get_event_loop, run_multiple, start_multiple,
+                     close_multiple)
+from .auth import (EmailAndPasswordAuth, ExchangeCodeAuth, DeviceAuth,
+                   AdvancedAuth)
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
-from .party import PartyMember, ClientPartyMember, Party, ClientParty, PartyInvitation, PartyJoinConfirmation
+from .party import (PartyMember, ClientPartyMember, Party, ClientParty,
+                    PartyInvitation, PartyJoinConfirmation)
 from .presence import Presence, PresenceGameplayStats, PresenceParty
 from .user import ClientUser, User, BlockedUser
 from .stats import StatsV2

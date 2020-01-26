@@ -6,6 +6,27 @@ Changelog
 Detailed version changes.
 
 
+v1.4.0
+------
+
+Very breaking update introducing new methods to authenticate, type hinting and more.
+
+Changes
+~~~~~
+
+- You no longer pass an email and a password directly when initializing :class:`Client`. 
+``auth`` is the new parameter taking one of the new authentication methods. Read more about them
+here :ref:`here <authentication>`.
+- Also moved parameters ``two_factor_code``, ``launcher_token``, ``fortnite_token`` and ``device_id`` to the auth object.
+- :meth:`Friend.join()` now returns the new :class:`ClientParty` the client just joined.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed :meth:`ClientPartyMember.set_assisted_challenge()`.
+- Fixed an issue that caused :meth:`Client.fetch_profile_by_display_name()` to return a :class:`User` with missing external auths.
+
+
 v1.3.1
 ------
 

@@ -25,7 +25,9 @@ SOFTWARE.
 """
 
 import datetime
-import json
+
+from .user import User
+from .enums import Platform
 
 replacers = {
     'placetop1': 'wins',
@@ -38,7 +40,7 @@ skips = (
 
 class StatsV2:
     """Represents a users Battle Royale stats on Fortnite.
-    
+
     Attributes
     ----------
     user: :class:`User`
@@ -46,13 +48,13 @@ class StatsV2:
     start_time: :class:`datetime.datetime`
         The UTC start time of the stats retrieved.
     end_time: :class:`datetime`
-        The UTC end time of the stats retrieved. 
+        The UTC end time of the stats retrieved.
     """
 
     __slots__ = ('raw', 'user', '_stats', '_platform_specific_combined_stats',
-                 '_combined_stats', 'start_time', 'end_time', )
+                 '_combined_stats', 'start_time', 'end_time')
 
-    def __init__(self, user, data):
+    def __init__(self, user: User, data: dict) -> None:
         self.raw = data
         self.user = user
 
@@ -66,34 +68,38 @@ class StatsV2:
         else:
             self.end_time = datetime.datetime.utcfromtimestamp(data['endTime'])
 
-    def __repr__(self):
-        return '<StatsV2 user={0.user!r} start_time={0.start_time!r} end_time={0.end_time!r}>'.format(self)
+    def __repr__(self) -> str:
+        return ('<StatsV2 user={0.user!r} start_time={0.start_time!r} '
+                'end_time={0.end_time!r}>'.format(self))
 
     @staticmethod
-    def create_stat(stat, platform, playlist):
+    def create_stat(stat: str, platform: Platform, playlist: str) -> str:
         if stat in replacers.values():
             for k, v in replacers.items():
                 if v == stat:
                     stat = k
 
-        return 'br_{0}_{1}_m0_playlist_{2}'.format(stat, platform.value, playlist)
+        return 'br_{0}_{1}_m0_playlist_{2}'.format(stat,
+                                                   platform.value,
+                                                   playlist)
 
-    def get_kd(self, data):
+    def get_kd(self, data: dict) -> float:
         """Gets the kd of a gamemode
-        
+
         Usage: ::
-            
+
             # gets ninjas kd in solo on input touch
             async def get_ninja_touch_solo_kd():
                 profile = await client.fetch_profile('Ninja)
                 stats = await client.fetch_br_stats(profile.id)
 
                 return stats.get_kd(stats.get_stats()['touch']['defaultsolo'])
-        
+
         Parameters
         ----------
         data: :class:`dict`
-            A :class:`dict` which atleast includes the keys: ``kills``, ``matchesplayed`` and ``wins``.
+            A :class:`dict` which atleast includes the keys: ``kills``,
+            ``matchesplayed`` and ``wins``.
 
         Returns
         -------
@@ -110,12 +116,12 @@ class StatsV2:
         except ZeroDivisionError:
             kd = 0
         return float(format(kd, '.2f'))
-    
-    def get_winpercentage(self, data):
+
+    def get_winpercentage(self, data: dict) -> float:
         """Gets the winpercentage of a gamemode
-        
+
         Usage: ::
-            
+
             # gets ninjas winpercentage in solo on input touch
             async def get_ninja_touch_solo_winpercentage():
                 profile = await client.fetch_profile('Ninja)
@@ -132,7 +138,7 @@ class StatsV2:
         -------
         :class:`float`
             Returns the winpercentage with a decimal point accuracy of two.
-        """
+        """  # noqa
 
         matches = data.get('matchesplayed', 0)
         wins = data.get('wins', 0)
@@ -145,7 +151,7 @@ class StatsV2:
             winper = 100
         return float(format(winper, '.2f'))
 
-    def _parse(self):
+    def _parse(self) -> None:
         result = {}
         for fullname, stat in self.raw['stats'].items():
             if fullname in skips:
@@ -164,16 +170,16 @@ class StatsV2:
 
             if name == 'lastmodified':
                 stat = datetime.datetime.utcfromtimestamp(stat)
-            
+
             if inp not in result:
                 result[inp] = {}
             if playlist not in result[inp]:
                 result[inp][playlist] = {}
-            
+
             result[inp][playlist][name] = stat
         self._stats = result
 
-    def _construct_platform_specific_combined_stats(self):
+    def _construct_platform_specific_combined_stats(self) -> None:
         result = {}
 
         for platform, values in self.get_stats().items():
@@ -190,10 +196,10 @@ class StatsV2:
                                 result[platform][stat] = value
                     except KeyError:
                         result[platform][stat] = value
-        
+
         self._platform_specific_combined_stats = result
 
-    def _construct_combined_stats(self):
+    def _construct_combined_stats(self) -> None:
         result = {}
 
         for values in self.get_stats().values():
@@ -209,44 +215,45 @@ class StatsV2:
                         result[stat] = value
 
         self._combined_stats = result
-                    
-    def get_stats(self):
+
+    def get_stats(self) -> dict:
         """Gets the stats for this user. This function returns the users stats.
-        
+
         Returns
         -------
         :class:`dict`
-            Mapping of the users stats. All stats are mapped to their respective 
-            gamemodes.
+            Mapping of the users stats. All stats are mapped to their
+            respective gamemodes.
         """
         if self._stats is None:
             self._parse()
 
         return self._stats
 
-    def get_combined_stats(self, platforms=True):
+    def get_combined_stats(self, platforms: bool = True) -> dict:
         """Gets combined stats for this user.
 
         Parameters
         ----------
         platforms: :class:`bool`
-            | ``True`` if the combined stats should be mapped to their respective region.
+            | ``True`` if the combined stats should be mapped to their
+            respective region.
             | ``False`` to return all stats combined across platforms.
-        
+
         Returns
         -------
         :class:`dict`
-            Mapping of the users stats combined. All stats are added together and
-            no longer sorted into their respective gamemodes.
+            Mapping of the users stats combined. All stats are added together
+            and no longer sorted into their respective gamemodes.
         """
         if platforms:
             if self._platform_specific_combined_stats is None:
                 self._construct_platform_specific_combined_stats()
-    
+
             return self._platform_specific_combined_stats
-        
+
         else:
             if self._combined_stats is None:
                 self._construct_combined_stats()
-            
+
             return self._combined_stats

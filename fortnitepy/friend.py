@@ -24,8 +24,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from .user import UserBase
+import datetime
+
+from typing import TYPE_CHECKING, List, Optional
+from aioxmpp import JID
+
+from .user import UserBase, ExternalAuth
 from .errors import PartyError, Forbidden, HTTPException
+from .presence import Presence
+
+if TYPE_CHECKING:
+    from .client import Client
+    from .party import ClientParty
+
+# Type defs
+Datetime = datetime.datetime
 
 
 class FriendBase(UserBase):
@@ -33,73 +46,79 @@ class FriendBase(UserBase):
     __slots__ = UserBase.__slots__ + \
                 ('_status', '_direction', '_favorite', '_created_at')
 
-    def __init__(self, client, data):
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
-        
-    def _update(self, data):
+
+    def _update(self, data: dict) -> None:
         super()._update(data)
         self._status = data['status']
         self._direction = data['direction']
         self._created_at = self.client.from_iso(data['created'])
 
     @property
-    def display_name(self):
+    def display_name(self) -> str:
         """:class:`str`: The friend's displayname"""
         return super().display_name
-    
+
     @property
-    def id(self):
+    def id(self) -> str:
         """:class:`str`: The friend's id"""
         return self._id
-    
+
     @property
-    def external_auths(self):
+    def external_auths(self) -> List[ExternalAuth]:
         """:class:`list`: List containing information about external auths.
         Might be empty if the friend does not have any external auths"""
         return self._external_auths
 
     @property
-    def jid(self):
+    def jid(self) -> JID:
         """:class:`aioxmpp.JID`: The jid of the friend."""
         return super().jid
 
     @property
-    def status(self):
+    def status(self) -> str:
         """:class:`str`: The friends status to the client. E.g. if the friend
         is friends with the bot it will be ``ACCEPTED``.
-        
+
         .. warning::
-        
+
             This is not the same as status from presence!
-        
+
         """
         return self._status
-    
+
     @property
-    def direction(self):
-        """:class:`str`: The direction of the friendship. ``INBOUND`` if the friend 
+    def direction(self) -> str:
+        """:class:`str`: The direction of the friendship. ``INBOUND`` if the friend
         added :class:`ClientUser` else ``OUTGOING``.
         """
         return self._direction
 
     @property
-    def inbound(self):
-        """:class:`bool`: ``True`` if this friend was the one to send the friend request else ``False``."""
+    def inbound(self) -> bool:
+        """:class:`bool`: ``True`` if this friend was the one to send the
+        friend request else ``False``.
+        """
         return self._direction == 'INBOUND'
 
     @property
-    def outgoing(self):
-        """:class:`bool`: ``True`` if the bot was the one to send the friend request else ``False``."""
+    def outgoing(self) -> bool:
+        """:class:`bool`: ``True`` if the bot was the one to send the friend
+        request else ``False``.
+        """
         return self._direction == 'OUTGOING'
 
     @property
-    def created_at(self):
-        """:class:`datetime.datetime`: The UTC time of when the friendship was created."""
+    def created_at(self) -> Datetime:
+        """:class:`datetime.datetime`: The UTC time of when the friendship was
+        created.
+        """
         return self._created_at
 
-    async def block(self):
+    async def block(self) -> None:
         """|coro|
-        
+
         Blocks this friend.
 
         Raises
@@ -109,7 +128,7 @@ class FriendBase(UserBase):
         """
         await self.client.block_user(self.id)
 
-    def get_raw(self):
+    def get_raw(self) -> dict:
         return {
             **(super().get_raw()),
             'status': self.status,
@@ -123,23 +142,24 @@ class Friend(FriendBase):
 
     __slots__ = FriendBase.__slots__ + ('_nickname', '_note', '_last_logout')
 
-    def __init__(self, client, data):
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
         self._last_logout = None
         self._nickname = None
         self._note = None
 
-    def __repr__(self):
-        return '<Friend id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
+    def __repr__(self) -> str:
+        return ('<Friend id={0.id!r} display_name={0.display_name!r} '
+                'jid={0.jid!r}'.format(self))
 
-    def _update(self, data):
+    def _update(self, data: dict) -> None:
         super()._update(data)
         self._favorite = data.get('favorite')
 
-    def _update_last_logout(self, dt):
+    def _update_last_logout(self, dt: Datetime) -> None:
         self._last_logout = dt
 
-    def _update_summary(self, data):
+    def _update_summary(self, data: dict) -> None:
         _alias = data['alias']
         self._nickname = _alias if _alias != '' else None
 
@@ -147,58 +167,60 @@ class Friend(FriendBase):
         self._note = _note if _note != '' else None
 
     @property
-    def display_name(self):
+    def display_name(self) -> str:
         """:class:`str`: The friends displayname"""
         return super().display_name
-    
+
     @property
-    def id(self):
+    def id(self) -> str:
         """:class:`str`: The friends id"""
         return self._id
-    
+
     @property
-    def favorite(self):
+    def favorite(self) -> bool:
         """:class:`bool`: ``True`` if the friend is favorited by :class:`ClientUser`
         else ``False``.
         """
         return self._favorite
 
     @property
-    def nickname(self):
-        """:class:`str`: The friend's nickname. ``None`` if no nickname is set for this friend."""
+    def nickname(self) -> Optional[str]:
+        """:class:`str`: The friend's nickname. ``None`` if no nickname is set
+        for this friend.
+        """
         return self._nickname
 
     @property
-    def note(self):
+    def note(self) -> Optional[str]:
         """:class:`str`: The friend's note. ``None`` if no note is set."""
         return self._note
-    
+
     @property
-    def external_auths(self):
+    def external_auths(self) -> List[ExternalAuth]:
         """:class:`list`: List containing information about external auths.
         Might be empty if the friend does not have any external auths
         """
         return self._external_auths
 
     @property
-    def last_presence(self):
+    def last_presence(self) -> Presence:
         """:class:`Presence`: The last presence retrieved by the
-        friend. Might be ``None`` if no presence has been 
+        friend. Might be ``None`` if no presence has been
         received by this friend yet.
         """
         return self.client.get_presence(self.id)
 
     @property
-    def last_logout(self):
-        """:class:`datetime.datetime`: The UTC time of the last time this friend logged off. 
-        ``None`` if this information is not available for this user (most likely cause the 
-        user has never logged on).
+    def last_logout(self) -> Optional[Datetime]:
+        """:class:`datetime.datetime`: The UTC time of the last time this
+        friend logged off. ``None`` if this information is not available for
+        this user (most likely cause the user has never logged on).
         """
         return self._last_logout
 
-    def is_online(self):
+    def is_online(self) -> bool:
         """Method to check if a user is currently online.
-        
+
         Returns
         -------
         :class:`bool`
@@ -209,10 +231,15 @@ class Friend(FriendBase):
             return False
         return pres.available
 
-    async def fetch_mutual_friends_count(self):
+    async def fetch_mutual_friends_count(self) -> int:
         """|coro|
-        
+
         Gets how many mutual friends the client and this friend have in common.
+
+        Returns
+        -------
+        :class:`int`
+            The number of friends you have common.
 
         Raises
         ------
@@ -224,11 +251,11 @@ class Friend(FriendBase):
             if friend['accountId'] == self.id:
                 return friend['mutual']
 
-    async def set_nickname(self, nickname):
+    async def set_nickname(self, nickname: str) -> None:
         """|coro|
-        
+
         Sets the nickname of this friend.
-        
+
         Parameters
         ----------
         nickname: :class:`str`
@@ -250,15 +277,16 @@ class Friend(FriendBase):
         try:
             await self.client.http.friends_set_nickname(self.id, nickname)
         except HTTPException as e:
-            if e.message_code in ('errors.com.epicgames.common.unsupported_media_type',
-                                  'errors.com.epicgames.validation.validation_failed'):
+            ignored = ('errors.com.epicgames.common.unsupported_media_type',
+                       'errors.com.epicgames.validation.validation_failed')
+            if e.message_code in ignored:
                 raise ValueError('Invalid nickname')
             e.reraise()
         self._nickname = nickname
 
-    async def remove_nickname(self):
+    async def remove_nickname(self) -> None:
         """|coro|
-        
+
         Removes the friend's nickname.
 
         Raises
@@ -269,9 +297,9 @@ class Friend(FriendBase):
         await self.client.http.friends_remove_nickname(self.id)
         self._nickname = None
 
-    async def set_note(self, note):
+    async def set_note(self, note: str) -> None:
         """|coro|
-        
+
         Pins a note to this friend.
 
         Parameters
@@ -294,15 +322,16 @@ class Friend(FriendBase):
         try:
             await self.client.http.friends_set_note(self.id, note)
         except HTTPException as e:
-            if e.message_code in ('errors.com.epicgames.common.unsupported_media_type',
-                                  'errors.com.epicgames.validation.validation_failed'):
+            ignored = ('errors.com.epicgames.common.unsupported_media_type',
+                       'errors.com.epicgames.validation.validation_failed')
+            if e.message_code in ignored:
                 raise ValueError('Invalid note')
             e.reraise()
         self._note = note
 
-    async def remove_note(self):
+    async def remove_note(self) -> None:
         """|coro|
-        
+
         Removes the friend's note.
 
         Raises
@@ -313,9 +342,9 @@ class Friend(FriendBase):
         await self.client.http.friends_remove_note(self.id)
         self._note = None
 
-    async def remove(self):
+    async def remove(self) -> None:
         """|coro|
-        
+
         Removes the friend from your friendlist.
 
         Raises
@@ -325,9 +354,9 @@ class Friend(FriendBase):
         """
         await self.client.remove_or_decline_friend(self.id)
 
-    async def send(self, content):
+    async def send(self, content: str) -> None:
         """|coro|
-        
+
         Sends a :class:`FriendMessage` to this friend.
 
         Parameters
@@ -337,11 +366,11 @@ class Friend(FriendBase):
         """
         await self.client.xmpp.send_friend_message(self.jid, content)
 
-    async def join_party(self):
+    async def join_party(self) -> 'ClientParty':
         """|coro|
-        
+
         Attempts to join this friends' party.
-        
+
         Raises
         ------
         PartyError
@@ -350,21 +379,26 @@ class Friend(FriendBase):
             The party you attempted to join was private.
         HTTPException
             Something else went wrong when trying to join the party.
+
+        Returns
+        -------
+        :class:`ClientParty`
+            The clients new party.
         """
         _pre = self.last_presence
         if _pre is None:
             raise PartyError('Could not join party. Reason: Party not found')
-        
+
         if _pre.party.private:
             raise Forbidden('Could not join party. Reason: Party is private')
-        
-        await _pre.party.join()
 
-    async def invite(self):
+        return await _pre.party.join()
+
+    async def invite(self) -> None:
         """|coro|
-        
+
         Invites this friend to your party.
-        
+
         Raises
         ------
         PartyError
@@ -382,20 +416,23 @@ class PendingFriend(FriendBase):
 
     __slots__ = FriendBase.__slots__
 
-    def __init__(self, client, data):
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
 
-    def __repr__(self):
-        return '<PendingFriend id={0.id!r} display_name={0.display_name!r} jid={0.jid!r}'.format(self)
+    def __repr__(self) -> str:
+        return ('<PendingFriend id={0.id!r} display_name={0.display_name!r} '
+                'jid={0.jid!r}'.format(self))
 
     @property
-    def created_at(self):
-        """:class:`datetime.datetime`: The UTC time of when the request was created"""
+    def created_at(self) -> Datetime:
+        """:class:`datetime.datetime`: The UTC time of when the request was
+        created
+        """
         return self._created_at
 
-    async def accept(self):
+    async def accept(self) -> Friend:
         """|coro|
-        
+
         Accepts this users' friend request.
 
         Raises
@@ -411,9 +448,9 @@ class PendingFriend(FriendBase):
         friend = await self.client.accept_friend(self.id)
         return friend
 
-    async def decline(self):
+    async def decline(self) -> None:
         """|coro|
-        
+
         Declines this users' friend request.
 
         Raises

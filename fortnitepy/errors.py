@@ -24,45 +24,66 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from aiohttp import ClientResponse
+
+
 class FortniteException(Exception):
     """Base exception for fortnitepy.
-    
-    This could in theory be caught to handle all exceptions thrown by this library.
+
+    This could in theory be caught to handle all exceptions thrown by this
+    library.
     """
     pass
 
+
 class PurchaseException(FortniteException):
-    """This exception is raised if the game could not be purchased on launch."""
+    """This exception is raised if the game could not be purchased on
+    launch.
+    """
+
 
 class AuthException(FortniteException):
     """This exception is raised when auth fails."""
     pass
 
+
 class EventError(FortniteException):
     """This exception is raised when something regarding events fails."""
     pass
 
+
 class XMPPError(FortniteException):
-    """This exception is raised when something regarding the XMPP service fails."""
+    """This exception is raised when something regarding the XMPP service
+    fails.
+    """
     pass
+
 
 class PartyError(FortniteException):
     """This exception is raised when something regarding parties fails."""
     pass
 
+
 class Forbidden(FortniteException):
-    """This exception is raised whenever you attempted a request that your account does
-    not have permission to do.
+    """This exception is raised whenever you attempted a request that your
+    account does not have permission to do.
     """
     pass
 
+
 class NotFound(FortniteException):
-    """This exception is raised when something was not found by fortnites services."""
+    """This exception is raised when something was not found by fortnites
+    services.
+    """
     pass
 
+
 class NoMoreItems(FortniteException):
-    """This exception is raised whenever an iterator does not have any more items."""
+    """This exception is raised whenever an iterator does not have any more
+    items.
+    """
     pass
+
 
 class ValidationFailure(FortniteException):
     """Represents a validation failure returned.
@@ -81,16 +102,17 @@ class ValidationFailure(FortniteException):
         The message variables received.
     """
 
-    def __init__(self, data):
+    def __init__(self, data: dict):
         self.field_name = data['fieldName']
         self.invalid_value = data['invalidValue']
         self.message = data['errorMessage']
         self.message_code = data['errorCode']
         self.message_vars = data['messageVars']
 
+
 class HTTPException(FortniteException):
     """This exception is raised when an error is received by Fortnite services.
-    
+
     Attributes
     ----------
     response: :class:`aiohttp.ClientResponse`
@@ -114,15 +136,15 @@ class HTTPException(FortniteException):
     intent: :class:`str`
         The prod this error was received from.
     validation_failures: List[:exc:`ValidationFailure`]
-        A list containing information about the validation failures. 
+        A list containing information about the validation failures.
         ``None`` if the error was not raised a validation issue.
     """
-    
-    def __init__(self, response, message):
+
+    def __init__(self, response: ClientResponse, message: dict) -> None:
         self.response = response
         self.status = response.status
         self.raw = message
-        
+
         _err = message if isinstance(message, dict) else {}
         self.message = _err.get('errorMessage')
         self.message_code = _err.get('errorCode')
@@ -130,10 +152,11 @@ class HTTPException(FortniteException):
         self.code = _err.get('numericErrorCode')
         self.originating_service = _err.get('originatingService')
         self.intent = _err.get('intent')
-        
+
         validation_failures_data = _err.get('validationFailures')
         if validation_failures_data is not None:
-            self.validation_failures = [ValidationFailure(d) for d in validation_failures_data.values()]
+            self.validation_failures = [ValidationFailure(d) for d
+                                        in validation_failures_data.values()]
         else:
             self.validation_failures = None
 
@@ -144,5 +167,5 @@ class HTTPException(FortniteException):
 
         super().__init__(self.text)
 
-    def reraise(self):
+    def reraise(self) -> None:
         raise HTTPException(self.response, self.raw) from None

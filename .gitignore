@@ -111,3 +111,4 @@ output.txt
 todo.txt
 
 examples/integrations/terax_api.py
+device_auths.json

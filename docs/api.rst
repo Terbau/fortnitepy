@@ -3,6 +3,29 @@
 API Reference
 =============
 
+.. _authentication:
+
+Authentication
+--------------
+
+As of v1.4.0, you now have to specify which authentication method you want to 
+use for login. The one used up until this version was :class:`EmailAndPasswordAuth`. However,
+after that authentication method recently has started to require captcha to login in quite a lot
+of cases, this is no longer the preferred method in the long run.
+
+The preferred method in the long run is now :class:`DeviceAuth`. To set up and handle this type
+of auth, you should use :class:`AdvancedAuth`. `This example <https://fortnite-api.com/>`_ demonstrates
+how you can set up this auth with file storage for the preferred login which is :class:`DeviceAuth`.
+
+.. autoclass:: EmailAndPasswordAuth
+
+.. autoclass:: ExchangeCodeAuth
+
+.. autoclass:: DeviceAuth
+
+.. autoclass:: AdvancedAuth
+
+
 Client
 ------
 
@@ -136,7 +159,16 @@ this decorator if you are in a subclass of :class:`Client`.
 
 .. function:: event_restart()
 
-	This event is called when the client has successfully restarted. 
+	This event is called when the client has successfully restarted.
+	
+.. function:: event_device_auth_generate(details, email)
+
+	This event is called whenever new device authentication details are generated.
+
+	:param details: A dictionary containing the keys ``device_id``, ``account_id`` and ``secret``.
+	:type details: :class:`dict`
+	:param email: The present when the details were generated. Will be ``None`` if no email was passed to :class:`AdvancedAuth`.
+	:type email: :class:`str`
 
 .. function:: event_auth_refresh()
 

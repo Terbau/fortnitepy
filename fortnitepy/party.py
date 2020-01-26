@@ -24,42 +24,52 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import datetime
 import json
 import asyncio
 import random
 import aioxmpp
 import re
 import functools
+import datetime
+
+from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
+                    Awaitable)
 
 from .errors import FortniteException, PartyError, Forbidden, HTTPException
 from .user import User
-from .friend import Friend
-from .enums import PartyPrivacy, DefaultCharactersChapter2
+from .enums import PartyPrivacy, DefaultCharactersChapter2, Region
 
-def get_random_default_character():
+if TYPE_CHECKING:
+    from .client import Client
+
+
+def get_random_default_character() -> str:
     return (random.choice(list(DefaultCharactersChapter2))).name
 
-def get_random_hex_color():
-    r = lambda: random.randint(0, 255)
+
+def get_random_hex_color() -> str:
+    def r():
+        return random.randint(0, 255)
+
     return '#{:02x}{:02x}{:02x}'.format(r(), r(), r())
 
 
 class MaybeLock:
-    def __init__(self, lock, loop=None):
+    def __init__(self, lock: asyncio.Lock,
+                 loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         self.lock = lock
         self.loop = loop or asyncio.get_event_loop()
         self._cleanup = False
 
-    async def _acquire(self):
+    async def _acquire(self) -> None:
         await self.lock.acquire()
         self._cleanup = True
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'MaybeLock':
         self._task = self.loop.create_task(self._acquire())
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args: list) -> None:
         if not self._task.cancelled():
             self._task.cancel()
 
@@ -68,14 +78,15 @@ class MaybeLock:
 
 
 class MetaBase:
-    def __init__(self):
+    def __init__(self) -> None:
         self.schema = {}
 
-    def set_prop(self, prop, value, *, raw=False):
+    def set_prop(self, prop: str, value: Any, *,
+                 raw: bool = False) -> Any:
         if raw:
             self.schema[prop] = str(value)
             return self.schema[prop]
-        
+
         _t = prop[-1:]
         if _t == 'j':
             self.schema[prop] = json.dumps(value)
@@ -84,15 +95,16 @@ class MetaBase:
         else:
             self.schema[prop] = str(value)
         return self.schema[prop]
-    
-    def get_prop(self, prop, *, raw=False):
+
+    def get_prop(self, prop: str, *, raw: bool = False) -> Any:
         if raw:
             self.schema.get(prop)
-        
+
         _t = prop[-1:]
         _v = self.schema.get(prop)
         if _t == 'b':
-            return False if _v is None or (isinstance(_v, str) and _v.lower() == 'false') else True
+            return not (_v is None or (isinstance(_v, str)
+                        and _v.lower() == 'false'))
         elif _t == 'j':
             return {} if _v is None else json.loads(_v)
         elif _t == 'U':
@@ -100,14 +112,15 @@ class MetaBase:
         else:
             return '' if _v is None else str(_v)
 
-    def update(self, schema, *, raw=False):
-        if schema is None: 
+    def update(self, schema: Optional[dict] = None, *,
+               raw: bool = False) -> None:
+        if schema is None:
             return
 
         for prop, value in schema.items():
             self.set_prop(prop, value, raw=raw)
-    
-    def remove(self, schema):
+
+    def remove(self, schema: Union[List[str], Dict[str, Any]]):
         for prop in schema:
             try:
                 del self.schema[prop]
@@ -116,7 +129,8 @@ class MetaBase:
 
 
 class PartyMemberMeta(MetaBase):
-    def __init__(self, member, meta=None):
+    def __init__(self, member: 'PartyMemberBase',
+                 meta: Optional[dict] = None) -> None:
         super().__init__()
         self.member = member
 
@@ -126,8 +140,8 @@ class PartyMemberMeta(MetaBase):
             'CampaignHero_j': json.dumps({
                 'CampaignHero': {
                     'heroItemInstanceId': '',
-                    'heroType': "FortHeroType'/Game/Athena/Heroes/{0}.{0}'" \
-                                "".format(self.def_character),
+                    'heroType': ("FortHeroType'/Game/Athena/Heroes/{0}.{0}'"
+                                 "".format(self.def_character)),
                 },
             }),
             'MatchmakingLevel_U': '0',
@@ -163,13 +177,15 @@ class PartyMemberMeta(MetaBase):
             }),
             'AthenaCosmeticLoadout_j': json.dumps({
                 'AthenaCosmeticLoadout': {
-                    'characterDef': "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/{0}.{0}'" \
-                                    "".format(self.def_character),
+                    'characterDef': ("AthenaCharacterItemDefinition'/Game/"
+                                     "Athena/Items/Cosmetics/Characters/"
+                                     "{0}.{0}'".format(self.def_character)),
                     'characterEKey': '',
                     'backpackDef': 'None',
                     'backpackEKey': '',
-                    'pickaxeDef': "AthenaPickaxeItemDefinition'/Game/Athena/Items/Cosmetics/" \
-                                  "Pickaxes/DefaultPickaxe.DefaultPickaxe'",
+                    'pickaxeDef': ("AthenaPickaxeItemDefinition'/Game/Athena/"
+                                   "Items/Cosmetics/Pickaxes/"
+                                   "DefaultPickaxe.DefaultPickaxe'"),
                     'pickaxeEKey': '',
                     'contrailDef': 'None',
                     'contrailEKey': '',
@@ -208,124 +224,138 @@ class PartyMemberMeta(MetaBase):
             self.update(meta, raw=True)
 
         client = member.client
-        if member.id == client.user.id and isinstance(member, ClientPartyMember):
+        if member.id == client.user.id and isinstance(member,
+                                                      ClientPartyMember):
             asyncio.ensure_future(
-                member._edit(*client.default_party_member_config, from_default=True), 
+                member._edit(*client.default_party_member_config,
+                             from_default=True),
                 loop=client.loop
             )
 
     @property
-    def ready(self):
-        base = self.get_prop('GameReadiness_s')
-        return True if base == "Ready" else False
+    def ready(self) -> bool:
+        return self.get_prop('GameReadiness_s')
 
     @property
-    def input(self):
+    def input(self) -> str:
         return self.get_prop('CurrentInputType_s')
 
     @property
-    def assisted_challenge(self):
+    def assisted_challenge(self) -> str:
         base = self.get_prop('AssistedChallengeInfo_j')
         return base['AssistedChallengeInfo']['questItemDef']
 
     @property
-    def outfit(self):
+    def outfit(self) -> str:
         base = self.get_prop('AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['characterDef']
 
     @property
-    def backpack(self):
+    def backpack(self) -> str:
         base = self.get_prop('AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['backpackDef']
 
     @property
-    def pickaxe(self):
+    def pickaxe(self) -> str:
         base = self.get_prop('AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['pickaxeDef']
 
     @property
-    def contrail(self):
+    def contrail(self) -> str:
         base = self.get_prop('AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['contrailDef']
 
     @property
-    def variants(self):
+    def variants(self) -> List[Dict[str, str]]:
         base = self.get_prop('AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['variants']
 
     @property
-    def outfit_variants(self):
+    def outfit_variants(self) -> List[Dict[str, str]]:
         return [x for x in self.variants if x['item'] == 'AthenaCharacter']
 
     @property
-    def backpack_variants(self):
+    def backpack_variants(self) -> List[Dict[str, str]]:
         return [x for x in self.variants if x['item'] == 'AthenaBackpack']
 
     @property
-    def pickaxe_variants(self):
+    def pickaxe_variants(self) -> List[Dict[str, str]]:
         return [x for x in self.variants if x['item'] == 'AthenaPickaxe']
 
     @property
-    def contrail_variants(self):
+    def contrail_variants(self) -> List[Dict[str, str]]:
         return [x for x in self.variants if x['item'] == 'AthenaContrail']
 
     @property
-    def scratchpad(self):
+    def scratchpad(self) -> list:
         base = self.get_prop('AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['scratchpad']
 
     @property
-    def emote(self):
+    def emote(self) -> str:
         base = self.get_prop('FrontendEmote_j')
         return base['FrontendEmote']['emoteItemDef']
 
     @property
-    def banner(self):
+    def banner(self) -> Tuple[str, str, int]:
         base = self.get_prop('AthenaBannerInfo_j')
         banner_info = base['AthenaBannerInfo']
 
-        return (banner_info['bannerIconId'], banner_info['bannerColorId'], banner_info['seasonLevel'])
+        return (banner_info['bannerIconId'],
+                banner_info['bannerColorId'],
+                banner_info['seasonLevel'])
 
     @property
-    def battlepass_info(self):
+    def battlepass_info(self) -> Tuple[bool, int, int, int]:
         base = self.get_prop('BattlePassInfo_j')
         bp_info = base['BattlePassInfo']
 
-        return (bp_info['bHasPurchasedPass'], bp_info['passLevel'], bp_info['selfBoostXp'], bp_info['friendBoostXp'])
-        
+        return (bp_info['bHasPurchasedPass'],
+                bp_info['passLevel'],
+                bp_info['selfBoostXp'],
+                bp_info['friendBoostXp'])
+
     @property
-    def platform(self):
+    def platform(self) -> str:
         base = self.get_prop('Platform_j')
         return base['Platform']['platformStr']
 
-    def set_readiness(self, val):
+    def set_readiness(self, val: str) -> Dict[str, Any]:
         return {'GameReadiness_s': self.set_prop('GameReadiness_s', val)}
 
-    def set_emote(self, emote=None, *, emote_ekey=None, section=None):
+    def set_emote(self, emote: Optional[str] = None, *,
+                  emote_ekey: Optional[str] = None,
+                  section: Optional[int] = None) -> Dict[str, Any]:
         data = (self.get_prop('FrontendEmote_j'))['FrontendEmote']
-        
+
         if emote is not None:
             data['emoteItemDef'] = emote
         if emote_ekey is not None:
             data['emoteItemDefEncryptionKey'] = emote_ekey
         if section is not None:
             data['emoteSection'] = section
-        
+
         final = {'FrontendEmote': data}
         return {'FrontendEmote_j': self.set_prop('FrontendEmote_j', final)}
 
-    def set_assisted_challenge(self, quest=None, *, completed=None):
-        data = (self.get_prop('AssistedChallengeInfo_j'))['AssistedChallenge_j']
+    def set_assisted_challenge(self, quest: Optional[str] = None, *,
+                               completed: Optional[int] = None
+                               ) -> Dict[str, Any]:
+        prop = self.get_prop('AssistedChallengeInfo_j')
+        data = prop['AssistedChallenge_j']
 
         if quest is not None:
             data['questItemDef'] = quest
         if completed is not None:
             data['objectivesCompleted'] = completed
-        
-        final = {'AssistedChallengeInfo': data}
-        return {'AssistedChallengeInfo_j': self.set_prop('AssistedChallengeInfo_j', final)}
 
-    def set_banner(self, banner_icon=None, *, banner_color=None, season_level=None):
+        final = {'AssistedChallengeInfo': data}
+        new_prop = self.set_prop('AssistedChallengeInfo_j', final)
+        return {'AssistedChallengeInfo_j': new_prop}
+
+    def set_banner(self, banner_icon: Optional[str] = None, *,
+                   banner_color: Optional[str] = None,
+                   season_level: Optional[int] = None) -> Dict[str, Any]:
         data = (self.get_prop('AthenaBannerInfo_j'))['AthenaBannerInfo']
 
         if banner_icon is not None:
@@ -334,12 +364,16 @@ class PartyMemberMeta(MetaBase):
             data['bannerColorId'] = banner_color
         if season_level is not None:
             data['seasonLevel'] = season_level
-        
-        final = {'AthenaBannerInfo': data}
-        return {'AthenaBannerInfo_j': self.set_prop('AthenaBannerInfo_j', final)}
 
-    def set_battlepass_info(self, has_purchased=None, level=None, 
-                            self_boost_xp=None, friend_boost_xp=None):
+        final = {'AthenaBannerInfo': data}
+        new_prop = self.set_prop('AthenaBannerInfo_j', final)
+        return {'AthenaBannerInfo_j': new_prop}
+
+    def set_battlepass_info(self, has_purchased: Optional[bool] = None,
+                            level: Optional[int] = None,
+                            self_boost_xp: Optional[int] = None,
+                            friend_boost_xp: Optional[int] = None
+                            ) -> Dict[str, Any]:
         data = (self.get_prop('BattlePassInfo_j'))['BattlePassInfo']
 
         if has_purchased is not None:
@@ -350,17 +384,24 @@ class PartyMemberMeta(MetaBase):
             data['selfBoostXp'] = self_boost_xp
         if friend_boost_xp is not None:
             data['friendBoostXp'] = friend_boost_xp
-        
+
         final = {'BattlePassInfo': data}
         return {'BattlePassInfo_j': self.set_prop('BattlePassInfo_j', final)}
 
-    def set_cosmetic_loadout(self, *, character=None, character_ekey=None, 
-                             backpack=None, backpack_ekey=None, 
-                             pickaxe=None, pickaxe_ekey=None,
-                             contrail=None, contrail_ekey=None, 
-                             scratchpad=None, variants=None):
-        # add contrails here
-        data = (self.get_prop('AthenaCosmeticLoadout_j'))['AthenaCosmeticLoadout']
+    def set_cosmetic_loadout(self, *,
+                             character: Optional[str] = None,
+                             character_ekey: Optional[str] = None,
+                             backpack: Optional[str] = None,
+                             backpack_ekey: Optional[str] = None,
+                             pickaxe: Optional[str] = None,
+                             pickaxe_ekey: Optional[str] = None,
+                             contrail: Optional[str] = None,
+                             contrail_ekey: Optional[str] = None,
+                             scratchpad: Optional[list] = None,
+                             variants: Optional[List[Dict[str, str]]] = None
+                             ) -> Dict[str, Any]:
+        prop = self.get_prop('AthenaCosmeticLoadout_j')
+        data = prop['AthenaCosmeticLoadout']
 
         if character is not None:
             data['characterDef'] = character
@@ -382,15 +423,24 @@ class PartyMemberMeta(MetaBase):
             data['scratchpad'] = scratchpad
         if variants is not None:
             data['variants'] = variants
-        
+
         final = {'AthenaCosmeticLoadout': data}
-        return {'AthenaCosmeticLoadout_j': self.set_prop('AthenaCosmeticLoadout_j', final)}
+        new_prop = self.set_prop('AthenaCosmeticLoadout_j', final)
+        return {'AthenaCosmeticLoadout_j': new_prop}
 
 
 class PartyMeta(MetaBase):
-    def __init__(self, party, meta=None):
+    def __init__(self, party: 'PartyBase',
+                 meta: Optional[dict] = None) -> None:
         super().__init__()
         self.party = party
+
+        privacy = self.party.config['privacy']
+        privacy_settings = {
+            'partyType': privacy['partyType'],
+            'partyInviteRestriction': privacy['inviteRestriction'],
+            'bOnlyLeaderFriendsCanJoin': privacy['onlyLeaderFriendsCanJoin'],
+        }
 
         self.schema = {
             'PrimaryGameSessionId_s': '',
@@ -423,11 +473,7 @@ class PartyMeta(MetaBase):
             'GameSessionKey_s': '',
             'RawSquadAssignments_j': '',
             'PrivacySettings_j': json.dumps({
-                'PrivacySettings': {
-                    'partyType': self.party.config['privacy']['partyType'],
-                    'partyInviteRestriction': self.party.config['privacy']['inviteRestriction'],
-                    'bOnlyLeaderFriendsCanJoin': self.party.config['privacy']['onlyLeaderFriendsCanJoin'],
-                },
+                'PrivacySettings': privacy_settings,
             }),
             'PlatformSessions_j': json.dumps({
                 'PlatformSessions': [],
@@ -436,38 +482,46 @@ class PartyMeta(MetaBase):
 
         if meta is not None:
             self.update(meta, raw=True)
-    
+
     @property
-    def playlist_info(self):
+    def playlist_info(self) -> Tuple[str]:
         base = self.get_prop('PlaylistData_j')
         info = base['PlaylistData']
 
-        return (info['playlistName'], info['tournamentId'], info['eventWindowId'], info['regionId'])
+        return (info['playlistName'],
+                info['tournamentId'],
+                info['eventWindowId'],
+                info['regionId'])
 
     @property
-    def squad_fill(self):
+    def squad_fill(self) -> bool:
         return self.get_prop('AthenaSquadFill_b')
 
     @property
-    def privacy(self):
+    def privacy(self) -> Optional[PartyPrivacy]:
         curr_priv = (self.get_prop('PrivacySettings_j'))['PrivacySettings']
 
         for privacy in PartyPrivacy:
             if curr_priv['partyType'] != privacy.value['partyType']:
                 continue
-            
+
             try:
-                if curr_priv['partyInviteRestriction'] != privacy.value['partyInviteRestriction']:
+                if (curr_priv['partyInviteRestriction']
+                        != privacy.value['partyInviteRestriction']):
                     continue
 
-                if curr_priv['bOnlyLeaderFriendsCanJoin'] != privacy.value['bOnlyLeaderFriendsCanJoin']:
+                if (curr_priv['bOnlyLeaderFriendsCanJoin']
+                        != privacy.value['bOnlyLeaderFriendsCanJoin']):
                     continue
             except KeyError:
                 pass
 
             return privacy
 
-    def set_playlist(self, playlist=None, *, tournament=None, event_window=None, region=None):
+    def set_playlist(self, playlist: Optional[str] = None, *,
+                     tournament: Optional[str] = None,
+                     event_window: Optional[str] = None,
+                     region: Optional[Region] = None) -> Dict[str, Any]:
         data = (self.get_prop('PlaylistData_j'))['PlaylistData']
 
         if playlist is not None:
@@ -478,33 +532,37 @@ class PartyMeta(MetaBase):
             data['eventWindowId'] = event_window
         if region is not None:
             data['regionId'] = region
-        
+
         final = {'PlaylistData': data}
         return {'PlaylistData_j': self.set_prop('PlaylistData_j', final)}
 
-    def set_custom_key(self, key):
+    def set_custom_key(self, key: str) -> Dict[str, Any]:
         return {'CustomMatchKey_s': self.set_prop('CustomMatchKey_s', key)}
 
-    def set_fill(self, val):
-        return {'AthenaSquadFill_b': self.set_prop('AthenaSquadFill_b', (str(val)).lower())}
+    def set_fill(self, val: str) -> Dict[str, Any]:
+        prop = self.set_prop('AthenaSquadFill_b', (str(val)).lower())
+        return {'AthenaSquadFill_b': prop}
 
-    def set_privacy(self, privacy):
+    def set_privacy(self, privacy: dict) -> Tuple[dict, list]:
         updated = {}
         deleted = []
 
         p = self.get_prop('PrivacySettings_j')
         if p:
+            _priv = privacy
+            new_privacy = {
+                **p['PrivacySettings'],
+                'partyType': _priv['partyType'],
+                'bOnlyLeaderFriendsCanJoin': _priv['onlyLeaderFriendsCanJoin'],
+                'partyInviteRestriction': _priv['inviteRestriction'],
+            }
+
             updated['PrivacySettings_j'] = self.set_prop('PrivacySettings_j', {
-                'PrivacySettings': {
-                    **p['PrivacySettings'],
-                    'partyType': privacy['partyType'],
-                    'bOnlyLeaderFriendsCanJoin': privacy['onlyLeaderFriendsCanJoin'],
-                    'partyInviteRestriction': privacy['inviteRestriction'],
-                }
+                'PrivacySettings': new_privacy
             })
-        
+
         updated['urn:epic:cfg:presence-perm_s'] = self.set_prop(
-            'urn:epic:cfg:presence-perm_s', 
+            'urn:epic:cfg:presence-perm_s',
             privacy['presencePermission'],
         )
 
@@ -525,10 +583,10 @@ class PartyMeta(MetaBase):
             updated['urn:epic:cfg:not-accepting-members-reason_i'] = 7
         else:
             deleted.append('urn:epic:cfg:not-accepting-members-reason_i')
-        
+
         return (updated, deleted)
-    
-    def refresh_squad_assignments(self):
+
+    def refresh_squad_assignments(self) -> Dict[str, Any]:
         assignments = []
 
         i = 0
@@ -544,14 +602,16 @@ class PartyMeta(MetaBase):
                     'memberId': member.id,
                     'absoluteMemberIdx': i,
                 })
-        
+
         return self.set_prop('RawSquadAssignments_j', {
             'RawSquadAssignments': assignments
-        })   
+        })
 
 
 class PartyMemberBase(User):
-    def __init__(self, client, party, data):
+    def __init__(self, client: 'Client',
+                 party: 'PartyBase',
+                 data: str) -> None:
         super().__init__(client=client, data=data)
 
         self._party = party
@@ -561,32 +621,39 @@ class PartyMemberBase(User):
         self._update(data)
 
     @property
-    def party(self):
-        """Union[:class:`Party`, :class:`ClientParty`]: The party this member is a part of."""
+    def party(self) -> 'PartyBase':
+        """Union[:class:`Party`, :class:`ClientParty`]: The party this member
+        is a part of.
+        """
         return self._party
-    
+
     @property
-    def joined_at(self):
-        """:class:`datetime.datetime`: The UTC time of when this member joined its party."""
+    def joined_at(self) -> datetime.datetime:
+        """:class:`datetime.datetime`: The UTC time of when this member joined
+        its party.
+        """
         return self._joined_at
 
     @property
-    def leader(self):
-        """:class:`bool`: Returns ``True`` if member is the leader else ``False``."""
+    def leader(self) -> bool:
+        """:class:`bool`: Returns ``True`` if member is the leader else
+        ``False``.
+        """
         return True if self.role else False
 
+    # TODO: Make check for sitting out
     @property
-    def ready(self):
+    def ready(self) -> bool:
         """:class:`bool`: ``True`` if this member is ready else ``False``."""
-        return self.meta.ready
-    
+        return self.meta.ready == "Ready"
+
     @property
-    def input(self):
+    def input(self) -> str:
         """:class:`str`: The input type this user is currently using."""
         return self.meta.input
 
     @property
-    def assisted_challenge(self):
+    def assisted_challenge(self) -> str:
         """:class:`str`: The current assisted challenge chosen by this member.
         ``None`` if no assisted challenge is set.
         """
@@ -597,8 +664,10 @@ class PartyMemberBase(User):
             return result[1]
 
     @property
-    def outfit(self):
-        """:class:`str`: The CID of the outfit this user currently has equipped."""
+    def outfit(self) -> str:
+        """:class:`str`: The CID of the outfit this user currently has
+        equipped.
+        """
         asset = self.meta.outfit
         result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
@@ -606,8 +675,8 @@ class PartyMemberBase(User):
             return result[1]
 
     @property
-    def backpack(self):
-        """:class:`str`: The BID of the backpack this member currently has equipped. 
+    def backpack(self) -> str:
+        """:class:`str`: The BID of the backpack this member currently has equipped.
         ``None`` if no backpack is equipped.
         """
         asset = self.meta.backpack
@@ -618,8 +687,8 @@ class PartyMemberBase(User):
                 return result[1]
 
     @property
-    def pet(self):
-        """:class:`str`: The ID of the pet this member currently has equipped. 
+    def pet(self) -> str:
+        """:class:`str`: The ID of the pet this member currently has equipped.
         ``None`` if no pet is equipped.
         """
         asset = self.meta.backpack
@@ -628,10 +697,12 @@ class PartyMemberBase(User):
 
             if result is not None and result[1] != 'None':
                 return result[1]
-    
+
     @property
-    def pickaxe(self):
-        """:class:`str`: The pickaxe id of the pickaxe this member currently has equipped."""
+    def pickaxe(self) -> str:
+        """:class:`str`: The pickaxe id of the pickaxe this member currently
+        has equipped.
+        """
         asset = self.meta.pickaxe
         result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
@@ -639,8 +710,10 @@ class PartyMemberBase(User):
             return result[1]
 
     @property
-    def contrail(self):
-        """:class:`str`: The contrail id of the pickaxe this member currently has equipped."""
+    def contrail(self) -> str:
+        """:class:`str`: The contrail id of the pickaxe this member currently
+        has equipped.
+        """
         asset = self.meta.contrail
         result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
@@ -648,61 +721,65 @@ class PartyMemberBase(User):
             return result[1]
 
     @property
-    def outfit_variants(self):
-        """:class:`list`: A list containing the raw variants data for the currently equipped
-        outfit.
-        
+    def outfit_variants(self) -> List[Dict[str, str]]:
+        """:class:`list`: A list containing the raw variants data for the
+        currently equipped outfit.
+
         .. warning::
-            
-            Variants doesn't seem to follow much logic. Therefore this returns the raw
-            variants data received from fortnite's service. This can be directly passed with the
-            ``variants`` keyword to :meth:`ClientPartyMember.set_outfit()`.
+
+            Variants doesn't seem to follow much logic. Therefore this returns
+            the raw variants data received from fortnite's service. This can
+            be directly passed with the ``variants`` keyword to
+            :meth:`ClientPartyMember.set_outfit()`.
         """
         return self.meta.outfit_variants
 
     @property
-    def backpack_variants(self):
-        """:class:`list`: A list containing the raw variants data for the currently equipped
-        backpack.
-        
+    def backpack_variants(self) -> List[Dict[str, str]]:
+        """:class:`list`: A list containing the raw variants data for the
+        currently equipped backpack.
+
         .. warning::
-            
-            Variants doesn't seem to follow much logic. Therefore this returns the raw
-            variants data received from fortnite's service. This can be directly passed with the
-            ``variants`` keyword to :meth:`ClientPartyMember.set_backpack()`.
+
+            Variants doesn't seem to follow much logic. Therefore this returns
+            the raw variants data received from fortnite's service. This can
+            be directly passed with the ``variants`` keyword to
+            :meth:`ClientPartyMember.set_backpack()`.
         """
         return self.meta.backpack_variants
 
     @property
-    def pickaxe_variants(self):
-        """:class:`list`: A list containing the raw variants data for the currently equipped
-        pickaxe.
-        
+    def pickaxe_variants(self) -> List[Dict[str, str]]:
+        """:class:`list`: A list containing the raw variants data for the
+        currently equipped pickaxe.
+
         .. warning::
-            
-            Variants doesn't seem to follow much logic. Therefore this returns the raw
-            variants data received from fortnite's service. This can be directly passed with the
-            ``variants`` keyword to :meth:`ClientPartyMember.set_pickaxe()`.
+
+            Variants doesn't seem to follow much logic. Therefore this returns
+            the raw variants data received from fortnite's service. This can
+            be directly passed with the ``variants`` keyword to
+            :meth:`ClientPartyMember.set_pickaxe()`.
         """
         return self.meta.pickaxe_variants
 
     @property
-    def contrail_variants(self):
-        """:class:`list`: A list containing the raw variants data for the currently equipped
-        contrail.
-        
+    def contrail_variants(self) -> List[Dict[str, str]]:
+        """:class:`list`: A list containing the raw variants data for the
+        currently equipped contrail.
+
         .. warning::
-            
-            Variants doesn't seem to follow much logic. Therefore this returns the raw
-            variants data received from fortnite's service. This can be directly passed with the
-            ``variants`` keyword to :meth:`ClientPartyMember.set_contrail()`.
+
+            Variants doesn't seem to follow much logic. Therefore this returns
+            the raw variants data received from fortnite's service. This can
+            be directly passed with the ``variants`` keyword to
+            :meth:`ClientPartyMember.set_contrail()`.
         """
         return self.meta.contrail_variants
 
     @property
-    def emote(self):
-        """:class:`str`: The EID of the emote this member is currenyly playing.
-        ``None`` if no emote is currently playing.
+    def emote(self) -> Optional[str]:
+        """Optional[:class:`str`]: The EID of the emote this member is
+        currently playing. ``None`` if no emote is currently playing.
         """
         asset = self.meta.emote
         if '/emoji/' not in asset.lower():
@@ -712,9 +789,9 @@ class PartyMemberBase(User):
                 return result[1]
 
     @property
-    def emoji(self):
-        """:class:`str`: The ID of the emoji this member is currenyly playing.
-        ``None`` if no emoji is currently playing.
+    def emoji(self) -> Optional[str]:
+        """Optional[:class:`str`]: The ID of the emoji this member is
+        currently playing. ``None`` if no emoji is currently playing.
         """
         asset = self.meta.emote
         if '/emoji/' in asset.lower():
@@ -724,9 +801,10 @@ class PartyMemberBase(User):
                 return result[1]
 
     @property
-    def banner(self):
-        """:class:`tuple`: A tuple consisting of the icon id, color id and the season level.
-        
+    def banner(self) -> Tuple[str, str, int]:
+        """:class:`tuple`: A tuple consisting of the icon id, color id and the
+        season level.
+
         Example output: ::
 
             ('standardbanner15', 'defaultcolor15', 50)
@@ -734,48 +812,52 @@ class PartyMemberBase(User):
         return self.meta.banner
 
     @property
-    def battlepass_info(self):
-        """:class:`tuple`: A tuple consisting of has purchased, battlepass level, self boost xp, friends boost xp.
-        
+    def battlepass_info(self) -> Tuple[bool, int, int, int]:
+        """:class:`tuple`: A tuple consisting of has purchased, battlepass
+        level, self boost xp, friends boost xp.
+
         Example output: ::
-        
-            (True, 30, 80, 70)    
+
+            (True, 30, 80, 70)
         """
         return self.meta.battlepass_info
-    
+
     @property
-    def platform(self):
+    def platform(self) -> str:
         """:class:`str`: The platform this user currently uses."""
         return self.meta.platform
 
-    def _update(self, data):
+    def _update(self, data: dict) -> None:
         super()._update(data)
         self.role = data.get('role')
         self.revision = data.get('revision', 0)
         self.connections = data.get('connections', [])
 
-    def update(self, data):
+    def update(self, data: dict) -> None:
         if data['revision'] > self.revision:
             self.revision = data['revision']
         self.meta.update(data['member_state_updated'], raw=True)
         self.meta.remove(data['member_state_removed'])
 
-    def update_role(self, role):
+    def update_role(self, role: str) -> None:
         self.role = role
 
     @staticmethod
-    def create_variants(item="AthenaCharacter", *, particle_config='Emissive', **kwargs):
+    def create_variants(item: str = "AthenaCharacter", *,
+                        particle_config: str = 'Emissive',
+                        **kwargs: Any) -> List[Dict[str, str]]:
         """Creates the variants list by the variants you set.
 
         .. warning::
 
-            This function is built upon data received from only some of the available outfits
-            with variants. There is little logic behind the variants function therefore there
-            might be some unexpected issues with this function. Please report such issues by
-            creating an issue on the issue tracker or by reporting it to me on discord.
-        
+            This function is built upon data received from only some of the
+            available outfits with variants. There is little logic behind the
+            variants function therefore there might be some unexpected issues
+            with this function. Please report such issues by creating an issue
+            on the issue tracker or by reporting it to me on discord.
+
         Example usage: ::
-        
+
             # set the outfit to soccer skin with Norwegian jersey and
             # the jersey number set to 99 (max number).
             async def set_soccer_skin():
@@ -791,14 +873,14 @@ class PartyMemberBase(User):
                     asset='CID_149_Athena_Commando_F_SoccerGirlB',
                     variants=variants
                 )
-        
+
         Parameters
         ----------
         item: :class:`str`
             The variant item type. This defaults to ``AthenaCharacter`` which
             is what you want to use if you are changing skin variants.
         particle_config: :class:`str`
-            The type of particle you want to use. The available types 
+            The type of particle you want to use. The available types
             are ``Emissive`` (default), ``Mat`` and ``Particle``.
         pattern: Optional[:class:`int`]
             The pattern number you want to use.
@@ -807,8 +889,8 @@ class PartyMemberBase(User):
         clothing_color: Optional[:class:`int`]
             The clothing color you want to use.
         jersey_color: Optional[:class:`str`]
-            The jersey color you want to use. For soccer skins this is the country
-            you want the jersey to represent.
+            The jersey color you want to use. For soccer skins this is the
+            country you want the jersey to represent.
         parts: Optional[:class:`int`]
             The parts number you want to use.
         progressive: Optional[:class:`int`]
@@ -820,7 +902,8 @@ class PartyMemberBase(User):
         emissive: Optional[:class:`int`]
             The emissive number you want to use.
         profile_banner: Optional[:class:`str`]
-            The profile banner to use. The value should almost always be ``ProfileBanner``.
+            The profile banner to use. The value should almost always be
+            ``ProfileBanner``.
 
         Returns
         -------
@@ -844,7 +927,8 @@ class PartyMemberBase(User):
         for channel, value in kwargs.items():
             v = {
                 'item': item,
-                'channel': ''.join([x.capitalize() for x in channel.split('_')])
+                'channel': ''.join([x.capitalize()
+                                    for x in channel.split('_')])
             }
 
             if channel == 'particle':
@@ -859,23 +943,26 @@ class PartyMemberBase(User):
 
 class PartyMember(PartyMemberBase):
     """Represents a party member.
-    
+
     Attributes
     ----------
     client: :class:`Client`
         The client.
     """
 
-    def __init__(self, client, party, data):
+    def __init__(self, client: 'Client',
+                 party: 'PartyBase',
+                 data: dict) -> None:
         super().__init__(client, party, data)
 
-    def __repr__(self):
-        return '<PartyMember id={0.id!r} party={0.party!r} display_name={0.display_name!r} ' \
-               'joined_at={0.joined_at!r}>'.format(self)
+    def __repr__(self) -> str:
+        return ('<PartyMember id={0.id!r} party={0.party!r} '
+                'display_name={0.display_name!r} '
+                'joined_at={0.joined_at!r}>'.format(self))
 
-    async def kick(self):
+    async def kick(self) -> None:
         """|coro|
-        
+
         Kicks this member from the party.
 
         Raises
@@ -887,8 +974,10 @@ class PartyMember(PartyMemberBase):
         HTTPException
             Something else went wrong when trying to kick this member.
         """
-        if self.party.leader is not None and self.client.user.id != self.party.leader.id:
-            raise Forbidden('You must be the party leader to perform this action')
+        if (self.party.leader is not None
+                and self.client.user.id != self.party.leader.id):
+            raise Forbidden('You must be the party leader to perform this '
+                            'action')
 
         if self.client.user.id == self.id:
             raise PartyError('You can\'t kick yourself')
@@ -896,13 +985,16 @@ class PartyMember(PartyMemberBase):
         try:
             await self.client.http.party_kick_member(self.party.id, self.id)
         except HTTPException as e:
-            if e.message_code == 'errors.com.epicgames.social.party.party_change_forbidden':
-                raise Forbidden('You dont have permission to kick this member.')
+            m = 'errors.com.epicgames.social.party.party_change_forbidden'
+            if e.message_code == m:
+                raise Forbidden(
+                    'You dont have permission to kick this member.'
+                )
             e.reraise()
 
-    async def promote(self):
+    async def promote(self) -> None:
         """|coro|
-        
+
         Promotes this user to partyleader.
 
         Raises
@@ -915,7 +1007,8 @@ class PartyMember(PartyMemberBase):
             Something else went wrong when trying to promote this member.
         """
         if self.client.user.id != self.party.leader.id:
-            raise Forbidden('You must be the party leader to perform this action')
+            raise Forbidden('You must be the party leader to perform this '
+                            'action')
 
         if self.client.user.id == self.id:
             raise PartyError('You are already the leader')
@@ -925,14 +1018,16 @@ class PartyMember(PartyMemberBase):
 
 class ClientPartyMember(PartyMemberBase):
     """Represents a the Clients party member object.
-    
+
     Attributes
     ----------
     client: :class:`Client`
         The client.
     """
 
-    def __init__(self, client, party, data):
+    def __init__(self, client: 'Client',
+                 party: 'PartyBase',
+                 data: dict) -> None:
         super().__init__(client, party, data)
 
         self.queue = asyncio.Queue(loop=self.client.loop)
@@ -940,11 +1035,12 @@ class ClientPartyMember(PartyMemberBase):
         self.edit_lock = asyncio.Lock(loop=self.client.loop)
         self.clear_emote_task = None
 
-    def __repr__(self):
-        return '<ClientPartyMember id={0.id!r} party={0.party!r} display_name={0.display_name!r} ' \
-               'joined_at={0.joined_at!r}>'.format(self)
+    def __repr__(self) -> str:
+        return ('<ClientPartyMember id={0.id!r} party={0.party!r} '
+                'display_name={0.display_name!r} '
+                'joined_at={0.joined_at!r}>'.format(self))
 
-    async def _patch(self, updated=None):
+    async def _patch(self, updated: Optional[dict] = None) -> None:
         meta = updated or self.meta.schema
         await self.client.http.party_update_member_meta(
             party_id=self.party.id,
@@ -953,8 +1049,8 @@ class ClientPartyMember(PartyMemberBase):
             revision=self.revision
         )
         self.revision += 1
-    
-    async def patch(self, updated=None):
+
+    async def patch(self, updated: Optional[dict] = None) -> Any:
         future = self.client.loop.create_future()
         await self.queue.put((self._patch, future, {'updated': updated}))
 
@@ -962,7 +1058,7 @@ class ClientPartyMember(PartyMemberBase):
             asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
         return await future
 
-    async def _run_queue(self):
+    async def _run_queue(self) -> None:
         self.queue_active = True
         try:
             while not self.queue.empty():
@@ -976,7 +1072,8 @@ class ClientPartyMember(PartyMemberBase):
                         future.set_result(res)
                         break
                     except HTTPException as exc:
-                        if exc.message_code == 'errors.com.epicgames.social.party.stale_revision':
+                        m = 'errors.com.epicgames.social.party.stale_revision'
+                        if exc.message_code == m:
                             self.revision = int(exc.message_vars[1])
                             continue
                         exc.reraise()
@@ -988,13 +1085,14 @@ class ClientPartyMember(PartyMemberBase):
             pass
         self.queue_active = False
 
-    async def _edit(self, *coros, from_default=True):
+    async def _edit(self, *coros: List[Union[Awaitable, functools.partial]],
+                    from_default: bool = True) -> None:
         to_gather = {}
         for coro in reversed(coros):
             if isinstance(coro, functools.partial):
                 result = getattr(coro.func, '__self__', None)
                 if result is None:
-                    coro = coro.func(self, *coro.args, **coro.keywords)   
+                    coro = coro.func(self, *coro.args, **coro.keywords)
                 else:
                     coro = coro()
 
@@ -1006,12 +1104,15 @@ class ClientPartyMember(PartyMemberBase):
         async with MaybeLock(self.edit_lock):
             await asyncio.gather(*list(to_gather.values()))
 
-    async def edit(self, *coros):
+    async def edit(self,
+                   *coros: List[Union[Awaitable, functools.partial]]
+                   ) -> None:
         """|coro|
-        
+
         Edits multiple meta parts at once.
 
-        This example sets the clients outfit to galaxy and banner to the epic banner with level 100.: ::
+        This example sets the clients outfit to galaxy and banner to the epic
+        banner with level 100.: ::
 
             from functools import partial
 
@@ -1021,7 +1122,7 @@ class ClientPartyMember(PartyMemberBase):
                     member.set_outfit('CID_175_Athena_Commando_M_Celestial'), # usage with non-awaited coroutines
                     partial(member.set_banner, icon="OtherBanner28", season_level=100) # usage with functools.partial()
                 )
-        
+
         Parameters
         ----------
         *coros: Union[:class:`asyncio.coroutine`, :class:`functools.partial`]
@@ -1031,21 +1132,27 @@ class ClientPartyMember(PartyMemberBase):
         ------
         HTTPException
             Something went wrong while editing.
-        """
+        """  # noqa
         for coro in coros:
-            if not (asyncio.iscoroutine(coro) or isinstance(coro, functools.partial)):
-                raise TypeError('All arguments must be coroutines or a partials of coroutines')
+            if not (asyncio.iscoroutine(coro)
+                    or isinstance(coro, functools.partial)):
+                raise TypeError('All arguments must be coroutines or a '
+                                'partials of coroutines')
 
         await self._edit(*coros)
         await self.patch()
 
-    async def edit_and_keep(self, *coros):
+    async def edit_and_keep(self,
+                            *coros: List[Union[Awaitable, functools.partial]]
+                            ) -> None:
         """|coro|
-        
-        Edits multiple meta parts at once and keeps the changes for when the bot joins other parties.
 
-        This example sets the clients outfit to galaxy and banner to the epic banner with level 100.
-        When the client joins another party, the outfit and banner will automatically be equipped.: ::
+        Edits multiple meta parts at once and keeps the changes for when the
+        bot joins other parties.
+
+        This example sets the clients outfit to galaxy and banner to the epic
+        banner with level 100. When the client joins another party, the outfit
+        and banner will automatically be equipped.: ::
 
             from functools import partial
 
@@ -1055,26 +1162,31 @@ class ClientPartyMember(PartyMemberBase):
                     partial(member.set_outfit, 'CID_175_Athena_Commando_M_Celestial'),
                     partial(member.set_banner, icon="OtherBanner28", season_level=100)
                 )
-        
+
         Parameters
         ----------
         *coros: :class:`functools.partial`
-            A list of coroutines that should be included in the edit. Unlike :meth:`ClientPartyMember.edit()`,
-            this method only takes coroutines in the form of a :class:`functools.partial`.
+            A list of coroutines that should be included in the edit. Unlike
+            :meth:`ClientPartyMember.edit()`, this method only takes
+            coroutines in the form of a :class:`functools.partial`.
 
         Raises
         ------
         HTTPException
             Something went wrong while editing.
-        """
+        """  # noqa
         new = []
         for coro in coros:
             if not isinstance(coro, functools.partial):
                 raise TypeError('All arguments partials of a coroutines')
-            
+
             result = getattr(coro.func, '__self__', None)
             if result is not None:
-                coro = functools.partial(getattr(ClientPartyMember, coro.func.__name__), *coro.args, **coro.keywords)
+                coro = functools.partial(
+                    getattr(ClientPartyMember, coro.func.__name__),
+                    *coro.args,
+                    **coro.keywords
+                )
 
             new.append(coro)
 
@@ -1084,9 +1196,9 @@ class ClientPartyMember(PartyMemberBase):
         await self._edit(*default)
         await self.patch()
 
-    async def leave(self):
+    async def leave(self) -> 'ClientParty':
         """|coro|
-        
+
         Leaves the party.
 
         Raises
@@ -1096,40 +1208,44 @@ class ClientPartyMember(PartyMemberBase):
 
         Returns
         -------
-        :class:`Party`
+        :class:`ClientParty`
             The new party the client is connected to after leaving.
         """
         async with self.client._leave_lock:
             try:
                 await self.client.http.party_leave(self.party.id)
             except HTTPException as e:
-                if e.message_code != 'errors.com.epicgames.social.party.party_not_found':
+                m = 'errors.com.epicgames.social.party.party_not_found'
+                if e.message_code != m:
                     e.reraise()
 
         await self.client.xmpp.leave_muc()
         p = await self.client._create_party()
         return p
 
-    async def set_ready(self, value):
+    async def set_ready(self, value: Union[bool, None]) -> None:
         """|coro|
-        
+
         Sets the readiness of the client.
-        
+
         Parameters
         ----------
         value: :class:`bool`
-            **True** to set it to ready.
-            **False** to set it to unready.
-            **None** to set it to sitting out.
+            | ``True`` to set it to ready.
+            | ``False`` to set it to unready.
+            | ``None`` to set it to sitting out.
         """
         prop = self.meta.set_readiness(
-            val='Ready' if value is True else ('NotReady' if value is False else 'SittingOut')
+            val='Ready' if value is True else ('NotReady' if value is False
+                                               else 'SittingOut')
         )
 
         if not self.edit_lock.locked():
             tasks = [self.patch(updated=prop)]
             if value is None:
-                tasks.append(random.choice(list(self.party.members.values())).promote())
+                tasks.append(
+                    random.choice(list(self.party.members.values())).promote()
+                )
             await asyncio.gather(*tasks)
 
         else:
@@ -1138,10 +1254,13 @@ class ClientPartyMember(PartyMemberBase):
                     random.choice(list(self.party.members.values())).promote(),
                     loop=self.client.loop
                 )
-            
-    async def set_outfit(self, asset=None, *, key=None, variants=None):
+
+    async def set_outfit(self, asset: Optional[str] = None, *,
+                         key: Optional[str] = None,
+                         variants: Optional[List[Dict[str, str]]] = None
+                         ) -> None:
         """|coro|
-        
+
         Sets the outfit of the client.
 
         Parameters
@@ -1152,21 +1271,24 @@ class ClientPartyMember(PartyMemberBase):
 
             .. note::
 
-                You don't have to include the full path of the asset. The CID is
-                enough.
+                You don't have to include the full path of the asset. The CID
+                is enough.
         key: Optional[:class:`str`]
             The encyption key to use for this skin.
         variants: Optional[:class:`list`]
-            The variants to use for this outfit. Defaults to ``None`` which resets variants.
+            The variants to use for this outfit. Defaults to ``None`` which
+            resets variants.
         """
         if asset is not None:
             if '.' not in asset:
-                asset = "AthenaCharacterItemDefinition'/Game/Athena/Items/Cosmetics/Characters/" \
-                        "{0}.{0}'".format(asset)
+                asset = ("AthenaCharacterItemDefinition'/Game/Athena/Items/"
+                         "Cosmetics/Characters/{0}.{0}'".format(asset))
         else:
-            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['characterDef']
-        
-        variants = [x for x in self.meta.variants if x['item'] != 'AthenaCharacter'] + (variants or [])
+            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            asset = prop['AthenaCosmeticLoadout']['characterDef']
+
+        variants = [x for x in self.meta.variants
+                    if x['item'] != 'AthenaCharacter'] + (variants or [])
         prop = self.meta.set_cosmetic_loadout(
             character=asset,
             character_ekey=key,
@@ -1175,10 +1297,13 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
-        
-    async def set_backpack(self, asset=None, *, key=None, variants=None):
+
+    async def set_backpack(self, asset: Optional[str] = None, *,
+                           key: Optional[str] = None,
+                           variants: Optional[List[Dict[str, str]]] = None
+                           ) -> None:
         """|coro|
-        
+
         Sets the backpack of the client.
 
         Parameters
@@ -1189,21 +1314,24 @@ class ClientPartyMember(PartyMemberBase):
 
             .. note::
 
-                You don't have to include the full path of the asset. The CID is
-                enough.
+                You don't have to include the full path of the asset. The CID
+                is enough.
         key: Optional[:class:`str`]
             The encyption key to use for this backpack.
         variants: Optional[:class:`list`]
-            The variants to use for this backpack. Defaults to ``None`` which resets variants.
+            The variants to use for this backpack. Defaults to ``None`` which
+            resets variants.
         """
         if asset is not None:
             if '.' not in asset:
-                asset = "AthenaBackpackItemDefinition'/Game/Athena/Items/Cosmetics/Backpacks/" \
-                        "{0}.{0}'".format(asset)
+                asset = ("AthenaBackpackItemDefinition'/Game/Athena/Items/"
+                         "Cosmetics/Backpacks/{0}.{0}'".format(asset))
         else:
-            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['backpackDef']
+            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            asset = prop['AthenaCosmeticLoadout']['backpackDef']
 
-        variants = [x for x in self.meta.variants if x['item'] != 'AthenaBackpack'] + (variants or [])
+        variants = [x for x in self.meta.variants
+                    if x['item'] != 'AthenaBackpack'] + (variants or [])
         prop = self.meta.set_cosmetic_loadout(
             backpack=asset,
             backpack_ekey=key,
@@ -1213,9 +1341,12 @@ class ClientPartyMember(PartyMemberBase):
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
 
-    async def set_pet(self, asset=None, *, key=None, variants=None):
+    async def set_pet(self, asset: Optional[str] = None, *,
+                      key: Optional[str] = None,
+                      variants: Optional[List[Dict[str, str]]] = None
+                      ) -> None:
         """|coro|
-        
+
         Sets the pet of the client.
 
         Parameters
@@ -1231,16 +1362,19 @@ class ClientPartyMember(PartyMemberBase):
         key: Optional[:class:`str`]
             The encyption key to use for this pet.
         variants: Optional[:class:`list`]
-            The variants to use for this pet. Defaults to ``None`` which resets variants.
+            The variants to use for this pet. Defaults to ``None`` which
+            resets variants.
         """
         if asset is not None:
             if '.' not in asset:
-                asset = "AthenaPetItemDefinition'/Game/Athena/Items/Cosmetics/PetCarriers/" \
-                        "{0}.{0}'".format(asset)
+                asset = ("AthenaPetItemDefinition'/Game/Athena/Items/"
+                         "Cosmetics/PetCarriers/{0}.{0}'".format(asset))
         else:
-            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['backpackDef']
+            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            asset = prop['AthenaCosmeticLoadout']['backpackDef']
 
-        variants = [x for x in self.meta.variants if x['item'] != 'AthenaBackpack'] + (variants or [])
+        variants = [x for x in self.meta.variants
+                    if x['item'] != 'AthenaBackpack'] + (variants or [])
         prop = self.meta.set_cosmetic_loadout(
             backpack=asset,
             backpack_ekey=key,
@@ -1249,10 +1383,13 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
-    
-    async def set_pickaxe(self, asset=None, *, key=None, variants=None):
+
+    async def set_pickaxe(self, asset: Optional[str] = None, *,
+                          key: Optional[str] = None,
+                          variants: Optional[List[Dict[str, str]]] = None
+                          ) -> None:
         """|coro|
-        
+
         Sets the pickaxe of the client.
 
         Parameters
@@ -1263,33 +1400,39 @@ class ClientPartyMember(PartyMemberBase):
 
             .. note::
 
-                You don't have to include the full path of the asset. The CID is
-                enough.
+                You don't have to include the full path of the asset. The CID
+                is enough.
         key: Optional[:class:`str`]
             The encyption key to use for this pickaxe.
         variants: Optional[:class:`list`]
-            The variants to use for this pickaxe. Defaults to ``None`` which resets variants.
+            The variants to use for this pickaxe. Defaults to ``None`` which
+            resets variants.
         """
         if asset is not None:
             if '.' not in asset:
-                asset = "AthenaPickaxeItemDefinition'/Game/Athena/Items/Cosmetics/Pickaxes/" \
-                        "{0}.{0}'".format(asset)
+                asset = ("AthenaPickaxeItemDefinition'/Game/Athena/Items/"
+                         "Cosmetics/Pickaxes/{0}.{0}'".format(asset))
         else:
-            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['pickaxeDef']
+            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            asset = prop['AthenaCosmeticLoadout']['pickaxeDef']
 
-        variants = [x for x in self.meta.variants if x['item'] != 'AthenaPickaxe'] + (variants or [])
+        variants = [x for x in self.meta.variants
+                    if x['item'] != 'AthenaPickaxe'] + (variants or [])
         prop = self.meta.set_cosmetic_loadout(
             pickaxe=asset,
             pickaxe_ekey=key,
             variants=variants
         )
-        
+
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
 
-    async def set_contrail(self, asset=None, *, key=None, variants=None):
+    async def set_contrail(self, asset: Optional[str] = None, *,
+                           key: Optional[str] = None,
+                           variants: Optional[List[Dict[str, str]]] = None
+                           ) -> None:
         """|coro|
-        
+
         Sets the contrail of the client.
 
         Parameters
@@ -1305,28 +1448,34 @@ class ClientPartyMember(PartyMemberBase):
         key: Optional[:class:`str`]
             The encyption key to use for this contrail.
         variants: Optional[:class:`list`]
-            The variants to use for this contrail. Defaults to ``None`` which resets variants.
+            The variants to use for this contrail. Defaults to ``None`` which
+            resets variants.
         """
         if asset is not None:
             if '.' not in asset:
-                asset = "AthenaContrailItemDefinition'/Game/Athena/Items/Cosmetics/Contrails/" \
-                        "{0}.{0}'".format(asset)
+                asset = ("AthenaContrailItemDefinition'/Game/Athena/Items/"
+                         "Cosmetics/Contrails/{0}.{0}'".format(asset))
         else:
-            asset = self.meta.get_prop('AthenaCosmeticLoadout_j')['AthenaCosmeticLoadout']['contrailDef']
+            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            asset = prop['AthenaCosmeticLoadout']['contrailDef']
 
-        variants = [x for x in self.meta.variants if x['item'] != 'AthenaContrail'] + (variants or [])
+        variants = [x for x in self.meta.variants
+                    if x['item'] != 'AthenaContrail'] + (variants or [])
         prop = self.meta.set_cosmetic_loadout(
             contrail=asset,
             contrail_ekey=key,
             variants=variants
         )
-        
+
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
 
-    async def set_emote(self, asset, *, run_for=None, key=None, section=None):
+    async def set_emote(self, asset: str, *,
+                        run_for: Optional[int] = None,
+                        key: Optional[str] = None,
+                        section: Optional[int] = None) -> None:
         """|coro|
-        
+
         Sets the emote of the client.
 
         Parameters
@@ -1336,19 +1485,20 @@ class ClientPartyMember(PartyMemberBase):
 
             .. note::
 
-                You don't have to include the full path of the asset. The EID is
-                enough.
+                You don't have to include the full path of the asset. The EID
+                is enough.
         run_for: Optional[:class:`int`]
-            Seconds this emote should run for before being cancelled. ``None`` (default) means 
-            will run infinitely and you can then clear it with :meth:`PartyMember.clear_emote()`.
+            Seconds this emote should run for before being cancelled. ``None``
+            (default) means will run infinitely and you can then clear it with
+            :meth:`PartyMember.clear_emote()`.
         key: Optional[:class:`str`]
             The encyption key to use for this emote.
         section: Optional[:class:`int`]
             The section.
         """
         if '.' not in asset:
-            asset = "AthenaDanceItemDefinition'/Game/Athena/Items/Cosmetics/Dances/" \
-                    "{0}.{0}'".format(asset)
+            asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
+                     "Cosmetics/Dances/{0}.{0}'".format(asset))
 
         prop = self.meta.set_emote(
             emote=asset,
@@ -1358,14 +1508,18 @@ class ClientPartyMember(PartyMemberBase):
 
         self._cancel_clear_emote()
         if run_for is not None:
-            self.clear_emote_task = self.client.loop.create_task(self._schedule_clear_emote(run_for))
+            self.clear_emote_task = self.client.loop.create_task(
+                self._schedule_clear_emote(run_for)
+            )
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
 
-    async def set_emoji(self, asset, *, key=None, section=None):
+    async def set_emoji(self, asset: str, *,
+                        key: Optional[str] = None,
+                        section: Optional[int] = None) -> None:
         """|coro|
-        
+
         Sets the emoji of the client.
 
         Parameters
@@ -1383,8 +1537,8 @@ class ClientPartyMember(PartyMemberBase):
             The section.
         """
         if '.' not in asset:
-            asset = "AthenaDanceItemDefinition'/Game/Athena/Items/Cosmetics/Dances/Emoji/" \
-                    "{0}.{0}'".format(asset)
+            asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
+                     "Cosmetics/Dances/Emoji/{0}.{0}'".format(asset))
 
         prop = self.meta.set_emote(
             emote=asset,
@@ -1393,23 +1547,26 @@ class ClientPartyMember(PartyMemberBase):
         )
 
         self._cancel_clear_emote()
-        self.clear_emote_task = self.client.loop.create_task(self._schedule_clear_emote(2))
+        self.clear_emote_task = self.client.loop.create_task(
+            self._schedule_clear_emote(2)
+        )
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
 
-    def _cancel_clear_emote(self):
-        if self.clear_emote_task is not None and not self.clear_emote_task.cancelled():
+    def _cancel_clear_emote(self) -> None:
+        if (self.clear_emote_task is not None
+                and not self.clear_emote_task.cancelled()):
             self.clear_emote_task.cancel()
 
-    async def _schedule_clear_emote(self, seconds):
+    async def _schedule_clear_emote(self, seconds: Union[int, float]) -> None:
         await asyncio.sleep(seconds)
         self.clear_emote_task = None
         await self.clear_emote()
-        
-    async def clear_emote(self):
+
+    async def clear_emote(self) -> None:
         """|coro|
-        
+
         Clears/stops the emote currently playing.
         """
 
@@ -1423,10 +1580,12 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
-    
-    async def set_banner(self, icon=None, color=None, season_level=None):
+
+    async def set_banner(self, icon: Optional[str] = None,
+                         color: Optional[str] = None,
+                         season_level: Optional[int] = None) -> None:
         """|coro|
-        
+
         Sets the banner of the client.
 
         Parameters
@@ -1449,11 +1608,14 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
-    
-    async def set_battlepass_info(self, has_purchased=None, level=None, 
-                                  self_boost_xp=None, friend_boost_xp=None):
+
+    async def set_battlepass_info(self, has_purchased: Optional[bool] = None,
+                                  level: Optional[int] = None,
+                                  self_boost_xp: Optional[int] = None,
+                                  friend_boost_xp: Optional[int] = None
+                                  ) -> None:
         """|coro|
-        
+
         Sets the battlepass info of the client.
 
         .. note::
@@ -1483,12 +1645,15 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
-    
-    async def set_assisted_challenge(self, quest=None, *, num_completed=None):
+
+    # TODO: Add this method as fixed
+    async def set_assisted_challenge(self, quest: Optional[str] = None, *,
+                                     num_completed: Optional[int] = None
+                                     ) -> None:
         """|coro|
-        
+
         Sets the assisted challenge.
-        
+
         Parameters
         ----------
         quest: Optional[:class:`str`]
@@ -1496,17 +1661,18 @@ class ClientPartyMember(PartyMemberBase):
 
             .. note::
 
-                You don't have to include the full path of the quest. The quest id is
-                enough.
+                You don't have to include the full path of the quest. The
+                quest id is enough.
         num_completed: Optional[:class:`int`]
             How many quests you have completed, I think (didn't test this).
         """
-        if asset is not None:
+        if quest is not None:
             if '.' not in quest:
-                quest = "FortQuestItemDefinition'/Game/Athena/Items/Quests/DailyQuests/Quests/" \
-                        "{0}.{0}'".format(quest)
+                quest = ("FortQuestItemDefinition'/Game/Athena/Items/"
+                         "Quests/DailyQuests/Quests/{0}.{0}'".format(quest))
         else:
-            asset = self.meta.get_prop('AssistedChallengeInfo_j')['AssistedChallengeInfo']['questItemDef']
+            prop = self.meta.get_prop('AssistedChallengeInfo_j')
+            quest = prop['AssistedChallengeInfo']['questItemDef']
 
         prop = self.meta.set_assisted_challenge(
             quest=quest,
@@ -1514,12 +1680,12 @@ class ClientPartyMember(PartyMemberBase):
         )
 
         if not self.edit_lock.locked():
-            await self.patch(updated=prop)   
+            await self.patch(updated=prop)
 
 
 class PartyBase:
 
-    def __init__(self, client, data):
+    def __init__(self, client: 'Client', data: dict) -> None:
         self._client = client
         self._id = data.get('id')
         self._members = {}
@@ -1529,75 +1695,86 @@ class PartyBase:
         self._update_config(data.get('config'))
         self.meta = PartyMeta(self, data['meta'])
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.id
 
     @property
-    def client(self):
+    def client(self) -> 'Client':
         """:class:`Client`: The client."""
         return self._client
 
     @property
-    def id(self):
+    def id(self) -> str:
         """:class:`str`: The party's id."""
         return self._id
 
     @property
-    def members(self):
-        """:class:`dict`: Mapping of the party's members. *Example: {memberid: :class:`PartyMember`}*"""
+    def members(self) -> Dict[str, PartyMember]:
+        """:class:`dict`: Mapping of the party's members."""
         return self._members
 
     @property
-    def member_count(self):
+    def member_count(self) -> int:
         """:class:`int`: The amount of member currently in this party."""
         return len(self._members)
 
     @property
-    def applicants(self):
+    def applicants(self) -> list:
         """:class:`list`: The party's applicants."""
         return self._applicants
 
     @property
-    def leader(self):
+    def leader(self) -> PartyMember:
         """:class:`PartyMember`: The leader of the party."""
         for member in self.members.values():
             if member.leader:
                 return member
 
     @property
-    def playlist_info(self):
-        """:class:`tuple`: A tuple containing the name, tournament, event window and region
-        of the currently set playlist.
-        
+    def playlist_info(self) -> Tuple[str]:
+        """:class:`tuple`: A tuple containing the name, tournament, event
+        window and region of the currently set playlist.
+
         Example output: ::
 
             # output for default duos
-            ('Playlist_DefaultDuo', '', '', 'EU')
+            (
+                'Playlist_DefaultDuo',
+                '',
+                '',
+                'EU'
+            )
 
             # output for arena trios
-            ('Playlist_ShowdownAlt_Trios', 'epicgames_Arena_S10_Trios', 'Arena_S10_Division1_Trios', 'EU')
+            (
+                'Playlist_ShowdownAlt_Trios',
+                'epicgames_Arena_S10_Trios',
+                'Arena_S10_Division1_Trios',
+                'EU'
+            )
         """
         return self.meta.playlist_info
 
+    # TODO: Add SittingOut here too
     @property
-    def squad_fill(self):
+    def squad_fill(self) -> bool:
         """:class:`bool`: ``True`` if squad fill is enabled else ``False``."""
         return self.meta.squad_fill
 
     @property
-    def privacy(self):
+    def privacy(self) -> PartyPrivacy:
         """:class:`PartyPrivacy`: The currently set privacy of this party."""
         return self.meta.privacy
 
-    def _add_member(self, member):
+    def _add_member(self, member: PartyMember) -> None:
         self.members[member.id] = member
 
-    def _remove_member(self, id):
-        if not isinstance(id, str):
-            id = id.id
-        del self.members[id]
+    def _remove_member(self, user_id: str) -> PartyMember:
+        if not isinstance(user_id, str):
+            user_id = user_id.id
+        return self.members.pop(user_id)
 
-    def _update(self, data):
+    def _update(self, data: dict) -> None:
         try:
             config = data['config']
         except KeyError:
@@ -1615,15 +1792,15 @@ class PartyBase:
         self.meta.remove(data['party_state_removed'])
 
         privacy = self.meta.get_prop('PrivacySettings_j')
-        _p = privacy['PrivacySettings']
+        c = privacy['PrivacySettings']
         found = False
         for d in PartyPrivacy:
             p = d.value
-            if p['partyType'] != _p['partyType']:
+            if p['partyType'] != c['partyType']:
                 continue
-            if p['inviteRestriction'] != _p['partyInviteRestriction']:
+            if p['inviteRestriction'] != c['partyInviteRestriction']:
                 continue
-            if p['onlyLeaderFriendsCanJoin'] != _p['bOnlyLeaderFriendsCanJoin']:
+            if p['onlyLeaderFriendsCanJoin'] != c['bOnlyLeaderFriendsCanJoin']:
                 continue
             found = p
             break
@@ -1631,19 +1808,18 @@ class PartyBase:
         if found:
             self.config['privacy'] = found
 
-    def _update_invites(self, invites):
+    def _update_invites(self, invites: list) -> None:
         self.invites = invites
 
-    def _update_config(self, config=None):
-        config = config if config is not None else {}
-
+    def _update_config(self, config: dict = {}) -> None:
         self.join_confirmation = config['join_confirmation']
         self.max_size = config['max_size']
-        self.invite_ttl_seconds = config.get('invite_ttl_seconds', config['invite_ttl'])
+        self.invite_ttl_seconds = config.get('invite_ttl_seconds',
+                                             config['invite_ttl'])
         self.sub_type = config['sub_type']
         self.config = {**self.client.default_party_config, **config}
 
-    async def _update_members(self, members=None):
+    async def _update_members(self, members: Optional[list] = None) -> None:
         if members is None:
             data = await self.client.http.party_lookup(self.id)
             members = data['members']
@@ -1681,18 +1857,18 @@ class PartyBase:
 class Party(PartyBase):
     """Represent a party that the ClientUser is not yet a part of."""
 
-    def __init__(self, client, data):
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
 
-    def __repr__(self):
-        return '<Party id={0.id!r} leader={0.leader!r} ' \
-               'member_count={0.member_count}>'.format(self)
+    def __repr__(self) -> str:
+        return ('<Party id={0.id!r} leader={0.leader!r} '
+                'member_count={0.member_count}>'.format(self))
 
 
 class ClientParty(PartyBase):
     """Represents ClientUser's party."""
 
-    def __init__(self, client, data):
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
 
         self.last_raw_status = None
@@ -1700,48 +1876,52 @@ class ClientParty(PartyBase):
 
         self.queue = asyncio.Queue(loop=self.client.loop)
         self.queue_active = False
-        
+
         self._update_revision(data.get('revision', 0))
         self._update_invites(data.get('invites', []))
         self._update_config(data.get('config'))
         self.meta = PartyMeta(self, data['meta'])
 
-    def __repr__(self):
-        return '<ClientParty id={0.id!r} me={0.me!r} leader={0.leader!r} ' \
-               'member_count={0.member_count}>'.format(self)
+    def __repr__(self) -> str:
+        return ('<ClientParty id={0.id!r} me={0.me!r} leader={0.leader!r} '
+                'member_count={0.member_count}>'.format(self))
 
     @property
-    def me(self):
+    def me(self) -> 'ClientPartyMember':
         """:class:`ClientPartyMember`: The clients partymember object."""
         return self._me
 
     @property
-    def muc_jid(self):
+    def muc_jid(self) -> aioxmpp.JID:
         """:class:`aioxmpp.JID`: The JID of the party MUC."""
-        return aioxmpp.JID.fromstr('Party-{}@muc.prod.ol.epicgames.com'.format(self.id))
+        return aioxmpp.JID.fromstr(
+            'Party-{}@muc.prod.ol.epicgames.com'.format(self.id)
+        )
 
-    def _add_clientmember(self, member):
+    def _add_clientmember(self, member: ClientPartyMember) -> None:
         self._me = member
 
-    def _create_member(self, data):
+    def _create_member(self, data: dict) -> PartyMember:
         member = PartyMember(self.client, self, data)
         self._add_member(member)
         return member
 
-    def _create_clientmember(self, data):
+    def _create_clientmember(self, data: dict) -> ClientPartyMember:
         member = ClientPartyMember(self.client, self, data)
         self._add_clientmember(member)
         return member
 
-    def _remove_member(self, id):
-        if not isinstance(id, str):
-            id = id.id
-        del self.members[id]
+    def _remove_member(self, user_id: str) -> PartyMember:
+        if not isinstance(user_id, str):
+            user_id = user_id.id
         self.update_presence()
+        return self.members.pop(user_id)
 
-    def update_presence(self, text=None, conf={}):
+    def update_presence(self, text: Optional[str] = None,
+                        conf: dict = {}) -> None:
         perm = self.config['privacy']['presencePermission']
-        if perm == 'Noone' or (perm == 'Leader' and (self.me is not None and not self.me.leader)):
+        if perm == 'Noone' or (perm == 'Leader' and (self.me is not None
+                                                     and not self.me.leader)):
             join_data = {
                 'bInPrivate': True
             }
@@ -1760,9 +1940,10 @@ class ClientParty(PartyBase):
                 'pc': self.member_count,
             }
 
-        status = text or self.client.status    
+        status = text or self.client.status
         _default_status = {
-            'Status': status.format(party_size=self.member_count, party_max_size=self.max_size),
+            'Status': status.format(party_size=self.member_count,
+                                    party_max_size=self.max_size),
             'bIsPlaying': True,
             'bIsJoinable': False,
             'bHasVoiceSupport': False,
@@ -1788,12 +1969,12 @@ class ClientParty(PartyBase):
                 'Event_PartyMaxSize_s': str(self.max_size),
             },
         }
-        
+
         if self.client.status is not False:
             self.last_raw_status = {**_default_status, **conf}
             self.client.xmpp.set_presence(status=self.last_raw_status)
-        
-    def _update(self, data):
+
+    def _update(self, data: dict) -> None:
         if self.revision < data['revision']:
             self.revision = data['revision']
 
@@ -1807,45 +1988,44 @@ class ClientParty(PartyBase):
                 'type': data['party_type'],
                 'invite_ttl_seconds': data['invite_ttl_seconds']
             }
-        
+
         self._update_config({**self.config, **config})
 
         self.meta.update(data['party_state_updated'], raw=True)
         self.meta.remove(data['party_state_removed'])
 
         privacy = self.meta.get_prop('PrivacySettings_j')
-        _p = privacy['PrivacySettings']
+        c = privacy['PrivacySettings']
         found = False
         for d in PartyPrivacy:
             p = d.value
-            if p['partyType'] != _p['partyType']:
+            if p['partyType'] != c['partyType']:
                 continue
-            if p['inviteRestriction'] != _p['partyInviteRestriction']:
+            if p['inviteRestriction'] != c['partyInviteRestriction']:
                 continue
-            if p['onlyLeaderFriendsCanJoin'] != _p['bOnlyLeaderFriendsCanJoin']:
+            if p['onlyLeaderFriendsCanJoin'] != c['bOnlyLeaderFriendsCanJoin']:
                 continue
             found = p
             break
-        
+
         if found:
             self.config['privacy'] = found
-        
+
         if self.client.status is not False:
             self.update_presence()
 
-    def _update_revision(self, revision):
+    def _update_revision(self, revision: int) -> None:
         self.revision = revision
 
-    def _update_config(self, config=None):
-        config = config if config is not None else {} 
-        
+    def _update_config(self, config: dict = {}) -> None:
         self.join_confirmation = config['join_confirmation']
         self.max_size = config['max_size']
-        self.invite_ttl_seconds = config.get('invite_ttl_seconds', config['invite_ttl'])
+        self.invite_ttl_seconds = config.get('invite_ttl_seconds',
+                                             config['invite_ttl'])
         self.sub_type = config['sub_type']
         self.config = {**self.client.default_party_config, **config}
 
-    async def _update_members(self, members=None):
+    async def _update_members(self, members: Optional[list] = None) -> None:
         if members is None:
             data = await self.client.http.party_lookup(self.id)
             members = data['members']
@@ -1857,8 +2037,8 @@ class ClientParty(PartyBase):
             [get_id(m) for m in members],
             cache=True
         )
-        profiles = {p.id:p for p in profiles}
-        
+        profiles = {p.id: p for p in profiles}
+
         for raw in members:
             user_id = get_id(raw)
             if user_id == self.client.user.id:
@@ -1869,7 +2049,7 @@ class ClientParty(PartyBase):
 
             member = PartyMember(self.client, self, raw)
             self._add_member(member)
-        
+
             if member.id == self.client.user.id:
                 clientmember = ClientPartyMember(self.client, self, raw)
                 self._add_clientmember(clientmember)
@@ -1879,16 +2059,16 @@ class ClientParty(PartyBase):
         for m in self.members.values():
             if m.id not in ids:
                 to_remove.append(m.id)
-            
+
         for id in to_remove:
             self._remove_member(id)
 
-    async def join_chat(self):
+    async def join_chat(self) -> None:
         await self.client.xmpp.join_muc(self.id)
-    
-    async def send(self, content):
+
+    async def send(self, content: str) -> None:
         """|coro|
-        
+
         Sends a message to this party's chat.
 
         Parameters
@@ -1898,7 +2078,8 @@ class ClientParty(PartyBase):
         """
         await self.client.xmpp.send_party_message(content)
 
-    async def _patch(self, updated=None, deleted=None):
+    async def _patch(self, updated: Optional[dict] = None,
+                     deleted: Optional[list] = None) -> None:
         await self.client.http.party_update_meta(
             party_id=self.id,
             updated_meta=updated or self.meta.schema,
@@ -1907,30 +2088,33 @@ class ClientParty(PartyBase):
             revision=self.revision
         )
         self.revision += 1
-    
-    async def patch(self, updated=None, deleted=None):
+
+    async def patch(self, updated: Optional[dict] = None,
+                    deleted: Optional[list] = None) -> Any:
         future = self.client.loop.create_future()
-        await self.queue.put((self._patch, future, {'updated': updated, 'deleted': deleted}))
+        payload = {'updated': updated, 'deleted': deleted}
+        await self.queue.put((self._patch, future, payload))
 
         if not self.queue_active:
             asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
         return await future
 
-    async def _run_queue(self):
+    async def _run_queue(self) -> None:
         self.queue_active = True
         try:
             while not self.queue.empty():
                 func, future, kwargs = await self.queue.get()
                 if func is None:
                     break
-                
+
                 while True:
                     try:
                         res = await func(**kwargs)
                         future.set_result(res)
                         break
                     except HTTPException as exc:
-                        if exc.message_code == 'errors.com.epicgames.social.party.stale_revision':
+                        m = 'errors.com.epicgames.social.party.stale_revision'
+                        if exc.message_code == m:
                             self.revision = int(exc.message_vars[1])
                             continue
                         exc.reraise()
@@ -1941,10 +2125,10 @@ class ClientParty(PartyBase):
         except RuntimeError:
             pass
         self.queue_active = False
-    
-    async def invite(self, user_id):
+
+    async def invite(self, user_id: str) -> None:
         """|coro|
-        
+
         Invites a user to the party.
 
         Parameters
@@ -1968,33 +2152,35 @@ class ClientParty(PartyBase):
 
         if len(self.members) == self.max_size:
             raise PartyError('Party is full')
-        
+
         try:
             await self.client.http.party_send_invite(self.id, user_id)
         except HTTPException as e:
-            if e.message_code == 'errors.com.epicgames.social.party.ping_forbidden':
+            m = 'errors.com.epicgames.social.party.ping_forbidden'
+            if e.message_code == m:
                 raise Forbidden('You can only invite friends to your party.')
             e.reraise()
 
-    async def _leave(self, ignore_not_found=True):
+    async def _leave(self, ignore_not_found: bool = True) -> None:
         await self.client.xmpp.leave_muc()
 
         async with self.client._leave_lock:
             try:
                 await self.client.http.party_leave(self.id)
             except HTTPException as e:
-                if ignore_not_found and e.message_code == 'errors.com.epicgames.social.party.party_not_found':
+                m = 'errors.com.epicgames.social.party.party_not_found'
+                if ignore_not_found and e.message_code == m:
                     return
                 e.reraise()
 
-    async def set_privacy(self, privacy):
+    async def set_privacy(self, privacy: PartyPrivacy) -> None:
         """|coro|
-        
+
         Sets the privacy of the party.
-        
+
         Parameters
         ----------
-        privacy: :class:`.PartyPrivacy`
+        privacy: :class:`PartyPrivacy`
 
         Raises
         ------
@@ -2009,10 +2195,13 @@ class ClientParty(PartyBase):
 
         updated, deleted = self.meta.set_privacy(privacy)
         await self.patch(updated=updated, deleted=deleted)
-    
-    async def set_playlist(self, playlist=None, tournament=None, event_window=None, region=None):
+
+    async def set_playlist(self, playlist: Optional[str] = None,
+                           tournament: Optional[str] = None,
+                           event_window: Optional[str] = None,
+                           region: Optional[Region] = None) -> None:
         """|coro|
-        
+
         Sets the current playlist of the party.
 
         Sets the playlist to Duos EU: ::
@@ -2021,8 +2210,9 @@ class ClientParty(PartyBase):
                 playlist='Playlist_DefaultDuo',
                 region='EU'
             )
-        
-        Sets the playlist to Arena Trios EU (Replace ``Trios`` with ``Solo`` for arena solo): ::
+
+        Sets the playlist to Arena Trios EU (Replace ``Trios`` with ``Solo``
+        for arena solo): ::
 
             await party.set_playlist(
                 playlist='Playlist_ShowdownAlt_Trios',
@@ -2062,10 +2252,10 @@ class ClientParty(PartyBase):
             region=region
         )
         await self.patch(updated=prop)
-    
-    async def set_custom_key(self, key):
+
+    async def set_custom_key(self, key: str) -> None:
         """|coro|
-        
+
         Sets the custom key of the party.
 
         Parameters
@@ -2086,9 +2276,9 @@ class ClientParty(PartyBase):
         )
         await self.patch(updated=prop)
 
-    async def set_fill(self, value):
+    async def set_fill(self, value: bool) -> None:
         """|coro|
-        
+
         Sets the fill status of the party.
 
         Parameters
@@ -2113,7 +2303,7 @@ class ClientParty(PartyBase):
 
 class PartyInvitation:
     """Represents a party invitation.
-    
+
     Attributes
     ----------
     client: :class:`Client`
@@ -2127,7 +2317,10 @@ class PartyInvitation:
     created_at: :class:`datetime.datetime`
         The UTC time this invite was created at.
     """
-    def __init__(self, client, party, net_cl, data):
+    def __init__(self, client: 'Client',
+                 party: Party,
+                 net_cl: str,
+                 data: dict) -> None:
         self.client = client
         self.party = party
         self.net_cl = net_cl
@@ -2135,24 +2328,25 @@ class PartyInvitation:
         self.sender = self.client.get_friend(data['sent_by'])
         self.created_at = self.client.from_iso(data['sent_at'])
 
-    def __repr__(self):
-        return '<PartyInvitation party={0.party!r} sender={0.sender!r} ' \
-               'created_at={0.created_at!r}>'.format(self)
+    def __repr__(self) -> str:
+        return ('<PartyInvitation party={0.party!r} sender={0.sender!r} '
+                'created_at={0.created_at!r}>'.format(self))
 
-    async def accept(self):
+    async def accept(self) -> None:
         """|coro|
 
         Accepts the invitation and joins the party.
 
         .. warning::
 
-            A bug within the fortnite services makes it not possible to join a 
+            A bug within the fortnite services makes it not possible to join a
             private party you have already been a part of before.
 
         Raises
         ------
         Forbidden
-            You attempted to join a private party you've already been a part of before.
+            You attempted to join a private party you've already been a part
+            of before.
         HTTPException
             Something went wrong when accepting the invitation.
         """
@@ -2160,11 +2354,14 @@ class PartyInvitation:
             raise PartyError('Incompatible net_cl')
 
         await self.client.join_to_party(self.party.id, check_private=False)
-        asyncio.ensure_future(self.client.http.party_delete_ping(self.sender.id), loop=self.client.loop)
+        asyncio.ensure_future(
+            self.client.http.party_delete_ping(self.sender.id),
+            loop=self.client.loop
+        )
 
-    async def decline(self):
+    async def decline(self) -> None:
         """|coro|
-        
+
         Declines the invitation.
 
         Raises
@@ -2177,33 +2374,37 @@ class PartyInvitation:
         await self.client.http.party_delete_ping(self.sender.id)
 
 
+# TODO: Changed to ClientParty (docs)
 class PartyJoinConfirmation:
     """Represents a join confirmation.
-    
+
     Attributes
     ----------
     client: :class:`Client`
         The client.
-    party: :class:`Party`
+    party: :class:`ClientParty`
         The party the user wants to join.
     user: :class:`User`
         The user who requested to join the party.
     created_at: :class:`datetime.datetime`
         The UTC time of when the join confirmation was received.
     """
-    def __init__(self, client, party, data):
+    def __init__(self, client: 'Client',
+                 party: ClientParty,
+                 user: User,
+                 data: dict) -> None:
         self.client = client
         self.party = party
-        self.user = User(self.client, data)
+        self.user = user
         self.created_at = self.client.from_iso(data['sent'])
 
-    def __repr__(self):
-        return '<PartyJoinConfirmation party={0.party!r} user={0.user!r} ' \
-               'created_at={0.created_at!r}>'.format(self)
+    def __repr__(self) -> str:
+        return ('<PartyJoinConfirmation party={0.party!r} user={0.user!r} '
+                'created_at={0.created_at!r}>'.format(self))
 
-    async def confirm(self):
+    async def confirm(self) -> None:
         """|coro|
-        
+
         Confirms this user.
 
         Raises
@@ -2211,11 +2412,12 @@ class PartyJoinConfirmation:
         HTTPException
             Something went wrong when confirming this user.
         """
-        await self.client.http.party_member_confirm(self.party.id, self.user.id)
+        await self.client.http.party_member_confirm(self.party.id,
+                                                    self.user.id)
 
-    async def reject(self):
+    async def reject(self) -> None:
         """|coro|
-        
+
         Rejects this user.
 
         Raises
@@ -2224,4 +2426,3 @@ class PartyJoinConfirmation:
             Something went wrong when rejecting this user.
         """
         await self.client.http.party_member_reject(self.party.id, self.user.id)
- 
