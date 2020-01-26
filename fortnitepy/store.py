@@ -223,7 +223,7 @@ class Store:
     client: :class:`Client`
         The client.
     """
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         self.client = client
         self._daily_purchase_hours = data['dailyPurchaseHrs']
         self._refresh_interval_hours = data['refreshIntervalHrs']

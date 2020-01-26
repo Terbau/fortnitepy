@@ -60,7 +60,9 @@ class PresenceGameplayStats:
     __slots__ = ('friend', 'state', 'playlist', 'players_alive', 'num_kills',
                  'fell_to_death')
 
-    def __init__(self, friend: Friend, data: str, players_alive: int) -> None:
+    def __init__(self, friend: 'Friend',
+                 data: str,
+                 players_alive: int) -> None:
         self.friend = friend
         self.state = data.get('state')
         self.playlist = data.get('playlist')
@@ -139,7 +141,7 @@ class PresenceParty:
                  'key', 'app_id', 'build_id', 'net_cl', 'party_flags',
                  'not_accepting_reason', 'playercount')
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         self.client = client
         self.raw = data
         self.private = data.get('bIsPrivate', False)
@@ -167,7 +169,7 @@ class PresenceParty:
         return ('<PresenceParty private={0.private} id={0.id!r} '
                 'playercount={0.playercount}>'.format(self))
 
-    async def join(self) -> ClientParty:
+    async def join(self) -> 'ClientParty':
         """|coro|
 
         Joins the friends' party.
@@ -262,7 +264,7 @@ class Presence:
                  'max_party_size', 'game_session_join_key',
                  'server_player_count', 'gameplay_stats', 'party')
 
-    def __init__(self, client: Client,
+    def __init__(self, client: 'Client',
                  from_id: str,
                  available: bool,
                  data: dict) -> None:

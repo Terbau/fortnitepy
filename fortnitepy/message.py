@@ -38,19 +38,21 @@ class MessageBase:
 
     __slots__ = ('_client', '_author', '_content', '_created_at')
 
-    def __init__(self, client: Client, author: Friend, content: str) -> None:
+    def __init__(self, client: 'Client',
+                 author: 'Friend',
+                 content: str) -> None:
         self._client = client
         self._author = author
         self._content = content
         self._created_at = datetime.datetime.utcnow()
 
     @property
-    def client(self) -> Client:
+    def client(self) -> 'Client':
         """:class:`Client`: The client."""
         return self._client
 
     @property
-    def author(self) -> Friend:
+    def author(self) -> 'Friend':
         """:class:`Friend`: The author of the message."""
         return self._author
 
@@ -71,7 +73,9 @@ class FriendMessage(MessageBase):
 
     __slots__ = MessageBase.__slots__
 
-    def __init__(self, client: Client, author: Friend, content: str) -> None:
+    def __init__(self, client: 'Client',
+                 author: 'Friend',
+                 content: str) -> None:
         super().__init__(client, author, content)
 
     def __repr__(self) -> str:
@@ -95,9 +99,9 @@ class PartyMessage(MessageBase):
 
     __slots__ = MessageBase.__slots__ + ('party',)
 
-    def __init__(self, client: Client,
-                 party: ClientParty,
-                 author: PartyMember,
+    def __init__(self, client: 'Client',
+                 party: 'ClientParty',
+                 author: 'PartyMember',
                  content: str) -> None:
         super().__init__(client, author, content)
         self.party = party
@@ -107,7 +111,7 @@ class PartyMessage(MessageBase):
                 'created_at={0.created_at!r}>'.format(self))
 
     @property
-    def author(self) -> PartyMember:
+    def author(self) -> 'PartyMember':
         """:class:`PartyMember`: The author of a message."""
         return self._author
 

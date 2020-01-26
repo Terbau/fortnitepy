@@ -50,7 +50,7 @@ class EventContext:
 
     __slots__ = ('client', 'body', 'party', 'created_at')
 
-    def __init__(self, client: Client, body: dict) -> None:
+    def __init__(self, client: 'Client', body: dict) -> None:
         self.client = client
         self.body = body
 
@@ -62,7 +62,7 @@ class EventDispatcher:
     def __init__(self) -> None:
         self._listeners = defaultdict(list)
 
-    def process_event(self, client: Client, stanza: aioxmpp.Message) -> None:
+    def process_event(self, client: 'Client', stanza: aioxmpp.Message) -> None:
         body = json.loads(stanza.body.any())
         type_ = body['type']
         log.debug('Received event `{}` with body `{}`'.format(type_, body))
@@ -76,20 +76,17 @@ class EventDispatcher:
             else:
                 asyncio.ensure_future(coro(ctx))
 
-    def event(self, event: str) -> Awaitable[[EventContext], None]:
-        def decorator(coro: Awaitable[[EventContext], None]
-                      ) -> Awaitable[[EventContext], None]:
+    def event(self, event: str) -> Awaitable:
+        def decorator(coro: Awaitable) -> Awaitable:
             self.add_event_handler(event, coro)
             return coro
         return decorator
 
-    def add_event_handler(self, event: str,
-                          coro: Awaitable[[EventContext], None]) -> None:
+    def add_event_handler(self, event: str, coro: Awaitable) -> None:
         self._listeners[event].append(coro)
         log.debug('Added handler for {0} to {1}'.format(event, coro))
 
-    def remove_event_handler(self, event: str,
-                             coro: Awaitable[[EventContext], None]) -> None:
+    def remove_event_handler(self, event: str, coro: Awaitable) -> None:
         handlers = [c for c in self._listeners[event] if c is not coro]
         log.debug('Removed {0} handler(s) for {1}'.format(
             len(self._listeners[event]) - len(handlers),
@@ -102,7 +99,7 @@ dispatcher = EventDispatcher()
 
 
 class XMPPClient:
-    def __init__(self, client: Client) -> None:
+    def __init__(self, client: 'Client') -> None:
         self.client = client
 
         self.xmpp_client = None
@@ -843,7 +840,7 @@ class XMPPClient:
             )
 
     async def send_presence(self, to: Optional[aioxmpp.JID] = None,
-                            status: Optional[str, dict] = None) -> None:
+                            status: Optional[Union[str, dict]] = None) -> None:
         _status = {}
         if status is None:
             _status = None

@@ -29,7 +29,6 @@ import asyncio
 import logging
 import json
 import re
-import uuid
 
 from typing import TYPE_CHECKING, List, Optional, Any, Union, Tuple
 from urllib.parse import quote
@@ -100,7 +99,7 @@ class Route:
 
 class EpicGamesGraphQL(Route):
     BASE = 'https://graphql.epicgames.com/graphql'
-    AUTH = None
+    AUTH = 'FORTNITE_ACCESS_TOKEN'
 
 
 class EpicGames(Route):
@@ -194,13 +193,13 @@ class StatsproxyPublicService(Route):
 
 
 class HTTPClient:
-    def __init__(self, client: Client, *,
+    def __init__(self, client: 'Client', *,
                  connector: aiohttp.BaseConnector = None) -> None:
         self.client = client
         self.connector = connector
         self._jar = aiohttp.CookieJar()
         self.headers = {}
-        self.device_id = self.client.device_id or uuid.uuid4().hex
+        self.device_id = self.client.auth.device_id
 
         self.create_connection()
 
@@ -221,16 +220,15 @@ class HTTPClient:
         return self.__session
 
     def get_auth(self, auth: str) -> str:
-        if not auth.lower().startswith('bearer'):
-            auth = auth.upper()
+        u_auth = auth.upper()
 
-        if auth == 'LAUNCHER_BASIC_TOKEN':
-            return 'basic {0}'.format(self.client.launcher_token)
-        elif auth == 'FORTNITE_BASIC_TOKEN':
-            return 'basic {0}'.format(self.client.fortnite_token)
-        elif auth == 'LAUNCHER_ACCESS_TOKEN':
+        if u_auth == 'LAUNCHER_BASIC_TOKEN':
+            return 'basic {0}'.format(self.client.auth.launcher_token)
+        elif u_auth == 'FORTNITE_BASIC_TOKEN':
+            return 'basic {0}'.format(self.client.auth.fortnite_token)
+        elif u_auth == 'LAUNCHER_ACCESS_TOKEN':
             return self.client.auth.launcher_authorization
-        elif auth == 'FORTNITE_ACCESS_TOKEN':
+        elif u_auth == 'FORTNITE_ACCESS_TOKEN':
             return self.client.auth.authorization
         return auth
 
@@ -695,10 +693,45 @@ class HTTPClient:
         r = AccountPublicService('/account/api/oauth/token')
         return await self.post(r, **kwargs)
 
-    async def account_sessions_kill_token(self, token: str) -> Any:
+    async def account_generate_device_auth(self, client_id: str) -> dict:
+        r = AccountPublicService(
+            '/account/api/public/account/{client_id}/deviceAuth',
+            client_id=client_id
+        )
+        return await self.post(r, auth="LAUNCHER_ACCESS_TOKEN", json={})
+
+    async def account_get_device_auths(self, client_id: str) -> list:
+        r = AccountPublicService(
+            '/account/api/public/account/{client_id}/deviceAuth',
+            client_id=client_id,
+            auth="LAUNCHER_ACCESS_TOKEN"
+        )
+        return await self.get(r)
+
+    async def account_lookup_device_auth(self, client_id: str,
+                                         device_id: str) -> dict:
+        r = AccountPublicService(
+            '/account/api/public/account/{client_id}/deviceAuth/{device_id}',
+            client_id=client_id,
+            device_id=device_id,
+            auth="LAUNCHER_ACCESS_TOKEN"
+        )
+        return await self.get(r)
+
+    async def account_delete_device_auth(self, client_id: str,
+                                         device_id: str) -> None:
+        r = AccountPublicService(
+            '/account/api/public/account/{client_id}/deviceAuth/{device_id}',
+            client_id=client_id,
+            device_id=device_id,
+            auth="LAUNCHER_ACCESS_TOKEN"
+        )
+        return await self.delete(r)
+
+    async def account_sessions_kill_token(self, token: str, auth=None) -> Any:
         r = AccountPublicService('/account/api/oauth/sessions/kill/{token}',
                                  token=token)
-        return await self.delete(r)
+        return await self.delete(r, auth=auth)
 
     async def account_sessions_kill(self, kill_type: str) -> Any:
         params = {
@@ -721,6 +754,13 @@ class HTTPClient:
             user_id=user_id
         )
         return await self.get(r)
+
+    async def account_get_by_email(self, email: str) -> dict:
+        r = AccountPublicService(
+            '/account/api/public/account/email/{email}',
+            email=email
+        )
+        return await self.get(r, auth='LAUNCHER_ACCESS_TOKEN')
 
     async def account_get_external_auths_by_id(self, user_id: str) -> list:
         r = AccountPublicService(

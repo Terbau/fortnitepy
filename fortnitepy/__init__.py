@@ -29,6 +29,8 @@ __version__ = '1.3.1'
 
 from .client import (Client, get_event_loop, run_multiple, start_multiple,
                      close_multiple)
+from .auth import (EmailAndPasswordAuth, ExchangeCodeAuth, DeviceAuth,
+                   AdvancedAuth)
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
 from .party import (PartyMember, ClientPartyMember, Party, ClientParty,

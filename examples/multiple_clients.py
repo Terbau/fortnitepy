@@ -1,3 +1,5 @@
+# flake8: noqa
+
 """This example makes use of multiple accounts."""
 
 import fortnitepy

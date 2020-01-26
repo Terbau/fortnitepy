@@ -234,8 +234,7 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def ready(self) -> bool:
-        base = self.get_prop('GameReadiness_s')
-        return base == "Ready"
+        return self.get_prop('GameReadiness_s')
 
     @property
     def input(self) -> str:
@@ -436,7 +435,7 @@ class PartyMeta(MetaBase):
         super().__init__()
         self.party = party
 
-        privacy = self.party.config
+        privacy = self.party.config['privacy']
         privacy_settings = {
             'partyType': privacy['partyType'],
             'partyInviteRestriction': privacy['inviteRestriction'],
@@ -610,7 +609,9 @@ class PartyMeta(MetaBase):
 
 
 class PartyMemberBase(User):
-    def __init__(self, client: Client, party: 'PartyBase', data: str) -> None:
+    def __init__(self, client: 'Client',
+                 party: 'PartyBase',
+                 data: str) -> None:
         super().__init__(client=client, data=data)
 
         self._party = party
@@ -644,7 +645,7 @@ class PartyMemberBase(User):
     @property
     def ready(self) -> bool:
         """:class:`bool`: ``True`` if this member is ready else ``False``."""
-        return self.meta.ready
+        return self.meta.ready == "Ready"
 
     @property
     def input(self) -> str:
@@ -949,7 +950,9 @@ class PartyMember(PartyMemberBase):
         The client.
     """
 
-    def __init__(self, client: Client, party: 'PartyBase', data: dict) -> None:
+    def __init__(self, client: 'Client',
+                 party: 'PartyBase',
+                 data: dict) -> None:
         super().__init__(client, party, data)
 
     def __repr__(self) -> str:
@@ -1022,7 +1025,9 @@ class ClientPartyMember(PartyMemberBase):
         The client.
     """
 
-    def __init__(self, client: Client, party: 'PartyBase', data: dict) -> None:
+    def __init__(self, client: 'Client',
+                 party: 'PartyBase',
+                 data: dict) -> None:
         super().__init__(client, party, data)
 
         self.queue = asyncio.Queue(loop=self.client.loop)
@@ -1680,7 +1685,7 @@ class ClientPartyMember(PartyMemberBase):
 
 class PartyBase:
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         self._client = client
         self._id = data.get('id')
         self._members = {}
@@ -1694,7 +1699,7 @@ class PartyBase:
         return self.id
 
     @property
-    def client(self) -> Client:
+    def client(self) -> 'Client':
         """:class:`Client`: The client."""
         return self._client
 
@@ -1852,7 +1857,7 @@ class PartyBase:
 class Party(PartyBase):
     """Represent a party that the ClientUser is not yet a part of."""
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
 
     def __repr__(self) -> str:
@@ -1863,7 +1868,7 @@ class Party(PartyBase):
 class ClientParty(PartyBase):
     """Represents ClientUser's party."""
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
 
         self.last_raw_status = None
@@ -2312,7 +2317,7 @@ class PartyInvitation:
     created_at: :class:`datetime.datetime`
         The UTC time this invite was created at.
     """
-    def __init__(self, client: Client,
+    def __init__(self, client: 'Client',
                  party: Party,
                  net_cl: str,
                  data: dict) -> None:
@@ -2384,7 +2389,7 @@ class PartyJoinConfirmation:
     created_at: :class:`datetime.datetime`
         The UTC time of when the join confirmation was received.
     """
-    def __init__(self, client: Client,
+    def __init__(self, client: 'Client',
                  party: ClientParty,
                  user: User,
                  data: dict) -> None:

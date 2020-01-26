@@ -25,12 +25,13 @@ SOFTWARE.
 """
 
 import logging
+import datetime
 
 from aioxmpp import JID
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 if TYPE_CHECKING:
-    from .client import Client, Datetime
+    from .client import Client
     from .stats import StatsV2
     from .party import ClientParty
 
@@ -60,7 +61,7 @@ class ExternalAuth:
     __slots__ = ('client', 'type', 'id', 'external_id',
                  'external_display_name', 'extra_info')
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         self.client = client
         self.type = data['type']
         self.id = data['accountId']
@@ -91,7 +92,7 @@ class UserBase:
     __slots__ = ('client', '_epicgames_display_name', '_external_display_name',
                  '_id', '_external_auths', '_raw_external_auths')
 
-    def __init__(self, client: Client, data: dict, **kwargs: Any) -> None:
+    def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
         self.client = client
         if data:
             self._update(data)
@@ -144,9 +145,11 @@ class UserBase:
         return JID.fromstr('{0.id}@{0.client.service_host}'.format(self))
 
     async def fetch_br_stats(self, *,
-                             start_time: Optional[Union[int, Datetime]] = None,
-                             end_time: Optional[Union[int, Datetime]] = None
-                             ) -> StatsV2:
+                             start_time: Optional[Union[int,
+                                                  datetime.datetime]] = None,
+                             end_time: Optional[Union[int,
+                                                datetime.datetime]] = None
+                             ) -> 'StatsV2':
         """|coro|
 
         Fetches this users stats.
@@ -289,7 +292,7 @@ class ClientUser(UserBase):
         The minor status of this account.
     """
 
-    def __init__(self, client: Client, data: dict, **kwargs: Any) -> None:
+    def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
         super().__init__(client, data)
         self._party = None
         self._update(data)
@@ -307,7 +310,7 @@ class ClientUser(UserBase):
         return '{} {}'.format(self.name, self.last_name)
 
     @property
-    def party(self) -> ClientParty:
+    def party(self) -> 'ClientParty':
         """:class:`ClientParty`: The users party."""
         return self._party
 
@@ -342,7 +345,7 @@ class ClientUser(UserBase):
         self.minor_expected = data['minorExpected']
         self.minor_status = data['minorStatus']
 
-    def set_party(self, party: ClientParty) -> None:
+    def set_party(self, party: 'ClientParty') -> None:
         self._party = party
 
     def remove_party(self) -> None:
@@ -354,7 +357,7 @@ class User(UserBase):
 
     __slots__ = UserBase.__slots__
 
-    def __init__(self, client: Client, data: dict, **kwargs: Any) -> None:
+    def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
         super().__init__(client, data)
 
     def __repr__(self) -> str:
@@ -379,7 +382,7 @@ class BlockedUser(UserBase):
 
     __slots__ = UserBase.__slots__
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
 
     def __repr__(self) -> str:

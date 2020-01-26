@@ -35,6 +35,7 @@ from .presence import Presence
 
 if TYPE_CHECKING:
     from .client import Client
+    from .party import ClientParty
 
 # Type defs
 Datetime = datetime.datetime
@@ -45,7 +46,7 @@ class FriendBase(UserBase):
     __slots__ = UserBase.__slots__ + \
                 ('_status', '_direction', '_favorite', '_created_at')
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
 
     def _update(self, data: dict) -> None:
@@ -141,7 +142,7 @@ class Friend(FriendBase):
 
     __slots__ = FriendBase.__slots__ + ('_nickname', '_note', '_last_logout')
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
         self._last_logout = None
         self._nickname = None
@@ -365,8 +366,7 @@ class Friend(FriendBase):
         """
         await self.client.xmpp.send_friend_message(self.jid, content)
 
-    # TODO: Return new ClientParty
-    async def join_party(self) -> None:
+    async def join_party(self) -> 'ClientParty':
         """|coro|
 
         Attempts to join this friends' party.
@@ -379,6 +379,11 @@ class Friend(FriendBase):
             The party you attempted to join was private.
         HTTPException
             Something else went wrong when trying to join the party.
+
+        Returns
+        -------
+        :class:`ClientParty`
+            The clients new party.
         """
         _pre = self.last_presence
         if _pre is None:
@@ -387,7 +392,7 @@ class Friend(FriendBase):
         if _pre.party.private:
             raise Forbidden('Could not join party. Reason: Party is private')
 
-        await _pre.party.join()
+        return await _pre.party.join()
 
     async def invite(self) -> None:
         """|coro|
@@ -411,7 +416,7 @@ class PendingFriend(FriendBase):
 
     __slots__ = FriendBase.__slots__
 
-    def __init__(self, client: Client, data: dict) -> None:
+    def __init__(self, client: 'Client', data: dict) -> None:
         super().__init__(client, data)
 
     def __repr__(self) -> str:

@@ -40,7 +40,6 @@ from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
 from .errors import (PartyError, HTTPException, PurchaseException,
                      NotFound, Forbidden)
 from .xmpp import XMPPClient
-from .auth import Auth
 from .http import HTTPClient
 from .user import ClientUser, User, BlockedUser
 from .friend import Friend, PendingFriend
@@ -153,11 +152,13 @@ async def _start_client(client: 'Client', *,
         done_task = done.pop()
         e = done_task.result()
         if e is not None:
+            identifier = client.auth.identifier
+
             if shutdown_on_error:
-                raise type(e)('{0.email} - {1}'.format(client, e)) from e
+                raise type(e)('{0} - {1}'.format(identifier, e)) from e
             else:
                 message = ('An exception occured while running client '
-                           '{0.email}'.format(client))
+                           '{0}'.format(identifier))
                 return loop.call_exception_handler({
                     'message': message,
                     'exception': e,
@@ -344,20 +345,18 @@ def run_multiple(clients: List['Client'], *,
         log.info('Cleaning up loop')
         _cleanup_loop(loop)
 
+    if not future.cancelled():
+        return future.result()
+
 
 class Client:
     """Represents the client connected to Fortnite and EpicGames' services.
 
     Parameters
     ----------
-    email: Required[:class:`str`]
-        The email of the account you want the client to log in as.
-    password: Required[:class:`str`]
-        The password of the account you want the client to log in as.
-    two_factor_code: Optional[:class:`int`]
-        The two-factor code to use when authenticating. If no two factor code
-        is set and the passed account has 2fa enabled, you will be asked to
-        enter it through console.
+    auth: :class:`Auth`
+        The authentication method to use. You can read more about available authentication methods
+         :ref:`here <authentication>`.
     loop: Optional[:class:`asyncio.AbstractEventLoop`]
         The event loop to use for asynchronous operations.
     status: :class:`str`
@@ -423,18 +422,12 @@ class Client:
         The os version string to use in the user agent.
         Defaults to ``Windows/10.0.17134.1.768.64bit`` which is valid no
         matter which platform you have set.
-    launcher_token: :class:`str`
-        The token used by EpicGames Launcher.
-    fortnite_token: :class:`str`
-        The token used by Fortnite.
     service_host: :class:`str`
         The host used by Fortnite's XMPP services.
     service_domain: :class:`str`
         The domain used by Fortnite's XMPP services.
     serivce_port: :class:`int`
         The port used by Fortnite's XMPP services.
-    device_id: :class:`str`
-        The hardware address of your computer as a 32char hex string.
 
     Attributes
     ----------
@@ -444,14 +437,11 @@ class Client:
         The event loop that client implements.
     """  # noqa
 
-    def __init__(self, email: str, password: str, *,
-                 two_factor_code: Optional[int] = None,
+    def __init__(self, auth, *,
                  loop: Optional[asyncio.AbstractEventLoop] = None,
                  cache_users: bool = True,
                  **kwargs: Any) -> None:
-        self.email = email
-        self.password = password
-        self.two_factor_code = two_factor_code
+
         self.loop = loop or get_event_loop()
         self.cache_users = cache_users
 
@@ -463,17 +453,17 @@ class Client:
         self.default_party_member_config = kwargs.get('default_party_member_config', [])  # noqa
         self.build = kwargs.get('build', '++Fortnite+Release-11.00-CL-9603448')
         self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
-        self.launcher_token = kwargs.get('launcher_token', 'MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=')  # noqa
-        self.fortnite_token = kwargs.get('fortnite_token', 'ZWM2ODRiOGM2ODdmNDc5ZmFkZWEzY2IyYWQ4M2Y1YzY6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ=')  # noqa
+
         self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
         self.service_domain = kwargs.get('xmpp_domain', 'xmpp-service-prod.ol.epicgames.com')  # noqa
         self.service_port = kwargs.get('xmpp_port', 5222)
-        self.device_id = kwargs.get('device_id', None)
 
         self.kill_other_sessions = True
         self.accept_eula = True
         self.event_prefix = 'event_'
 
+        self.auth = auth
+        self.auth.initialize(self)
         self.http = HTTPClient(self, connector=kwargs.get('connector'))
         self.http.add_header('Accept-Language', 'en-EN')
         self.xmpp = None
@@ -586,6 +576,24 @@ class Client:
         if leave_party:
             await self.user.party.me.leave()
 
+    async def generate_device_auth(self):
+        """|coro|
+
+        Generate device auth details for a safe and reliable login.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while generating the device auth.
+
+        Returns
+        -------
+        Dict[str]
+            A dictionary with the details needed for later login. Keys:
+            ``device_id``, ``account_id`` and ``secret``.
+        """
+        return await self.auth.generate_device_auth()
+
     def update_default_party_config(self, config: dict) -> None:
         if config is None:
             return
@@ -679,9 +687,18 @@ class Client:
         def stopper(*args):
             nonlocal _stopped
 
-            if not _stopped:
+            if not _stopped or not self._closing:
                 loop.stop()
                 _stopped = True
+
+        async def runner():
+            nonlocal _stopped
+
+            try:
+                await self.start()
+            finally:
+                if not self._closing and self.is_ready():
+                    await self.logout()
 
         try:
             loop.add_signal_handler(signal.SIGINT, stopper)
@@ -689,7 +706,7 @@ class Client:
         except NotImplementedError:
             pass
 
-        future = asyncio.ensure_future(self.start(), loop=loop)
+        future = asyncio.ensure_future(runner(), loop=loop)
         future.add_done_callback(stopper)
 
         try:
@@ -699,7 +716,7 @@ class Client:
             _stopped = True
         finally:
             future.remove_done_callback(stopper)
-            if not self._closing:
+            if not self._closing and self.is_ready():
                 log.info('Client not logged out when terminating loop. '
                          'Logging out now.')
                 loop.run_until_complete(self.logout())
@@ -812,8 +829,7 @@ class Client:
 
     async def _login(self) -> None:
         log.debug('Running authenticating')
-        self.auth = Auth(self)
-        await self.auth.authenticate()
+        await self.auth._authenticate()
 
         tasks = [
             self.http.account_get_by_user_id(self.auth.account_id),
@@ -827,9 +843,9 @@ class Client:
             ))
             log.debug('Killing other sessions')
 
-        data, ext_data, extra_ext_data = await asyncio.gather(*tasks)
+        data, ext_data, extra_ext_data, *_ = await asyncio.gather(*tasks)
+        data['externalAuths'] = ext_data['myAccount']['externalAuths'] or []
         data['extraExternalAuths'] = extra_ext_data
-        data['externalAuths'] = ext_data['myAccount']['externalAuths']
         self.user = ClientUser(self, data)
 
         state_fut = asyncio.ensure_future(self.initialize_states(),
@@ -1046,7 +1062,7 @@ class Client:
             The user requested. If not found it will return ``None``.
         """
         if cache:
-            for u in self._users.values():
+            for u in self._users._cache.values():
                 try:
                     if u.display_name.lower() == display_name.lower():
                         return u
@@ -1058,21 +1074,16 @@ class Client:
         if len(accounts) == 0:
             return None
 
-        for account_data in accounts:
-            if account_data['displayName'] is not None:
-                account = account_data
-                break
+        epic_accounts = [d for d in accounts if d['displayName'] is not None]
+        if epic_accounts:
+            account = max(epic_accounts, key=lambda d: d['externalAuths'])
         else:
-            for account_data in accounts:
-                if account_data['displayName'] is None:
-                    account = account_data
-                    break
+            account = accounts[0]
 
         if raw:
             return account
         return self.store_user(account)
 
-    # TODO: Remove
     async def fetch_profiles_by_display_name(self, display_name, *,
                                              raw: bool = False
                                              ) -> Optional[User]:
@@ -1187,7 +1198,7 @@ class Client:
         tasks = []
 
         def find_by_display_name(dn):
-            for u in self._users.values():
+            for u in self._users._cache.values():
                 try:
                     if u.display_name.lower() == dn.lower():
                         profiles.append(u)
