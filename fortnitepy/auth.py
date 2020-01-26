@@ -194,8 +194,8 @@ class EmailAndPasswordAuth(Auth):
     .. warning::
 
         Some users might experience an error saying captcha was invalid.
-        If this is the case, use :class:`ExchangeCodeAuth` and then generate
-        a device auth.
+        If this is the case, use :class:`AdvancedAuth` with an exchange code
+        to generate a device auth.
 
     Parameters
     ----------
