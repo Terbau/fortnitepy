@@ -3,7 +3,10 @@
 import fortnitepy
 import asyncio
 import functools
+import os
+import json
 
+filename = 'device_auths.json'
 # sub-account credentials
 credentials = {
     "email1": "password1",
@@ -18,13 +21,35 @@ credentials = {
     "email10": "password10",
 }
 
+def get_device_auth_details():
+    if os.path.isfile(filename):
+        with open(filename, 'r') as fp:
+            return json.load(fp)
+    return {}
+
+def store_device_auth_details(email, details):
+    existing = get_device_auth_details()
+    existing[email] = details
+
+    with open(filename, 'w') as fp:
+        json.dump(existing, fp)
+
 class MyClient(fortnitepy.Client):
     def __init__(self):
+        device_auths = get_device_auth_details()
         super().__init__(
-            email="",
-            password=""
+            auth=fortnitepy.AdvancedAuth(
+                email=email,
+                password=password,
+                prompt_exchange_code=True,
+                delete_existing_device_auths=True,
+                **device_auths.get(email, {})
+            )
         )
         self.instances = {}
+        
+    async def event_sub_device_auth_generate(self, details, email):
+        store_device_auth_details(email, details)
 
     async def event_sub_ready(self, client):
         self.instances[client.user.id] = client
@@ -51,6 +76,7 @@ class MyClient(fortnitepy.Client):
             )
 
             # register events here
+            client.add_event_handler('device_auth_generate', event_sub_device_auth_generate)
             client.add_event_handler('friend_request', self.event_sub_friend_request)
             client.add_event_handler('party_member_join', self.event_sub_party_member_join)
 
