@@ -27,7 +27,7 @@ SOFTWARE.
 
 __version__ = '1.5.0'
 import asyncio
-from sys import platform
+from sys import platform, version_info
 
 from .client import Client, run_multiple, start_multiple, close_multiple
 from .auth import (EmailAndPasswordAuth, ExchangeCodeAuth, DeviceAuth,
@@ -45,6 +45,6 @@ from .store import Store, FeaturedStoreItem, DailyStoreItem
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 
-# temporary fix for python 3.8
-if platform == 'win32':
+# fix for python 3.8
+if platform == 'win32' and version_info >= (3, 8):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

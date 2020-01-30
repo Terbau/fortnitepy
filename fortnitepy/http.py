@@ -73,7 +73,7 @@ class GraphQLRequest:
         }
 
     def get_operation_name_by_query(self) -> str:
-        return re.search(r'(?:mutation|query) (\w+)', self.query)[1]
+        return re.search(r'(?:mutation|query) (\w+)', self.query).group(1)
 
 
 class Route:
