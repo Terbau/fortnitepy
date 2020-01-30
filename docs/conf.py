@@ -12,17 +12,22 @@
 #
 import os
 import sys
+import re
 sys.path.insert(0, os.path.abspath('./..'))
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'fortnitepy'
-copyright = '2019, Terbau'
+copyright = '2019-2020, Terbau'
 author = 'Terbau'
 
-# The full version, including alpha/beta/rc tags
-release = '0.0.1'
+version = ''
+with open('../discord/__init__.py') as f:
+    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', f.read(), re.MULTILINE).group(1)
+
+# The full version, including alpha/beta/rc tags.
+release = version
 
 
 # -- General configuration ---------------------------------------------------
