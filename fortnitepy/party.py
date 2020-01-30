@@ -35,10 +35,10 @@ import datetime
 from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
                     Awaitable)
 
-from .errors import (FortniteException, PartyError, Forbidden, HTTPException,
-                     NotFound)
+from .errors import PartyError, Forbidden, HTTPException, NotFound
 from .user import User
-from .enums import PartyPrivacy, DefaultCharactersChapter2, Region
+from .enums import (PartyPrivacy, DefaultCharactersChapter2, Region,
+                    ReadyState, Platform)
 
 if TYPE_CHECKING:
     from .client import Client
@@ -644,11 +644,10 @@ class PartyMemberBase(User):
         """
         return self.role == 'CAPTAIN'
 
-    # TODO: Make check for sitting out
     @property
     def ready(self) -> bool:
-        """:class:`bool`: ``True`` if this member is ready else ``False``."""
-        return self.meta.ready == "Ready"
+        """:class:`ReadyState`: The members ready state."""
+        return ReadyState(self.meta.ready)
 
     @property
     def input(self) -> str:
@@ -826,9 +825,13 @@ class PartyMemberBase(User):
         return self.meta.battlepass_info
 
     @property
-    def platform(self) -> str:
-        """:class:`str`: The platform this user currently uses."""
-        return self.meta.platform
+    def platform(self) -> Platform:
+        """:class:`Platform`: The platform this user currently uses."""
+        return Platform(self.meta.platform)
+
+    def is_ready(self) -> bool:
+        """:class:`bool`: ``True`` if this member is ready else ``False``."""
+        return self.ready is ReadyState.READY
 
     def is_chatbanned(self) -> bool:
         """:class:`bool`: Whether or not this member is chatbanned."""
@@ -1234,35 +1237,34 @@ class ClientPartyMember(PartyMemberBase):
         p = await self.client._create_party()
         return p
 
-    async def set_ready(self, value: Union[bool, None]) -> None:
+    async def set_ready(self, state: ReadyState) -> None:
         """|coro|
 
         Sets the readiness of the client.
 
         Parameters
         ----------
-        value: :class:`bool`
-            | ``True`` to set it to ready.
-            | ``False`` to set it to unready.
-            | ``None`` to set it to sitting out.
+        state: :class:`ReadyState`
+            The ready state you wish to set.
         """
         prop = self.meta.set_readiness(
-            val='Ready' if value is True else ('NotReady' if value is False
-                                               else 'SittingOut')
+            val=state.value
         )
 
         if not self.edit_lock.locked():
             tasks = [self.patch(updated=prop)]
-            if value is None:
+            if state is ReadyState.SITTING_OUT:
                 tasks.append(
-                    random.choice(list(self.party.members.values())).promote()
+                    random.choice([m for m in self.party.members.values()
+                                   if m.id != self.client.user.id]).promote()
                 )
             await asyncio.gather(*tasks)
 
         else:
-            if value is None:
+            if state is ReadyState.SITTING_OUT:
                 asyncio.ensure_future(
-                    random.choice(list(self.party.members.values())).promote(),
+                    random.choice([m for m in self.party.members.values()
+                                   if m.id != self.client.user.id]).promote(),
                     loop=self.client.loop
                 )
 
@@ -2219,7 +2221,7 @@ class ClientParty(PartyBase):
 
             await party.set_playlist(
                 playlist='Playlist_DefaultDuo',
-                region='EU'
+                region=fortnitepy.Region.EUROPE
             )
 
         Sets the playlist to Arena Trios EU (Replace ``Trios`` with ``Solo``
@@ -2229,14 +2231,14 @@ class ClientParty(PartyBase):
                 playlist='Playlist_ShowdownAlt_Trios',
                 tournament='epicgames_Arena_S10_Trios',
                 event_window='Arena_S10_Division1_Trios',
-                region='EU'
+                region=fortnitepy.Region.EUROPE
             )
 
         Parameters
         ----------
         playlist: Optional[:class:`str`]
             The name of the playlist.
-            *Defaults to 'EU'*
+            Defaults to :attr:`Region.EUROPE`
         tournament: Optional[:class:`str`]
             The tournament id.
         event_window: Optional[:class:`str`]

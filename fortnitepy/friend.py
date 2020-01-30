@@ -32,6 +32,7 @@ from aioxmpp import JID
 from .user import UserBase, ExternalAuth
 from .errors import PartyError, Forbidden, HTTPException
 from .presence import Presence
+from .enums import Platform
 
 if TYPE_CHECKING:
     from .client import Client
@@ -219,8 +220,8 @@ class Friend(FriendBase):
         return self._last_logout
 
     @property
-    def platform(self) -> Optional[str]:
-        """:class:`str`: The platform the friend is currently online on.
+    def platform(self) -> Optional[Platform]:
+        """:class:`Platform`: The platform the friend is currently online on.
         ``None`` if the friend is offline.
         """
         pres = self.client.get_presence(self.id)

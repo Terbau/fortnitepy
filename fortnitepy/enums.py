@@ -134,3 +134,9 @@ class Platform(Enum):
     SWITCH      = 'SWT'
     IOS         = 'IOS'
     ANDROID     = 'AND'
+
+
+class ReadyState(Enum):
+    READY       = 'Ready'
+    NOT_READY   = 'NotReady'
+    SITTING_OUT = 'SittingOut'

@@ -31,6 +31,7 @@ import datetime
 from typing import TYPE_CHECKING
 
 from .errors import Forbidden, PartyError
+from .enums import Platform
 
 if TYPE_CHECKING:
     from .client import Client
@@ -115,7 +116,7 @@ class PresenceParty:
         The client.
     private: :class:`bool`
         ``True`` if the party is private else ``False``.
-    platform: :class:`str`
+    platform: :class:`Platform`
         The platform of the friend.
     id: :class:`str`
         The party's id.
@@ -146,7 +147,8 @@ class PresenceParty:
         self.raw = data
         self.private = data.get('bIsPrivate', False)
 
-        self.platform = data.get('sourcePlatform')
+        pl = data.get('sourcePlatform')
+        self.platform = Platform(pl) if pl is not None else None
         self.id = data.get('partyId')
         self.party_type_id = data.get('partyTypeId')
         self.key = data.get('key')
@@ -209,7 +211,7 @@ class Presence:
         ``False`` if user went unavailable.
     friend: :class:`Friend`
         The friend you received this presence from.
-    platform: :class:`str`
+    platform: :class:`Platform`
         The platform this presence was sent from.
     received_at: :class:`datetime.datetime`
         The UTC time of when the client received this presence.
@@ -276,7 +278,7 @@ class Presence:
         self.raw = data
         self.available = available
         self.friend = self.client.get_friend(from_id)
-        self.platform = platform
+        self.platform = Platform(platform)
         self.received_at = datetime.datetime.utcnow()
 
         self.status = data['Status']
