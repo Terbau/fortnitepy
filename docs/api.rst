@@ -167,7 +167,7 @@ this decorator if you are in a subclass of :class:`Client`.
 
 	:param details: A dictionary containing the keys ``device_id``, ``account_id`` and ``secret``.
 	:type details: :class:`dict`
-	:param email: The present when the details were generated. Will be ``None`` if no email was passed to :class:`AdvancedAuth`.
+	:param email: Email of the account that just generated new device auth details.
 	:type email: :class:`str`
 
 .. function:: event_auth_refresh()
@@ -316,6 +316,15 @@ this decorator if you are in a subclass of :class:`Client`.
 	
 	:param confirmation: Confirmation object with accessible confirmation methods.
 	:type confirmation: :class:`PartyJoinConfirmation`
+
+.. function:: event_party_member_chatban(member, reason)
+
+	This event is called whenever a member of the party has been banned from the party chat.
+
+	:param member: The member that was banned.
+	:type member: :class:`PartyMember`
+	:param reason: The reason for the ban if available.
+	:type reason: Optional[:class:`str`]
 
 .. function:: event_party_invite_cancel()
 

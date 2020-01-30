@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019 Terbau
+Copyright (c) 2019-2020 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,8 @@ import datetime
 from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
                     Awaitable)
 
-from .errors import FortniteException, PartyError, Forbidden, HTTPException
+from .errors import (FortniteException, PartyError, Forbidden, HTTPException,
+                     NotFound)
 from .user import User
 from .enums import PartyPrivacy, DefaultCharactersChapter2, Region
 
@@ -639,7 +640,7 @@ class PartyMemberBase(User):
         """:class:`bool`: Returns ``True`` if member is the leader else
         ``False``.
         """
-        return True if self.role else False
+        return self.role is not None
 
     # TODO: Make check for sitting out
     @property
@@ -827,6 +828,10 @@ class PartyMemberBase(User):
         """:class:`str`: The platform this user currently uses."""
         return self.meta.platform
 
+    def is_chatbanned(self) -> bool:
+        """:class:`bool`: Whether or not this member is chatbanned."""
+        return self.id in getattr(self.party, '_chatbanned_members', {})
+
     def _update(self, data: dict) -> None:
         super()._update(data)
         self.role = data.get('role')
@@ -974,8 +979,7 @@ class PartyMember(PartyMemberBase):
         HTTPException
             Something else went wrong when trying to kick this member.
         """
-        if (self.party.leader is not None
-                and self.client.user.id != self.party.leader.id):
+        if not self.party.me.leader:
             raise Forbidden('You must be the party leader to perform this '
                             'action')
 
@@ -1006,7 +1010,7 @@ class PartyMember(PartyMemberBase):
         HTTPException
             Something else went wrong when trying to promote this member.
         """
-        if self.client.user.id != self.party.leader.id:
+        if not self.party.me.leader:
             raise Forbidden('You must be the party leader to perform this '
                             'action')
 
@@ -1014,6 +1018,33 @@ class PartyMember(PartyMemberBase):
             raise PartyError('You are already the leader')
 
         await self.client.http.party_promote_member(self.party.id, self.id)
+
+    async def chatban(self, reason: Optional[str] = None) -> None:
+        """|coro|
+
+        Bans this member from the party chat. The member can then not send or
+        receive messages but still is a part of the party.
+
+        .. note::
+
+            Chatbanned members are only banned for the current party. Whenever
+            the client joins another party, the banlist will be empty.
+
+        Parameters
+        ----------
+        reason: Optional[:class:`str`]
+            The reason for the member being banned.
+
+        Raises
+        ------
+        Forbidden
+            You are not the leader of the party.
+        ValueError
+            This user is already banned.
+        NotFound
+            The user was not found.
+        """
+        await self.party.chatban_member(self.id, reason=reason)
 
 
 class ClientPartyMember(PartyMemberBase):
@@ -1646,7 +1677,6 @@ class ClientPartyMember(PartyMemberBase):
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
 
-    # TODO: Add this method as fixed
     async def set_assisted_challenge(self, quest: Optional[str] = None, *,
                                      num_completed: Optional[int] = None
                                      ) -> None:
@@ -1873,6 +1903,7 @@ class ClientParty(PartyBase):
 
         self.last_raw_status = None
         self._me = None
+        self._chatbanned_members = {}
 
         self.queue = asyncio.Queue(loop=self.client.loop)
         self.queue_active = False
@@ -1897,6 +1928,13 @@ class ClientParty(PartyBase):
         return aioxmpp.JID.fromstr(
             'Party-{}@muc.prod.ol.epicgames.com'.format(self.id)
         )
+
+    @property
+    def chatbanned_members(self) -> None:
+        """Dict[:class:`str`, :class:`PartyMember`] A dict of all chatbanned
+        members mapped to their user id.
+        """
+        return self._chatbanned_members
 
     def _add_clientmember(self, member: ClientPartyMember) -> None:
         self._me = member
@@ -2066,6 +2104,23 @@ class ClientParty(PartyBase):
     async def join_chat(self) -> None:
         await self.client.xmpp.join_muc(self.id)
 
+    async def chatban_member(self, user_id: str, *,
+                             reason: Optional[str] = None) -> None:
+        if not self.me.leader:
+            raise Forbidden('Only leaders can ban members from the chat.')
+
+        if user_id in self._chatbanned_members:
+            raise ValueError('This member is already banned')
+
+        room = self.client.xmpp.muc_room
+        for occupant in room.members:
+            if occupant.direct_jid.localpart == user_id:
+                self._chatbanned_members[user_id] = self.members[user_id]
+                await room.ban(occupant, reason=reason)
+                break
+        else:
+            raise NotFound('This member is not a part of the party.')
+
     async def send(self, content: str) -> None:
         """|coro|
 
@@ -2187,7 +2242,7 @@ class ClientParty(PartyBase):
         Forbidden
             The client is not the leader of the party.
         """
-        if self.leader.id != self.client.user.id:
+        if not self.me.leader:
             raise Forbidden('You have to be leader for this action to work.')
 
         if not isinstance(privacy, dict):
@@ -2239,7 +2294,7 @@ class ClientParty(PartyBase):
         Forbidden
             The client is not the leader of the party.
         """
-        if self.leader.id != self.client.user.id:
+        if not self.me.leader:
             raise Forbidden('You have to be leader for this action to work.')
 
         if region is not None:
@@ -2268,7 +2323,7 @@ class ClientParty(PartyBase):
         Forbidden
             The client is not the leader of the party.
         """
-        if self.leader.id != self.client.user.id:
+        if not self.me.leader:
             raise Forbidden('You have to be leader for this action to work.')
 
         prop = self.meta.set_custom_key(
@@ -2294,7 +2349,7 @@ class ClientParty(PartyBase):
         Forbidden
             The client is not the leader of the party.
         """
-        if self.leader.id != self.client.user.id:
+        if not self.me.leader:
             raise Forbidden('You have to be leader for this action to work.')
 
         prop = self.meta.set_fill(val=value)
@@ -2374,7 +2429,6 @@ class PartyInvitation:
         await self.client.http.party_delete_ping(self.sender.id)
 
 
-# TODO: Changed to ClientParty (docs)
 class PartyJoinConfirmation:
     """Represents a join confirmation.
 

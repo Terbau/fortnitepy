@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019 Terbau
+Copyright (c) 2019-2020 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -593,9 +593,14 @@ class AdvancedAuth(Auth):
                 await asyncio.gather(*tasks)
 
         details = await self.generate_device_auth(client_id)
+        account_data = await self.client.http.account_get_by_user_id(
+            client_id,
+            auth='LAUNCHER_ACCESS_TOKEN'
+        )
+
         self.client.dispatch_event('device_auth_generate',
                                    details,
-                                   self.email)
+                                   account_data['email'])
 
         await self.kill_token(self.launcher_access_token)
         return await self.run_device_authenticate(**details)

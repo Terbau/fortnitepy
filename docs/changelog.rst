@@ -5,6 +5,37 @@ Changelog
 
 Detailed version changes.
 
+v1.5.0
+------
+
+This update fixes some important bugs and introduces functionality to ban members in party chat.
+
+Removed
+~~~~~~~
+
+- Removed ``get_event_loop()`` since it's no longer needed. Use :func:`asyncio.get_event_loop()`.
+
+Added
+~~~~~
+
+- Added :attr:`Friend.platform` to get the currently used platform by the friend if online.
+- Added :attr:`Presence.platform` to get the platform the presence was sent from.
+- Added :meth:`PartyMember.chatban()` to chatban a member.
+- Added :meth:`PartyMember.is_chatbanned()` to check if a member is chatbanned.
+- Added :attr:`ClientParty.chatbanned_members` to get a mapping of all chatbanned members.
+- Added event :func:`event_party_member_chatban()` which emits when a party member was chatbanned.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed compatibility with Python 3.8 on windows specifically by setting the event loop policy to :class:`asyncio.WindowsSelectorEventLoopPolicy`.
+- The email passed in :func:`event_device_auth_generate()` is now never ``None`` and always the correct email.
+- Fixed an issue that caused party members of a party you joined to have the default meta values.
+- Fixed an issue that caused :func:`event_party_invite()` to not emit.
+- Fixed an issue that caused an internal method to never be run.
+- Fixed :attr:`ClientPartyMember.leader`.
+- Fixed an issue that caused an error to be raised when a message from a non-party member was sometimes received.
+
 
 v1.4.0
 ------
@@ -12,11 +43,9 @@ v1.4.0
 Very breaking update introducing new methods to authenticate, type hinting and more.
 
 Changes
-~~~~~
+~~~~~~~
 
-- You no longer pass an email and a password directly when initializing :class:`Client`. 
-``auth`` is the new parameter taking one of the new authentication methods. Read more about them
-here :ref:`here <authentication>`.
+- You no longer pass an email and a password directly when initializing :class:`Client`. ``auth`` is the new parameter taking one of the new authentication methods. Read more about them here :ref:`here <authentication>`.
 - Also moved parameters ``two_factor_code``, ``launcher_token``, ``fortnite_token`` and ``device_id`` to the auth object.
 - :meth:`Friend.join()` now returns the new :class:`ClientParty` the client just joined.
 

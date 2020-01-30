@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019 Terbau
+Copyright (c) 2019-2020 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -209,6 +209,8 @@ class Presence:
         ``False`` if user went unavailable.
     friend: :class:`Friend`
         The friend you received this presence from.
+    platform: :class:`str`
+        The platform this presence was sent from.
     received_at: :class:`datetime.datetime`
         The UTC time of when the client received this presence.
     status: :class:`str`
@@ -256,22 +258,25 @@ class Presence:
         The playercount of the friend's server.
     """
 
-    __slots__ = ('client', 'raw', 'available', 'friend', 'received_at',
-                 'status', 'playing', 'joinable', 'has_voice_support',
-                 'session_id', 'raw_properties', 'has_properties', 'avatar',
-                 'avatar_colors', 'homebase_rating', 'lfg', 'sub_game',
-                 'in_unjoinable_match', 'playlist', 'party_size',
-                 'max_party_size', 'game_session_join_key',
-                 'server_player_count', 'gameplay_stats', 'party')
+    __slots__ = ('client', 'raw', 'available', 'friend', 'platform',
+                 'received_at', 'status', 'playing', 'joinable',
+                 'has_voice_support', 'session_id', 'raw_properties',
+                 'has_properties', 'avatar', 'avatar_colors',
+                 'homebase_rating', 'lfg', 'sub_game', 'in_unjoinable_match',
+                 'playlist', 'party_size', 'max_party_size',
+                 'game_session_join_key', 'server_player_count',
+                 'gameplay_stats', 'party')
 
     def __init__(self, client: 'Client',
                  from_id: str,
+                 platform: str,
                  available: bool,
                  data: dict) -> None:
         self.client = client
         self.raw = data
         self.available = available
         self.friend = self.client.get_friend(from_id)
+        self.platform = platform
         self.received_at = datetime.datetime.utcnow()
 
         self.status = data['Status']

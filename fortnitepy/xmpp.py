@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019 Terbau
+Copyright (c) 2019-2020 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -64,6 +64,9 @@ class EventDispatcher:
 
     def process_event(self, client: 'Client', stanza: aioxmpp.Message) -> None:
         body = json.loads(stanza.body.any())
+        if isinstance(body, list):
+            return
+
         type_ = body['type']
         log.debug('Received event `{}` with body `{}`'.format(type_, body))
 
@@ -319,12 +322,11 @@ class XMPPClient:
         if party.me is not None:
             asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
 
-        if not (member.id == self.client.user.id and member.leader):
-            if party.me and party.leader and party.me.id == party.leader.id:
-                part = party.meta.refresh_squad_assignments()
-                fut = asyncio.ensure_future(party.patch(updated={
-                    'RawSquadAssignments_j': part
-                }), loop=self.client.loop)
+        if member.id == self.client.user.id and member.leader:
+            part = party.meta.refresh_squad_assignments()
+            fut = asyncio.ensure_future(party.patch(updated={
+                'RawSquadAssignments_j': part
+            }), loop=self.client.loop)
 
         try:
             if member.id == self.client.user.id:
@@ -449,6 +451,9 @@ class XMPPClient:
             m.update_role(None)
 
         member.update_role('CAPTAIN')
+        if member.id == self.client.user.id:
+            self.client.user.party.me.update_role('CAPTAIN')
+
         party.update_presence()
         self.client.dispatch_event('party_member_promote', old_leader, member)
 
@@ -598,9 +603,14 @@ class XMPPClient:
             except asyncio.TimeoutError:
                 return
 
+        platform = None
+        if not presence.from_.is_bare:
+            platform = presence.from_.resource.split(':')[2]
+
         _pres = Presence(
             self.client,
             user_id,
+            platform,
             presence.type_ is aioxmpp.PresenceType.AVAILABLE,
             data
         )
@@ -746,6 +756,9 @@ class XMPPClient:
                        member: aioxmpp.muc.Occupant,
                        source: aioxmpp.im.dispatcher.MessageSource,
                        **kwargs: Any) -> None:
+        if member.direct_jid is None:
+            return
+
         user_id = member.direct_jid.localpart
         party = self.client.user.party
 
@@ -766,6 +779,17 @@ class XMPPClient:
     def muc_on_enter(self, *args: list, **kwargs: Any) -> None:
         self.client.dispatch_event('muc_enter')
 
+    def muc_on_leave(self, member: aioxmpp.muc.Occupant,
+                     muc_leave_mode: aioxmpp.muc.LeaveMode,
+                     muc_actor: aioxmpp.muc.xso.UserActor,
+                     muc_reason: str,
+                     **kwargs: Any) -> None:
+        if muc_leave_mode is aioxmpp.muc.LeaveMode.BANNED:
+            mem = self.client.user.party.members[member.direct_jid.localpart]
+            self.client.dispatch_event('party_member_chatban',
+                                       mem,
+                                       muc_reason)
+
     async def join_muc(self, party_id: str) -> None:
         muc_jid = aioxmpp.JID.fromstr(
             'Party-{}@muc.prod.ol.epicgames.com'.format(party_id)
@@ -780,6 +804,7 @@ class XMPPClient:
         room.on_message.connect(self.muc_on_message)
         room.on_join.connect(self.muc_on_member_join)
         room.on_enter.connect(self.muc_on_enter)
+        room.on_leave.connect(self.muc_on_leave)
         self.muc_room = room
 
         asyncio.ensure_future(fut, loop=self.client.loop)

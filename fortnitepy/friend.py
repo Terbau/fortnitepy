@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019 Terbau
+Copyright (c) 2019-2020 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -217,6 +217,15 @@ class Friend(FriendBase):
         this user (most likely cause the user has never logged on).
         """
         return self._last_logout
+
+    @property
+    def platform(self) -> Optional[str]:
+        """:class:`str`: The platform the friend is currently online on.
+        ``None`` if the friend is offline.
+        """
+        pres = self.client.get_presence(self.id)
+        if pres is not None:
+            return pres.platform
 
     def is_online(self) -> bool:
         """Method to check if a user is currently online.
