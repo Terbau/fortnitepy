@@ -218,6 +218,15 @@ class Friend(FriendBase):
         """
         return self._last_logout
 
+    @property
+    def platform(self) -> Optional[str]:
+        """:class:`str`: The platform the friend is currently online on.
+        ``None`` if the friend is offline.
+        """
+        pres = self.client.get_presence(self.id)
+        if pres is not None:
+            return pres.platform
+
     def is_online(self) -> bool:
         """Method to check if a user is currently online.
 

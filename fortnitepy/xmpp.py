@@ -601,9 +601,14 @@ class XMPPClient:
             except asyncio.TimeoutError:
                 return
 
+        platform = None
+        if not presence.from_.is_bare:
+            platform = presence.from_.resource.split(':')[2]
+
         _pres = Presence(
             self.client,
             user_id,
+            platform,
             presence.type_ is aioxmpp.PresenceType.AVAILABLE,
             data
         )
