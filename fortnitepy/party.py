@@ -662,7 +662,7 @@ class PartyMemberBase(User):
         result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
         if result is not None and result[1] != 'None':
-            return result[1]
+            return result.group(1)
 
     @property
     def outfit(self) -> str:
@@ -672,8 +672,8 @@ class PartyMemberBase(User):
         asset = self.meta.outfit
         result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
-        if result is not None and result[1] != 'None':
-            return result[1]
+        if result is not None and result.group(1) != 'None':
+            return result.group(1)
 
     @property
     def backpack(self) -> str:
@@ -684,8 +684,8 @@ class PartyMemberBase(User):
         if '/petcarriers/' not in asset.lower():
             result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
-            if result is not None and result[1] != 'None':
-                return result[1]
+            if result is not None and result.group(1) != 'None':
+                return result.group(1)
 
     @property
     def pet(self) -> str:
@@ -696,8 +696,8 @@ class PartyMemberBase(User):
         if '/petcarriers/' in asset.lower():
             result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
-            if result is not None and result[1] != 'None':
-                return result[1]
+            if result is not None and result.group(1) != 'None':
+                return result.group(1)
 
     @property
     def pickaxe(self) -> str:
@@ -707,8 +707,8 @@ class PartyMemberBase(User):
         asset = self.meta.pickaxe
         result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
-        if result is not None and result[1] != 'None':
-            return result[1]
+        if result is not None and result.group(1) != 'None':
+            return result.group(1)
 
     @property
     def contrail(self) -> str:
@@ -719,7 +719,7 @@ class PartyMemberBase(User):
         result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
         if result is not None and result[1] != 'None':
-            return result[1]
+            return result.group(1)
 
     @property
     def outfit_variants(self) -> List[Dict[str, str]]:
@@ -786,8 +786,8 @@ class PartyMemberBase(User):
         if '/emoji/' not in asset.lower():
             result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
-            if result is not None and result[1] != 'None':
-                return result[1]
+            if result is not None and result.group(1) != 'None':
+                return result.group(1)
 
     @property
     def emoji(self) -> Optional[str]:
@@ -798,8 +798,8 @@ class PartyMemberBase(User):
         if '/emoji/' in asset.lower():
             result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
-            if result is not None and result[1] != 'None':
-                return result[1]
+            if result is not None and result.group(1) != 'None':
+                return result.group(1)
 
     @property
     def banner(self) -> Tuple[str, str, int]:

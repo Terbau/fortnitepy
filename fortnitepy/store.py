@@ -39,7 +39,7 @@ class StoreItemBase:
         self._asset_path = data.get('displayAssetPath')
 
         try:
-            self._asset = re.search(r'\.(.+)', self._asset_path)[1]
+            self._asset = re.search(r'\.(.+)', self._asset_path).group(1)
         except TypeError:
             self._asset = None
 
@@ -63,7 +63,7 @@ class StoreItemBase:
     def display_names(self) -> List[str]:
         """List[:class:`str`]: The display names for this item."""
         match = re.search(r'^\[VIRTUAL][0-9]+ x (.*) for [0-9]+ .*$',
-                          self._dev_name)[1]
+                          self._dev_name).group(1)
         return re.split(r', [0-9]+ x ', match)
 
     @property
