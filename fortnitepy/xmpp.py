@@ -451,6 +451,9 @@ class XMPPClient:
             m.update_role(None)
 
         member.update_role('CAPTAIN')
+        if member.id == self.client.user.id:
+            self.client.user.party.me.update_role('CAPTAIN')
+
         party.update_presence()
         self.client.dispatch_event('party_member_promote', old_leader, member)
 
