@@ -2192,11 +2192,7 @@ class Client:
             if party_data['config']['joinability'] == 'INVITE_AND_FORMER':
                 raise Forbidden('You can\'t join a private party.')
 
-        party = ClientParty(self, party_data)
-        await party._update_members(party_data['members'])
-
         await self.user.party._leave()
-        self.user.set_party(party)
 
         future = asyncio.ensure_future(self.wait_for(
             'party_member_join',
@@ -2205,14 +2201,22 @@ class Client:
 
         try:
             await self.http.party_join_request(party_id)
-            await self.user.party.join_chat()
         except HTTPException as e:
+            if not future.cancelled():
+                future.cancel()
+
             await self._create_party()
 
             if e.message_code == ('errors.com.epicgames.social.'
                                   'party.party_join_forbidden'):
                 raise Forbidden('Client has no right to join this party.')
             e.reraise()
+
+        party_data = await self.http.party_lookup(party_id)
+        party = ClientParty(self, party_data)
+        self.user.set_party(party)
+        asyncio.ensure_future(party.join_chat(), loop=self.loop)
+        await party._update_members(party_data['members'])
 
         try:
             await future
