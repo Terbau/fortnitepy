@@ -134,6 +134,7 @@ class PartyMemberMeta(MetaBase):
                  meta: Optional[dict] = None) -> None:
         super().__init__()
         self.member = member
+        self.meta_ready_event = asyncio.Event(loop=self.member.client.loop)
 
         self.def_character = get_random_default_character()
         self.schema = {
@@ -227,11 +228,12 @@ class PartyMemberMeta(MetaBase):
         client = member.client
         if member.id == client.user.id and isinstance(member,
                                                       ClientPartyMember):
-            asyncio.ensure_future(
+            fut = asyncio.ensure_future(
                 member._edit(*client.default_party_member_config,
                              from_default=True),
                 loop=client.loop
             )
+            fut.add_done_callback(lambda *args: self.meta_ready_event.set())
 
     @property
     def ready(self) -> bool:
@@ -1061,8 +1063,7 @@ class ClientPartyMember(PartyMemberBase):
                  data: dict) -> None:
         super().__init__(client, party, data)
 
-        self.queue = asyncio.Queue(loop=self.client.loop)
-        self.queue_active = False
+        self.patch_lock = asyncio.Lock(loop=self.client.loop)
         self.edit_lock = asyncio.Lock(loop=self.client.loop)
         self.clear_emote_task = None
 
@@ -1082,39 +1083,18 @@ class ClientPartyMember(PartyMemberBase):
         self.revision += 1
 
     async def patch(self, updated: Optional[dict] = None) -> Any:
-        future = self.client.loop.create_future()
-        await self.queue.put((self._patch, future, {'updated': updated}))
-
-        if not self.queue_active:
-            asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
-        return await future
-
-    async def _run_queue(self) -> None:
-        self.queue_active = True
-        try:
-            while not self.queue.empty():
-                func, future, kwargs = await self.queue.get()
-                if func is None:
+        async with self.patch_lock:
+            await self.meta.meta_ready_event.wait()
+            while True:
+                try:
+                    await self._patch(updated=updated)
                     break
-
-                while True:
-                    try:
-                        res = await func(**kwargs)
-                        future.set_result(res)
-                        break
-                    except HTTPException as exc:
-                        m = 'errors.com.epicgames.social.party.stale_revision'
-                        if exc.message_code == m:
-                            self.revision = int(exc.message_vars[1])
-                            continue
-                        exc.reraise()
-                    except FortniteException as exc:
-                        future.set_exception(exc)
-                        break
-
-        except RuntimeError:
-            pass
-        self.queue_active = False
+                except HTTPException as exc:
+                    m = 'errors.com.epicgames.social.party.stale_revision'
+                    if exc.message_code == m:
+                        self.revision = int(exc.message_vars[1])
+                        continue
+                    exc.reraise()
 
     async def _edit(self, *coros: List[Union[Awaitable, functools.partial]],
                     from_default: bool = True) -> None:
@@ -1905,8 +1885,7 @@ class ClientParty(PartyBase):
         self._me = None
         self._chatbanned_members = {}
 
-        self.queue = asyncio.Queue(loop=self.client.loop)
-        self.queue_active = False
+        self.patch_lock = asyncio.Lock(loop=self.client.loop)
 
         self._update_revision(data.get('revision', 0))
         self._update_invites(data.get('invites', []))
@@ -2145,41 +2124,18 @@ class ClientParty(PartyBase):
         self.revision += 1
 
     async def patch(self, updated: Optional[dict] = None,
-                    deleted: Optional[list] = None) -> Any:
-        future = self.client.loop.create_future()
-        payload = {'updated': updated, 'deleted': deleted}
-        await self.queue.put((self._patch, future, payload))
-
-        if not self.queue_active:
-            asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
-        return await future
-
-    async def _run_queue(self) -> None:
-        self.queue_active = True
-        try:
-            while not self.queue.empty():
-                func, future, kwargs = await self.queue.get()
-                if func is None:
+                    deleted: Optional[list] = None) -> None:
+        async with self.patch_lock:
+            while True:
+                try:
+                    await self._patch(updated=updated, deleted=deleted)
                     break
-
-                while True:
-                    try:
-                        res = await func(**kwargs)
-                        future.set_result(res)
-                        break
-                    except HTTPException as exc:
-                        m = 'errors.com.epicgames.social.party.stale_revision'
-                        if exc.message_code == m:
-                            self.revision = int(exc.message_vars[1])
-                            continue
-                        exc.reraise()
-                    except FortniteException as exc:
-                        future.set_exception(exc)
-                        break
-
-        except RuntimeError:
-            pass
-        self.queue_active = False
+                except HTTPException as exc:
+                    m = 'errors.com.epicgames.social.party.stale_revision'
+                    if exc.message_code == m:
+                        self.revision = int(exc.message_vars[1])
+                        continue
+                    exc.reraise()
 
     async def invite(self, user_id: str) -> None:
         """|coro|
