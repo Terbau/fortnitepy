@@ -5,6 +5,17 @@ Changelog
 
 Detailed version changes.
 
+v1.5.1
+------
+
+Quick hotpatch to fix Python 3.5 & 3.6 compatibility.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed Python 3.5 & 3.6 compatibility.
+
+
 v1.5.0
 ------
 
