@@ -99,33 +99,11 @@ def _cleanup_loop(loop: asyncio.AbstractEventLoop) -> None:
         loop.close()
 
 
-# Python 3.8 workaround for compatibility with aioxmpp.
-# The default event loop used on windows was changed from SelectorEventLoop
-# to ProactorEventLoop which is still not supported by aioxmpp.
-def get_event_loop() -> asyncio.SelectorEventLoop:
-    if sys.platform == 'win32':
-        policy = asyncio.get_event_loop_policy()
-        loop = policy._local._loop
-
-        if loop is None:
-            selector = selectors.SelectSelector()
-            loop = asyncio.SelectorEventLoop(selector)
-            asyncio.set_event_loop(loop)
-
-        elif isinstance(loop, asyncio.ProactorEventLoop):
-            raise RuntimeError('asyncio.ProactorEventLoop is not supported')
-
-    else:
-        loop = asyncio.get_event_loop()
-
-    return loop
-
-
 async def _start_client(client: 'Client', *,
                         shutdown_on_error: bool = True,
                         after: Optional[AnyCallableWithClient] = None
                         ) -> None:
-    loop = get_event_loop()
+    loop = asyncio.get_event_loop()
 
     if not isinstance(client, Client):
         raise TypeError('client must be an instance of fortnitepy.Client')
@@ -210,7 +188,7 @@ async def start_multiple(clients: List['Client'], *,
     AuthException
         An error occured when attempting to log in.
     """  # noqa
-    loop = get_event_loop()
+    loop = asyncio.get_event_loop()
 
     async def all_ready_callback_runner():
         tasks = [loop.create_task(client.wait_until_ready())
@@ -263,7 +241,7 @@ async def close_multiple(clients: List['Client']) -> None:
     clients: List[:class:`Client`]
         A list of the clients you wish to close.
     """
-    loop = get_event_loop()
+    loop = asyncio.get_event_loop()
 
     tasks = [loop.create_task(client.logout())
              for client in clients if not client._closing]
@@ -307,7 +285,7 @@ def run_multiple(clients: List['Client'], *,
     AuthException
         An error occured when attempting to log in.
     """  # noqa
-    loop = get_event_loop()
+    loop = asyncio.get_event_loop()
     _stopped = False
 
     def stopper(*args):
@@ -442,7 +420,7 @@ class Client:
                  cache_users: bool = True,
                  **kwargs: Any) -> None:
 
-        self.loop = loop or get_event_loop()
+        self.loop = loop or asyncio.get_event_loop()
         self.cache_users = cache_users
 
         self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')  # noqa

@@ -26,9 +26,10 @@ SOFTWARE.
 """
 
 __version__ = '1.4.0'
+import asyncio
+from sys import platform
 
-from .client import (Client, get_event_loop, run_multiple, start_multiple,
-                     close_multiple)
+from .client import Client, run_multiple, start_multiple, close_multiple
 from .auth import (EmailAndPasswordAuth, ExchangeCodeAuth, DeviceAuth,
                    AdvancedAuth)
 from .friend import Friend, PendingFriend
@@ -45,4 +46,5 @@ from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 
 # temporary fix for python 3.8
-get_event_loop()
+if platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
