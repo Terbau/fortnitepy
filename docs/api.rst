@@ -317,6 +317,15 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param confirmation: Confirmation object with accessible confirmation methods.
 	:type confirmation: :class:`PartyJoinConfirmation`
 
+.. function:: event_party_member_chatban(member, reason)
+
+	This event is called whenever a member of the party has been banned from the party chat.
+
+	:param member: The member that was banned.
+	:type member: :class:`PartyMember`
+	:param reason: The reason for the ban if available.
+	:type reason: Optional[:class:`str`]
+
 .. function:: event_party_invite_cancel()
 
 	This event is called when an invite has been cancelled.

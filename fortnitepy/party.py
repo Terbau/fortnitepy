@@ -1025,6 +1025,11 @@ class PartyMember(PartyMemberBase):
         Bans this member from the party chat. The member can then not send or
         receive messages but still is a part of the party.
 
+        .. note::
+
+            Chatbanned members are only banned for the current party. Whenever
+            the client joins another party, the banlist will be empty.
+
         Parameters
         ----------
         reason: Optional[:class:`str`]
