@@ -777,6 +777,17 @@ class XMPPClient:
     def muc_on_enter(self, *args: list, **kwargs: Any) -> None:
         self.client.dispatch_event('muc_enter')
 
+    def muc_on_leave(self, member: aioxmpp.muc.Occupant,
+                     muc_leave_mode: aioxmpp.muc.LeaveMode,
+                     muc_actor: aioxmpp.muc.xso.UserActor,
+                     muc_reason: str,
+                     **kwargs: Any) -> None:
+        if muc_leave_mode is aioxmpp.muc.LeaveMode.BANNED:
+            mem = self.client.user.party.members[member.direct_jid.localpart]
+            self.client.dispatch_event('party_member_chatban',
+                                       mem,
+                                       muc_reason)
+
     async def join_muc(self, party_id: str) -> None:
         muc_jid = aioxmpp.JID.fromstr(
             'Party-{}@muc.prod.ol.epicgames.com'.format(party_id)
@@ -791,6 +802,7 @@ class XMPPClient:
         room.on_message.connect(self.muc_on_message)
         room.on_join.connect(self.muc_on_member_join)
         room.on_enter.connect(self.muc_on_enter)
+        room.on_leave.connect(self.muc_on_leave)
         self.muc_room = room
 
         asyncio.ensure_future(fut, loop=self.client.loop)
