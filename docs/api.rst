@@ -369,14 +369,14 @@ this decorator if you are in a subclass of :class:`Client`.
 
 .. function:: event_party_member_ready_change(member, before, after)
 
-	This event is called when a members ready status has changed.
+	This event is called when a members ready state has changed.
 
 	:param member: The member that changed.
 	:type member: :class:`PartyMember`
-	:param before: The previous ready status. ``None`` if the member is sitting out.
-	:type before: :class:`bool`
-	:param after: The current ready status. ``None`` if the member is sitting out.
-	:type after: :class:`bool`
+	:param before: The previous ready state.
+	:type before: :class:`ReadyState`
+	:param after: The current ready status.
+	:type after: :class:`ReadyState`
 
 .. function:: event_party_member_input_change(member, before, after)
 

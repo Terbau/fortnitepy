@@ -890,6 +890,10 @@ class Client:
         self._closing = False
         log.debug('Successfully logged out')
 
+    def is_closed(self):
+        """:class:`bool`: Whether the client is running or not."""
+        return self._closed
+
     async def restart(self) -> None:
         """|coro|
 
