@@ -642,7 +642,7 @@ class PartyMemberBase(User):
         """:class:`bool`: Returns ``True`` if member is the leader else
         ``False``.
         """
-        return self.role is not None
+        return self.role == 'CAPTAIN'
 
     # TODO: Make check for sitting out
     @property
