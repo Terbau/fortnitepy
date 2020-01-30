@@ -322,7 +322,7 @@ class XMPPClient:
         if party.me is not None:
             asyncio.ensure_future(party.me.patch(), loop=self.client.loop)
 
-        if member.id == self.client.user.id and member.leader:
+        if party.me and party.me.leader:
             part = party.meta.refresh_squad_assignments()
             fut = asyncio.ensure_future(party.patch(updated={
                 'RawSquadAssignments_j': part

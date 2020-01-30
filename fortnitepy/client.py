@@ -2170,6 +2170,8 @@ class Client:
                 raise Forbidden('You can\'t join a private party.')
 
         await self.user.party._leave()
+        party = ClientParty(self, party_data)
+        self.user.set_party(party)
 
         future = asyncio.ensure_future(self.wait_for(
             'party_member_join',
