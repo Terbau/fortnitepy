@@ -754,6 +754,9 @@ class XMPPClient:
                        member: aioxmpp.muc.Occupant,
                        source: aioxmpp.im.dispatcher.MessageSource,
                        **kwargs: Any) -> None:
+        if member.direct_jid is None:
+            return
+
         user_id = member.direct_jid.localpart
         party = self.client.user.party
 
