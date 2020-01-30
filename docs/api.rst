@@ -167,7 +167,7 @@ this decorator if you are in a subclass of :class:`Client`.
 
 	:param details: A dictionary containing the keys ``device_id``, ``account_id`` and ``secret``.
 	:type details: :class:`dict`
-	:param email: The present when the details were generated. Will be ``None`` if no email was passed to :class:`AdvancedAuth`.
+	:param email: Email of the account that just generated new device auth details.
 	:type email: :class:`str`
 
 .. function:: event_auth_refresh()

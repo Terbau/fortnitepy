@@ -748,12 +748,13 @@ class HTTPClient:
         )
         return await self.get(r)
 
-    async def account_get_by_user_id(self, user_id: str) -> dict:
+    async def account_get_by_user_id(self, user_id: str, *,
+                                     auth: Optional[str] = None) -> dict:
         r = AccountPublicService(
             '/account/api/public/account/{user_id}',
             user_id=user_id
         )
-        return await self.get(r)
+        return await self.get(r, auth=auth)
 
     async def account_get_by_email(self, email: str) -> dict:
         r = AccountPublicService(
