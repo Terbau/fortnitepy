@@ -64,6 +64,9 @@ class EventDispatcher:
 
     def process_event(self, client: 'Client', stanza: aioxmpp.Message) -> None:
         body = json.loads(stanza.body.any())
+        if isinstance(body, list):
+            return
+
         type_ = body['type']
         log.debug('Received event `{}` with body `{}`'.format(type_, body))
 
