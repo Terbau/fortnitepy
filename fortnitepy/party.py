@@ -35,10 +35,10 @@ import datetime
 from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
                     Awaitable)
 
-from .errors import (FortniteException, PartyError, Forbidden, HTTPException,
-                     NotFound)
+from .errors import PartyError, Forbidden, HTTPException, NotFound
 from .user import User
-from .enums import PartyPrivacy, DefaultCharactersChapter2, Region
+from .enums import (PartyPrivacy, DefaultCharactersChapter2, Region,
+                    ReadyState, Platform)
 
 if TYPE_CHECKING:
     from .client import Client
@@ -134,6 +134,7 @@ class PartyMemberMeta(MetaBase):
                  meta: Optional[dict] = None) -> None:
         super().__init__()
         self.member = member
+        self.meta_ready_event = asyncio.Event(loop=self.member.client.loop)
 
         self.def_character = get_random_default_character()
         self.schema = {
@@ -227,11 +228,12 @@ class PartyMemberMeta(MetaBase):
         client = member.client
         if member.id == client.user.id and isinstance(member,
                                                       ClientPartyMember):
-            asyncio.ensure_future(
+            fut = asyncio.ensure_future(
                 member._edit(*client.default_party_member_config,
                              from_default=True),
                 loop=client.loop
             )
+            fut.add_done_callback(lambda *args: self.meta_ready_event.set())
 
     @property
     def ready(self) -> bool:
@@ -640,13 +642,12 @@ class PartyMemberBase(User):
         """:class:`bool`: Returns ``True`` if member is the leader else
         ``False``.
         """
-        return self.role is not None
+        return self.role == 'CAPTAIN'
 
-    # TODO: Make check for sitting out
     @property
     def ready(self) -> bool:
-        """:class:`bool`: ``True`` if this member is ready else ``False``."""
-        return self.meta.ready == "Ready"
+        """:class:`ReadyState`: The members ready state."""
+        return ReadyState(self.meta.ready)
 
     @property
     def input(self) -> str:
@@ -824,9 +825,13 @@ class PartyMemberBase(User):
         return self.meta.battlepass_info
 
     @property
-    def platform(self) -> str:
-        """:class:`str`: The platform this user currently uses."""
-        return self.meta.platform
+    def platform(self) -> Platform:
+        """:class:`Platform`: The platform this user currently uses."""
+        return Platform(self.meta.platform)
+
+    def is_ready(self) -> bool:
+        """:class:`bool`: ``True`` if this member is ready else ``False``."""
+        return self.ready is ReadyState.READY
 
     def is_chatbanned(self) -> bool:
         """:class:`bool`: Whether or not this member is chatbanned."""
@@ -1061,8 +1066,7 @@ class ClientPartyMember(PartyMemberBase):
                  data: dict) -> None:
         super().__init__(client, party, data)
 
-        self.queue = asyncio.Queue(loop=self.client.loop)
-        self.queue_active = False
+        self.patch_lock = asyncio.Lock(loop=self.client.loop)
         self.edit_lock = asyncio.Lock(loop=self.client.loop)
         self.clear_emote_task = None
 
@@ -1082,39 +1086,18 @@ class ClientPartyMember(PartyMemberBase):
         self.revision += 1
 
     async def patch(self, updated: Optional[dict] = None) -> Any:
-        future = self.client.loop.create_future()
-        await self.queue.put((self._patch, future, {'updated': updated}))
-
-        if not self.queue_active:
-            asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
-        return await future
-
-    async def _run_queue(self) -> None:
-        self.queue_active = True
-        try:
-            while not self.queue.empty():
-                func, future, kwargs = await self.queue.get()
-                if func is None:
+        async with self.patch_lock:
+            await self.meta.meta_ready_event.wait()
+            while True:
+                try:
+                    await self._patch(updated=updated)
                     break
-
-                while True:
-                    try:
-                        res = await func(**kwargs)
-                        future.set_result(res)
-                        break
-                    except HTTPException as exc:
-                        m = 'errors.com.epicgames.social.party.stale_revision'
-                        if exc.message_code == m:
-                            self.revision = int(exc.message_vars[1])
-                            continue
-                        exc.reraise()
-                    except FortniteException as exc:
-                        future.set_exception(exc)
-                        break
-
-        except RuntimeError:
-            pass
-        self.queue_active = False
+                except HTTPException as exc:
+                    m = 'errors.com.epicgames.social.party.stale_revision'
+                    if exc.message_code == m:
+                        self.revision = int(exc.message_vars[1])
+                        continue
+                    exc.reraise()
 
     async def _edit(self, *coros: List[Union[Awaitable, functools.partial]],
                     from_default: bool = True) -> None:
@@ -1254,35 +1237,34 @@ class ClientPartyMember(PartyMemberBase):
         p = await self.client._create_party()
         return p
 
-    async def set_ready(self, value: Union[bool, None]) -> None:
+    async def set_ready(self, state: ReadyState) -> None:
         """|coro|
 
         Sets the readiness of the client.
 
         Parameters
         ----------
-        value: :class:`bool`
-            | ``True`` to set it to ready.
-            | ``False`` to set it to unready.
-            | ``None`` to set it to sitting out.
+        state: :class:`ReadyState`
+            The ready state you wish to set.
         """
         prop = self.meta.set_readiness(
-            val='Ready' if value is True else ('NotReady' if value is False
-                                               else 'SittingOut')
+            val=state.value
         )
 
         if not self.edit_lock.locked():
             tasks = [self.patch(updated=prop)]
-            if value is None:
+            if state is ReadyState.SITTING_OUT:
                 tasks.append(
-                    random.choice(list(self.party.members.values())).promote()
+                    random.choice([m for m in self.party.members.values()
+                                   if m.id != self.client.user.id]).promote()
                 )
             await asyncio.gather(*tasks)
 
         else:
-            if value is None:
+            if state is ReadyState.SITTING_OUT:
                 asyncio.ensure_future(
-                    random.choice(list(self.party.members.values())).promote(),
+                    random.choice([m for m in self.party.members.values()
+                                   if m.id != self.client.user.id]).promote(),
                     loop=self.client.loop
                 )
 
@@ -1905,8 +1887,7 @@ class ClientParty(PartyBase):
         self._me = None
         self._chatbanned_members = {}
 
-        self.queue = asyncio.Queue(loop=self.client.loop)
-        self.queue_active = False
+        self.patch_lock = asyncio.Lock(loop=self.client.loop)
 
         self._update_revision(data.get('revision', 0))
         self._update_invites(data.get('invites', []))
@@ -2145,41 +2126,18 @@ class ClientParty(PartyBase):
         self.revision += 1
 
     async def patch(self, updated: Optional[dict] = None,
-                    deleted: Optional[list] = None) -> Any:
-        future = self.client.loop.create_future()
-        payload = {'updated': updated, 'deleted': deleted}
-        await self.queue.put((self._patch, future, payload))
-
-        if not self.queue_active:
-            asyncio.ensure_future(self._run_queue(), loop=self.client.loop)
-        return await future
-
-    async def _run_queue(self) -> None:
-        self.queue_active = True
-        try:
-            while not self.queue.empty():
-                func, future, kwargs = await self.queue.get()
-                if func is None:
+                    deleted: Optional[list] = None) -> None:
+        async with self.patch_lock:
+            while True:
+                try:
+                    await self._patch(updated=updated, deleted=deleted)
                     break
-
-                while True:
-                    try:
-                        res = await func(**kwargs)
-                        future.set_result(res)
-                        break
-                    except HTTPException as exc:
-                        m = 'errors.com.epicgames.social.party.stale_revision'
-                        if exc.message_code == m:
-                            self.revision = int(exc.message_vars[1])
-                            continue
-                        exc.reraise()
-                    except FortniteException as exc:
-                        future.set_exception(exc)
-                        break
-
-        except RuntimeError:
-            pass
-        self.queue_active = False
+                except HTTPException as exc:
+                    m = 'errors.com.epicgames.social.party.stale_revision'
+                    if exc.message_code == m:
+                        self.revision = int(exc.message_vars[1])
+                        continue
+                    exc.reraise()
 
     async def invite(self, user_id: str) -> None:
         """|coro|
@@ -2263,7 +2221,7 @@ class ClientParty(PartyBase):
 
             await party.set_playlist(
                 playlist='Playlist_DefaultDuo',
-                region='EU'
+                region=fortnitepy.Region.EUROPE
             )
 
         Sets the playlist to Arena Trios EU (Replace ``Trios`` with ``Solo``
@@ -2273,14 +2231,14 @@ class ClientParty(PartyBase):
                 playlist='Playlist_ShowdownAlt_Trios',
                 tournament='epicgames_Arena_S10_Trios',
                 event_window='Arena_S10_Division1_Trios',
-                region='EU'
+                region=fortnitepy.Region.EUROPE
             )
 
         Parameters
         ----------
         playlist: Optional[:class:`str`]
             The name of the playlist.
-            *Defaults to 'EU'*
+            Defaults to :attr:`Region.EUROPE`
         tournament: Optional[:class:`str`]
             The tournament id.
         event_window: Optional[:class:`str`]

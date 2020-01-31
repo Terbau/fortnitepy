@@ -5,6 +5,37 @@ Changelog
 
 Detailed version changes.
 
+v1.5.2
+------
+
+Another update add some changes and fix a big issue introduced in v1.5.0.
+
+Changes
+~~~~~~~
+
+- :attr:`PartyMember.ready` now is a value of the enum :class:`ReadyState` instead of an Optional[:class:`bool`].
+- :meth:`ClientPartyMember.set_ready()`'s only parameter was renamed to ``state`` and now takes a value of :class:`ReadyState` instead of an Optional[:class:`bool`]
+- :func:`event_party_member_ready_change()`'s arguments ``before`` and ``after`` now is a value of the enum :class:`ReadyState` instead of a :class:`str`.
+- :attr:`Friend.platform` now is a value of the enum :class:`Platform` instead of a :class:`str`.
+- :attr:`Presence.platform` now is a value of the enum :class:`Platform` instead of a :class:`str`.
+- :attr:`PresenceParty.platform` now is a value of the enum :class:`Platform` instead of a :class:`str`.
+- :attr:`PartyMember.platform` now is a value of the enum :class:`Platform` instead of a :class:`str`.
+
+Added
+~~~~~
+
+- Added enumeration :class:`ReadyState`.
+- Added method :meth:`PartyMember.is_ready()` to check if a member is ready or not.
+- Added method :meth:`Client.is_closed()` to check if the client is logged out and closed.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused members of a party not to load correctly when the client was the leader of the party.
+- Fixed an issue that caused an incorrect member to be marked as the leader of the party.
+- The client will no longer try to promote itself when promoting a random member when changing ready state to :attr:`ReadyState.SITTING_OUT`.
+
+
 v1.5.1
 ------
 

@@ -890,6 +890,10 @@ class Client:
         self._closing = False
         log.debug('Successfully logged out')
 
+    def is_closed(self):
+        """:class:`bool`: Whether the client is running or not."""
+        return self._closed
+
     async def restart(self) -> None:
         """|coro|
 
@@ -2170,6 +2174,8 @@ class Client:
                 raise Forbidden('You can\'t join a private party.')
 
         await self.user.party._leave()
+        party = ClientParty(self, party_data)
+        self.user.set_party(party)
 
         future = asyncio.ensure_future(self.wait_for(
             'party_member_join',
