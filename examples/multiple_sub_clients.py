@@ -63,7 +63,7 @@ class MyClient(fortnitepy.Client):
                 all_ready_callback=lambda: print('All sub clients ready')
             )
         except fortnitepy.AuthException:
-            print('An error occured while starting sub clients. Closing gracufully.')
+            print('An error occured while starting sub clients. Closing gracefully.')
             await self.logout()
 
     async def event_logout(self):
