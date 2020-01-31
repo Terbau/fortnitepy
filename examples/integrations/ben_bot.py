@@ -1,17 +1,43 @@
 import aiohttp
 import fortnitepy
 import asyncio
+import json
+import os
 
 BEN_BOT_BASE = 'http://benbotfn.tk:8080'
+email = 'email@email.com'
+password = 'password1'
+filename = 'device_auths.json'
 
+def get_device_auth_details():
+    if os.path.isfile(filename):
+        with open(filename, 'r') as fp:
+            return json.load(fp)
+    return {}
+
+def store_device_auth_details(email, details):
+    existing = get_device_auth_details()
+    existing[email] = details
+
+    with open(filename, 'w') as fp:
+        json.dump(existing, fp)
 
 class MyClient(fortnitepy.Client):
     def __init__(self):
+        device_auth_details = get_device_auth_details().get(email, {})
         super().__init__(
-            email='',
-            password=''
+            auth=fortnitepy.AdvancedAuth(
+                email=email,
+                password=password,
+                prompt_exchange_code=True,
+                delete_existing_device_auths=True,
+                **device_auth_details
+            )
         )
         self.session_event = asyncio.Event(loop=self.loop)
+        
+    async def event_device_auth_generate(self, details, email):
+        store_device_auth_details(email, details)
 
     async def event_ready(self):
         print('Client is ready as {0.user.display_name}.'.format(self))
