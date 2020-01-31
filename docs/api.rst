@@ -126,6 +126,14 @@ Enumerations
 	.. attribute:: IOS
 	.. attribute:: ANDROID
 
+.. class:: ReadyState
+
+	An enumeration for the available ready states.
+
+	.. attribute:: READY
+	.. attribute:: NOT_READY
+	.. attribute:: SITTING_OUT
+
 
 Event Reference
 ---------------
