@@ -1,8 +1,25 @@
-"""This example makes use of one main account and multiple sub-accounts."""
+"""This example makes use of one main account and multiple sub-accounts.
+If captcha is enforced for the accounts, you will only have to enter the
+exchange code the first time you run this script.
+
+NOTE: This example uses AdvancedAuth and stores the details in a file.
+It is important that this file is moved whenever the script itself is moved
+because it relies on the stored details. However, if the file is nowhere to
+be found, it will simply use email and password or prompt you to enter a
+new exchange code to generate a new file.
+"""
 
 import fortnitepy
 import asyncio
 import functools
+import os
+import json
+
+filename = 'device_auths.json'
+
+# main account credentials
+email = ''
+password = ''
 
 # sub-account credentials
 credentials = {
@@ -18,13 +35,35 @@ credentials = {
     "email10": "password10",
 }
 
+def get_device_auth_details():
+    if os.path.isfile(filename):
+        with open(filename, 'r') as fp:
+            return json.load(fp)
+    return {}
+
+def store_device_auth_details(email, details):
+    existing = get_device_auth_details()
+    existing[email] = details
+
+    with open(filename, 'w') as fp:
+        json.dump(existing, fp)
+
 class MyClient(fortnitepy.Client):
     def __init__(self):
+        device_auths = get_device_auth_details()
         super().__init__(
-            email="",
-            password=""
+            auth=fortnitepy.AdvancedAuth(
+                email=email,
+                password=password,
+                prompt_exchange_code=True,
+                delete_existing_device_auths=True,
+                **device_auths.get(email, {})
+            )
         )
         self.instances = {}
+        
+    async def event_sub_device_auth_generate(self, details, email):
+        store_device_auth_details(email, details)
 
     async def event_sub_ready(self, client):
         self.instances[client.user.id] = client
@@ -37,20 +76,30 @@ class MyClient(fortnitepy.Client):
     async def event_sub_party_member_join(self, member):
         print("{0.display_name} joined sub client {0.client.user.display_name}'s party.".format(member))            
 
+    async def event_device_auth_generate(self, details, email):
+        store_device_auth_details(email, details)
+
     async def event_ready(self):
         print('Main client ready. Launching sub-accounts...')
 
         clients = []
+        device_auths = get_device_auth_details()
         for email, password in credentials.items():
             client = fortnitepy.Client(
-                email=email,
-                password=password,
+                auth=fortnitepy.AdvancedAuth(
+                    email=email,
+                    password=password,
+                    prompt_exchange_code=True,
+                    delete_existing_device_auths=True,
+                    **device_auths.get(email, {})
+                ),
                 default_party_member_config=(
                     functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
                 )
             )
 
             # register events here
+            client.add_event_handler('device_auth_generate', self.event_sub_device_auth_generate)
             client.add_event_handler('friend_request', self.event_sub_friend_request)
             client.add_event_handler('party_member_join', self.event_sub_party_member_join)
 
