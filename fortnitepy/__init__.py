@@ -25,7 +25,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '1.5.2'
+__version__ = '1.5.3'
+
 import asyncio
 from sys import platform, version_info
 

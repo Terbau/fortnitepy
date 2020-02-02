@@ -822,8 +822,10 @@ class XMPPClient:
                 to=self.muc_room._mucjid
             )
             await self.xmpp_client.send(presence)
-
-            self.muc_service._muc_exited(self.muc_room)
+            try:
+                self.muc_service._muc_exited(self.muc_room)
+            except KeyError:
+                pass
 
     async def send_party_message(self, content: str) -> None:
         if self.muc_room is None:
