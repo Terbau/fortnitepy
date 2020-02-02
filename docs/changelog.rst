@@ -5,6 +5,18 @@ Changelog
 
 Detailed version changes.
 
+v1.5.3
+------
+
+Hotpatch to fix auth refreshing.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused auth refreshing not to work.
+- Silenced an unecessary error raised sometimes when the bot left a party.
+
+
 v1.5.2
 ------
 

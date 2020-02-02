@@ -169,6 +169,7 @@ class Auth:
 
             data = await self.grant_refresh_token(self.refresh_token)
             self.launcher_access_token = data['access_token']
+            self.refresh_token = data['refresh_token']
             await self.exchange_fortnite_code()
 
             log.debug('Refreshing xmpp session')
@@ -415,6 +416,7 @@ class DeviceAuth(Auth):
 
 class AdvancedAuth(Auth):
     """Authenticates by the available data in the following order:
+
     1. By :class:`DeviceAuth` if ``device_id``, ``account_id`` and ``secret``
     are present.
     2. By :class:`EmailAndPasswordAuth` if ``email`` and ``password`` is

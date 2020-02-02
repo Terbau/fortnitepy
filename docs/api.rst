@@ -14,7 +14,7 @@ after that authentication method recently has started to require captcha to logi
 of cases, this is no longer the preferred method in the long run.
 
 The preferred method in the long run is now :class:`DeviceAuth`. To set up and handle this type
-of auth, you should use :class:`AdvancedAuth`. `This example <https://fortnite-api.com/>`_ demonstrates
+of auth, you should use :class:`AdvancedAuth`. `This example <https://github.com/Terbau/fortnitepy/blob/master/examples/basic_client.py>`_ demonstrates
 how you can set up this auth with file storage for the preferred login which is :class:`DeviceAuth`.
 
 .. autoclass:: EmailAndPasswordAuth
