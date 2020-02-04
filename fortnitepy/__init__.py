@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '1.5.3'
+__version__ = '1.5.4'
 
 import asyncio
 from sys import platform, version_info
@@ -38,7 +38,7 @@ from .message import FriendMessage, PartyMessage
 from .party import (PartyMember, ClientPartyMember, Party, ClientParty,
                     PartyInvitation, PartyJoinConfirmation)
 from .presence import Presence, PresenceGameplayStats, PresenceParty
-from .user import ClientUser, User, BlockedUser
+from .user import ClientUser, User, BlockedUser, ExternalAuth
 from .stats import StatsV2
 from .enums import *
 from .errors import *

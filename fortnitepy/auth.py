@@ -170,7 +170,9 @@ class Auth:
             data = await self.grant_refresh_token(self.refresh_token)
             self.launcher_access_token = data['access_token']
             self.refresh_token = data['refresh_token']
-            await self.exchange_fortnite_code()
+
+            exchange_data = await self.exchange_fortnite_code()
+            self._update(exchange_data)
 
             log.debug('Refreshing xmpp session')
             await self.client.xmpp.close()
