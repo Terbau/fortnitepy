@@ -5,6 +5,19 @@ Changelog
 
 Detailed version changes.
 
+v1.5.4
+------
+
+Another hotpatch to fix a breaking auth refreshing issue.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused stuff to break after auth refresh.
+- Fixed an issue that caused the ``cache`` keyword to be ignored in :meth:`Client.fetch_profile()` and similar fetch profile functions.
+- (Docs) Fixed an issue causing :class:`ExternalAuth`'s section to be empty.
+
+
 v1.5.3
 ------
 
