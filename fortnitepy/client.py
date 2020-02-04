@@ -1045,7 +1045,7 @@ class Client:
 
         if raw:
             return account
-        return self.store_user(account)
+        return self.store_user(account, try_cache=cache)
 
     async def fetch_profiles_by_display_name(self, display_name, *,
                                              raw: bool = False
@@ -1213,7 +1213,7 @@ class Client:
                     if raw:
                         profiles.append(result)
                     else:
-                        u = self.store_user(result)
+                        u = self.store_user(result, try_cache=cache)
                         profiles.append(u)
         return profiles
 
@@ -1260,18 +1260,22 @@ class Client:
         for data in raw_summary['blocklist']:
             self.store_blocked_user(profiles[data['accountId']])
 
-    def store_user(self, data: dict) -> User:
+    def store_user(self, data: dict, *, try_cache: bool = True) -> User:
         try:
             user_id = data.get(
                 'accountId',
                 data.get('id', data.get('account_id'))
             )
-            return self._users.get(user_id, silent=False)
+
+            if try_cache:
+                return self._users.get(user_id, silent=False)
         except KeyError:
-            u = User(self, data)
-            if self.cache_users:
-                self._users.set(u.id, u)
-            return u
+            pass
+
+        u = User(self, data)
+        if self.cache_users:
+            self._users.set(u.id, u)
+        return u
 
     def get_user(self, user_id: str) -> Optional[User]:
         """Tries to get a user from the user cache by the given user id.
@@ -1296,19 +1300,23 @@ class Client:
         return user
 
     def store_friend(self, data: dict, *,
-                     summary: Optional[dict] = None) -> Optional[Friend]:
+                     summary: Optional[dict] = None,
+                     try_cache: bool = True) -> Friend:
         try:
             user_id = data.get(
                 'accountId',
                 data.get('id', data.get('account_id'))
             )
-            return self._friends.get(user_id, silent=False)
+            if try_cache:
+                return self._friends.get(user_id, silent=False)
         except KeyError:
-            f = Friend(self, data)
-            if summary is not None:
-                f._update_summary(summary)
-            self._friends.set(f.id, f)
-            return f
+            pass
+
+        f = Friend(self, data)
+        if summary is not None:
+            f._update_summary(summary)
+        self._friends.set(f.id, f)
+        return f
 
     def get_friend(self, user_id: str) -> Optional[Friend]:
         """Tries to get a friend from the friend cache by the given user id.
@@ -1325,17 +1333,21 @@ class Client:
         """
         return self._friends.get(user_id)
 
-    def store_pending_friend(self, data: dict) -> PendingFriend:
+    def store_pending_friend(self, data: dict, *,
+                             try_cache: bool = True) -> PendingFriend:
         try:
             user_id = data.get(
                 'accountId',
                 data.get('id', data.get('account_id'))
             )
-            return self._pending_friends.get(user_id, silent=False)
+            if try_cache:
+                return self._pending_friends.get(user_id, silent=False)
         except KeyError:
-            pf = PendingFriend(self, data)
-            self._pending_friends.set(pf.id, pf)
-            return pf
+            pass
+
+        pf = PendingFriend(self, data)
+        self._pending_friends.set(pf.id, pf)
+        return pf
 
     def get_pending_friend(self, user_id: str) -> Optional[PendingFriend]:
         """Tries to get a pending friend from the pending friend cache by the
@@ -1353,17 +1365,21 @@ class Client:
         """
         return self._pending_friends.get(user_id)
 
-    def store_blocked_user(self, data: dict) -> BlockedUser:
+    def store_blocked_user(self, data: dict, *,
+                           try_cache: bool = True) -> BlockedUser:
         try:
             user_id = data.get(
                 'accountId',
                 data.get('id', data.get('account_id'))
             )
-            return self._blocked_users.get(user_id, silent=False)
+            if try_cache:
+                return self._blocked_users.get(user_id, silent=False)
         except KeyError:
-            bu = BlockedUser(self, data)
-            self._blocked_users.set(bu.id, bu)
-            return bu
+            pass
+
+        bu = BlockedUser(self, data)
+        self._blocked_users.set(bu.id, bu)
+        return bu
 
     def get_blocked_user(self, user_id: str) -> Optional[BlockedUser]:
         """Tries to get a blocked user from the blocked users cache by the
