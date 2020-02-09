@@ -35,11 +35,13 @@ email = 'email@email.com'
 password = 'password1'
 filename = 'device_auths.json'
 
+
 def get_device_auth_details():
     if os.path.isfile(filename):
         with open(filename, 'r') as fp:
             return json.load(fp)
     return {}
+
 
 def store_device_auth_details(email, details):
     existing = get_device_auth_details()
@@ -60,13 +62,21 @@ client = fortnitepy.Client(
     )
 )
 
+
+@client.event
+async def event_device_auth_generate(details, email):
+    store_device_auth_details(email, details)
+    
+
 @client.event
 async def event_ready():
     print('Client ready as {0.user.display_name}'.format(client))
 
+
 @client.event
 async def event_friend_request(request):
     await request.accept()
+
 
 @client.event
 async def event_friend_message(message):
