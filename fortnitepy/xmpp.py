@@ -61,13 +61,16 @@ class EventContext:
 class EventDispatcher:
     def __init__(self) -> None:
         self._listeners = defaultdict(list)
+        self.interactions_enabled = False
 
-    def process_event(self, client: 'Client', stanza: aioxmpp.Message) -> None:
-        body = json.loads(stanza.body.any())
-        if isinstance(body, list):
+    def process_event(self, client: 'Client', body: dict) -> None:
+        type_ = body.get('type')
+        if type_ is None:
+            if self.interactions_enabled:
+                for interaction in body['interactions']:
+                    self.process_event(client, interaction)
             return
 
-        type_ = body['type']
         log.debug('Received event `{}` with body `{}`'.format(type_, body))
 
         coros = self._listeners.get(type_, [])
@@ -652,7 +655,10 @@ class XMPPClient:
             message_dispatcher.register_callback(
                 aioxmpp.MessageType.NORMAL,
                 None,
-                lambda m: dispatcher.process_event(self.client, m)
+                lambda m: dispatcher.process_event(
+                    self.client,
+                    json.loads(m.body.any())
+                )
             )
 
         if presences:
