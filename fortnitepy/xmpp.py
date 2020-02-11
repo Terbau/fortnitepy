@@ -240,6 +240,11 @@ class XMPPClient:
                 self.client._friends.remove(f.id)
                 self.client.dispatch_event('friend_remove', f)
 
+        try:
+            self.client._presences.remove(_id)
+        except KeyError:
+            pass
+
     @dispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryAdded')  # noqa
     async def event_blocklist_added(self, ctx: EventContext) -> None:
         body = ctx.body

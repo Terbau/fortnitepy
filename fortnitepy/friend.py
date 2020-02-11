@@ -214,9 +214,11 @@ class Friend(FriendBase):
     @property
     def last_logout(self) -> Optional[Datetime]:
         """:class:`datetime.datetime`: The UTC time of the last time this
-        friend logged off. ``None`` if this information is not available for
-        this user (most likely cause the user has never logged on or because
-        this user has never logged off while being a friend of the client).
+        friend logged off.
+        ``None`` if this friend has never logged into fortnite or because
+        the friend was added after the client was started. If the latter is the
+        case, you can fetch the friends last logout with
+        :meth:`Friend.fetch_last_logout()`.
         """
         return self._last_logout
 
@@ -232,6 +234,16 @@ class Friend(FriendBase):
     def is_online(self) -> bool:
         """Method to check if a user is currently online.
 
+        .. warning::
+
+            This method uses the last received presence from this user to
+            determine if the friend is online or not. Therefore, this method
+            will most likely not return True when calling it in
+            :func:`event_friend_add()`. You could use :meth:`Client.wait_for()`
+            to wait for the presence to be received but remember that if the
+            friend is infact offline, no presence will be received. You can add
+            a timeout the method to make sure it won't wait forever.
+
         Returns
         -------
         :class:`bool`
@@ -241,6 +253,31 @@ class Friend(FriendBase):
         if pres is None:
             return False
         return pres.available
+
+    async def fetch_last_logout(self):
+        """|coro|
+
+        Fetches the last time this friend logged out.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        Optional[:class:`datetime.datetime`]
+            The last UTC datetime of this friends last logout. Could be
+            ``None`` if the friend has never logged into fortnite.
+        """
+        presences = await self.client.http.presence_get_last_online()
+        presence = presences.get(self.id)
+        if presence is not None:
+            self._update_last_logout(
+                self.client.from_iso(presence[0]['last_online'])
+            )
+
+        return self.last_logout
 
     async def fetch_mutual_friends_count(self) -> int:
         """|coro|
