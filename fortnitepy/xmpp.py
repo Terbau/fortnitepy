@@ -502,11 +502,21 @@ class XMPPClient:
 
         member = party.members.get(body.get('account_id'))
         if member is None:
-            if body.get('account_id') == self.client.user.id:
-                await party._leave()
-                p = await self.client._create_party()
-                self.client.user.set_party(p)
-            return
+            def check(m):
+                return m.id == body.get('account_id')
+
+            try:
+                member = await self.client.wait_for(
+                    'party_member_join',
+                    check=check,
+                    timeout=3
+                )
+            except asyncio.TimeoutError:
+                if body.get('account_id') == self.client.user.id:
+                    await party._leave()
+                    p = await self.client._create_party()
+                    self.client.user.set_party(p)
+                return
 
         check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
                  'pet', 'pickaxe', 'contrail', 'emote', 'emoji', 'banner',
