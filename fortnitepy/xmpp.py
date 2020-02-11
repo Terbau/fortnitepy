@@ -191,13 +191,6 @@ class XMPPClient:
                 'created': timestamp,
             })
 
-            presences = await self.client.http.presence_get_last_online()
-            presence = presences.get(_id)
-            if presence is not None:
-                f._update_last_logout(
-                    self.client.from_iso(presence[0]['last_online'])
-                )
-
             try:
                 self.client._pending_friends.remove(f.id)
             except KeyError:
