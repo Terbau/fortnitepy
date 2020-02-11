@@ -1259,7 +1259,9 @@ class Client:
                 )
 
         for data in raw_summary['blocklist']:
-            self.store_blocked_user(profiles[data['accountId']])
+            user = profiles.get(data['accountId'])
+            if user is not None:
+                self.store_blocked_user(user)
 
     def store_user(self, data: dict, *, try_cache: bool = True) -> User:
         try:
