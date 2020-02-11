@@ -215,7 +215,8 @@ class Friend(FriendBase):
     def last_logout(self) -> Optional[Datetime]:
         """:class:`datetime.datetime`: The UTC time of the last time this
         friend logged off. ``None`` if this information is not available for
-        this user (most likely cause the user has never logged on).
+        this user (most likely cause the user has never logged on or because
+        this user has never logged off while being a friend of the client).
         """
         return self._last_logout
 
