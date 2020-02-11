@@ -5,6 +5,31 @@ Changelog
 
 Detailed version changes.
 
+v1.5.5
+------
+
+Update to fix a breaking issue and also change some other necessary stuff.
+
+Changes
+~~~~~~~
+
+- :attr:`Friend.last_logout` now always is ``None`` when the friend is added while the client is running.
+
+Added
+~~~~~
+
+- Added :meth:`Friend.fetch_last_logout()` to fetch the last logout of a friend.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused some events not to work correctly due to an unknown payload being received.
+- Fixed an issue that caused the client to attempt to join two or more parties at a time.
+- Fixed an issue that in rare cases caused cache initialization to fail on startup and therefore break.
+- Fixed a race condition between two events that very rarely broke the clients party.
+- Readded detailed stack traces for :exc:`HTTPException` in most cases.
+
+
 v1.5.4
 ------
 
