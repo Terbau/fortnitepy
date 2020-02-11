@@ -167,5 +167,8 @@ class HTTPException(FortniteException):
 
         super().__init__(self.text)
 
-    def reraise(self) -> None:
-        raise HTTPException(self.response, self.raw) from None
+    def reraise(self, from_none=False) -> None:
+        if not from_none:
+            raise self
+        else:
+            raise self from None

@@ -263,7 +263,7 @@ class EmailAndPasswordAuth(Auth):
         except HTTPException as e:
             if e.message_code != ('errors.com.epicgames.common.'
                                   'two_factor_authentication.required'):
-                e.reraise()
+                e.reraise(from_none=True)
 
             log.info('Logging in interrupted. 2fa required.')
             log.info('Fetching new valid xsrf token.')
@@ -557,7 +557,7 @@ class AdvancedAuth(Auth):
             except HTTPException as e:
                 m = 'errors.com.epicgames.accountportal.captcha_invalid'
                 if e.message_code != m:
-                    e.reraise()
+                    e.reraise(from_none=True)
 
         if data is None:
             if self.prompt_exchange_code:

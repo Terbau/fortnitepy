@@ -61,13 +61,16 @@ class EventContext:
 class EventDispatcher:
     def __init__(self) -> None:
         self._listeners = defaultdict(list)
+        self.interactions_enabled = False
 
-    def process_event(self, client: 'Client', stanza: aioxmpp.Message) -> None:
-        body = json.loads(stanza.body.any())
-        if isinstance(body, list):
+    def process_event(self, client: 'Client', body: dict) -> None:
+        type_ = body.get('type')
+        if type_ is None:
+            if self.interactions_enabled:
+                for interaction in body['interactions']:
+                    self.process_event(client, interaction)
             return
 
-        type_ = body['type']
         log.debug('Received event `{}` with body `{}`'.format(type_, body))
 
         coros = self._listeners.get(type_, [])
@@ -188,13 +191,6 @@ class XMPPClient:
                 'created': timestamp,
             })
 
-            presences = await self.client.http.presence_get_last_online()
-            presence = presences.get(_id)
-            if presence is not None:
-                f._update_last_logout(
-                    self.client.from_iso(presence[0]['last_online'])
-                )
-
             try:
                 self.client._pending_friends.remove(f.id)
             except KeyError:
@@ -243,6 +239,11 @@ class XMPPClient:
                 self.client.store_user(f.get_raw())
                 self.client._friends.remove(f.id)
                 self.client.dispatch_event('friend_remove', f)
+
+        try:
+            self.client._presences.remove(_id)
+        except KeyError:
+            pass
 
     @dispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryAdded')  # noqa
     async def event_blocklist_added(self, ctx: EventContext) -> None:
@@ -499,11 +500,21 @@ class XMPPClient:
 
         member = party.members.get(body.get('account_id'))
         if member is None:
-            if body.get('account_id') == self.client.user.id:
-                await party._leave()
-                p = await self.client._create_party()
-                self.client.user.set_party(p)
-            return
+            def check(m):
+                return m.id == body.get('account_id')
+
+            try:
+                member = await self.client.wait_for(
+                    'party_member_join',
+                    check=check,
+                    timeout=3
+                )
+            except asyncio.TimeoutError:
+                if body.get('account_id') == self.client.user.id:
+                    await party._leave()
+                    p = await self.client._create_party()
+                    self.client.user.set_party(p)
+                return
 
         check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
                  'pet', 'pickaxe', 'contrail', 'emote', 'emoji', 'banner',
@@ -652,7 +663,10 @@ class XMPPClient:
             message_dispatcher.register_callback(
                 aioxmpp.MessageType.NORMAL,
                 None,
-                lambda m: dispatcher.process_event(self.client, m)
+                lambda m: dispatcher.process_event(
+                    self.client,
+                    json.loads(m.body.any())
+                )
             )
 
         if presences:

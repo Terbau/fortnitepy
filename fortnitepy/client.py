@@ -454,6 +454,7 @@ class Client:
         self._presences = Cache()
         self._ready = asyncio.Event(loop=self.loop)
         self._leave_lock = asyncio.Lock(loop=self.loop)
+        self._join_party_lock = asyncio.Lock(loop=self.loop)
         self._refresh_task = None
         self._start_runner_task = None
         self._closed = False
@@ -1258,7 +1259,9 @@ class Client:
                 )
 
         for data in raw_summary['blocklist']:
-            self.store_blocked_user(profiles[data['accountId']])
+            user = profiles.get(data['accountId'])
+            if user is not None:
+                self.store_blocked_user(user)
 
     def store_user(self, data: dict, *, try_cache: bool = True) -> User:
         try:
@@ -2096,44 +2099,48 @@ class Client:
 
     async def _create_party(self,
                             config: Optional[dict] = None) -> ClientParty:
-        if isinstance(config, dict):
-            cf = {**self.default_party_config, **config}
-        else:
-            cf = self.default_party_config
+        async with self._join_party_lock:
+            if isinstance(config, dict):
+                cf = {**self.default_party_config, **config}
+            else:
+                cf = self.default_party_config
 
-        while True:
-            try:
-                data = await self.http.party_create(cf)
-                break
-            except HTTPException as exc:
-                if exc.message_code != ('errors.com.epicgames.social.'
-                                        'party.user_has_party'):
-                    exc.reraise()
+            while True:
+                try:
+                    data = await self.http.party_create(cf)
+                    break
+                except HTTPException as exc:
+                    if exc.message_code != ('errors.com.epicgames.social.'
+                                            'party.user_has_party'):
+                        exc.reraise()
 
-                data = await self.http.party_lookup_user(self.user.id)
-                async with self._leave_lock:
-                    try:
-                        await self.http.party_leave(data['current'][0]['id'])
-                    except HTTPException as e:
-                        if e.message_code != ('errors.com.epicgames.social.'
-                                              'party.party_not_found'):
-                            e.reraise()
+                    data = await self.http.party_lookup_user(self.user.id)
+                    async with self._leave_lock:
+                        try:
+                            await self.http.party_leave(
+                                data['current'][0]['id']
+                            )
+                        except HTTPException as e:
+                            m = ('errors.com.epicgames.social.'
+                                 'party.party_not_found')
+                            if e.message_code != m:
+                                e.reraise()
 
-                await self.xmpp.leave_muc()
+                    await self.xmpp.leave_muc()
 
-        config = {**cf, **data['config']}
-        party = ClientParty(self, data)
-        await party._update_members(members=data['members'])
-        self.user.set_party(party)
+            config = {**cf, **data['config']}
+            party = ClientParty(self, data)
+            await party._update_members(members=data['members'])
+            self.user.set_party(party)
 
-        fut = asyncio.ensure_future(party.patch(updated={
-            'RawSquadAssignments_j': party.meta.refresh_squad_assignments()
-        }), loop=self.loop)
+            fut = asyncio.ensure_future(party.patch(updated={
+                'RawSquadAssignments_j': party.meta.refresh_squad_assignments()
+            }), loop=self.loop)
 
-        await party.join_chat()
-        await party.set_privacy(config['privacy'])
-        await fut
-        return party
+            await party.join_chat()
+            await party.set_privacy(config['privacy'])
+            await fut
+            return party
 
     async def join_to_party(self, party_id: str, *,
                             check_private: bool = True) -> ClientParty:
@@ -2173,56 +2180,60 @@ class Client:
         :class:`ClientParty`
             The party that was just joined.
         """
-        if party_id == self.user.party.id:
-            raise PartyError('You are already a member of this party.')
+        async with self._join_party_lock:
+            if party_id == self.user.party.id:
+                raise PartyError('You are already a member of this party.')
 
-        try:
+            try:
+                party_data = await self.http.party_lookup(party_id)
+            except HTTPException as e:
+                if e.message_code == ('errors.com.epicgames.social.'
+                                      'party.party_not_found'):
+                    raise NotFound(
+                        'Could not find a party with the id {0}'.format(
+                            party_id
+                        )
+                    )
+                e.reraise()
+
+            if check_private:
+                if party_data['config']['joinability'] == 'INVITE_AND_FORMER':
+                    raise Forbidden('You can\'t join a private party.')
+
+            await self.user.party._leave()
+            party = ClientParty(self, party_data)
+            self.user.set_party(party)
+
+            future = asyncio.ensure_future(self.wait_for(
+                'party_member_join',
+                check=lambda m: m.id == self.user.id
+            ), loop=self.loop)
+
+            try:
+                await self.http.party_join_request(party_id)
+            except HTTPException as e:
+                if not future.cancelled():
+                    future.cancel()
+
+                await self._create_party()
+
+                if e.message_code == ('errors.com.epicgames.social.'
+                                      'party.party_join_forbidden'):
+                    raise Forbidden('Client has no right to join this party.')
+                e.reraise()
+
             party_data = await self.http.party_lookup(party_id)
-        except HTTPException as e:
-            if e.message_code == ('errors.com.epicgames.social.'
-                                  'party.party_not_found'):
-                raise NotFound('Could not find a party with the id {0}'.format(
-                    party_id))
-            e.reraise()
+            party = ClientParty(self, party_data)
+            self.user.set_party(party)
+            asyncio.ensure_future(party.join_chat(), loop=self.loop)
+            await party._update_members(party_data['members'])
 
-        if check_private:
-            if party_data['config']['joinability'] == 'INVITE_AND_FORMER':
-                raise Forbidden('You can\'t join a private party.')
+            try:
+                await future
+            except asyncio.TimeoutError:
+                pass
 
-        await self.user.party._leave()
-        party = ClientParty(self, party_data)
-        self.user.set_party(party)
-
-        future = asyncio.ensure_future(self.wait_for(
-            'party_member_join',
-            check=lambda m: m.id == self.user.id
-        ), loop=self.loop)
-
-        try:
-            await self.http.party_join_request(party_id)
-        except HTTPException as e:
-            if not future.cancelled():
-                future.cancel()
-
-            await self._create_party()
-
-            if e.message_code == ('errors.com.epicgames.social.'
-                                  'party.party_join_forbidden'):
-                raise Forbidden('Client has no right to join this party.')
-            e.reraise()
-
-        party_data = await self.http.party_lookup(party_id)
-        party = ClientParty(self, party_data)
-        self.user.set_party(party)
-        asyncio.ensure_future(party.join_chat(), loop=self.loop)
-        await party._update_members(party_data['members'])
-
-        try:
-            await future
-        except asyncio.TimeoutError:
-            pass
-
-        return party
+            return party
 
     async def set_status(self, status: str) -> None:
         """|coro|

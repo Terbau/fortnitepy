@@ -29,6 +29,7 @@ import asyncio
 import logging
 import json
 import re
+import time
 
 from typing import TYPE_CHECKING, List, Optional, Any, Union, Tuple
 from urllib.parse import quote
@@ -264,8 +265,14 @@ class HTTPClient:
         except KeyError:
             pass
 
+        pre_time = time.time()
         async with self.__session.request(method, url, **kwargs) as r:
-            log.debug('{0} {1} has returned {2.status}'.format(method, url, r))
+            log.debug('{0} {1} has returned {2.status} in {3:.2f}s'.format(
+                method,
+                url,
+                r,
+                time.time() - pre_time
+            ))
 
             data = await self.json_or_text(r)
             return r, data
