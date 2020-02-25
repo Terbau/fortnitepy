@@ -220,6 +220,9 @@ class PartyMemberMeta(MetaBase):
             'CrossplayPreference_s': 'OptedIn',
             'VoiceChatEnabled_b': 'true',
             'VoiceConnectionId_s': '',
+            'SpectateAPartyMemberAvailable_b': "false",
+            'FeatDefinition_s': 'None',
+            'VoiceChatStatus_s': 'Disabled',
         }
 
         if meta is not None:
@@ -323,6 +326,9 @@ class PartyMemberMeta(MetaBase):
         base = self.get_prop('Platform_j')
         return base['Platform']['platformStr']
 
+    def maybesub(self, def_):
+        return def_ if def_ else 'None'
+
     def set_readiness(self, val: str) -> Dict[str, Any]:
         return {'GameReadiness_s': self.set_prop('GameReadiness_s', val)}
 
@@ -332,7 +338,7 @@ class PartyMemberMeta(MetaBase):
         data = (self.get_prop('FrontendEmote_j'))['FrontendEmote']
 
         if emote is not None:
-            data['emoteItemDef'] = emote
+            data['emoteItemDef'] = self.maybesub(emote)
         if emote_ekey is not None:
             data['emoteItemDefEncryptionKey'] = emote_ekey
         if section is not None:
@@ -348,7 +354,7 @@ class PartyMemberMeta(MetaBase):
         data = prop['AssistedChallenge_j']
 
         if quest is not None:
-            data['questItemDef'] = quest
+            data['questItemDef'] = self.maybesub(quest)
         if completed is not None:
             data['objectivesCompleted'] = completed
 
@@ -411,7 +417,7 @@ class PartyMemberMeta(MetaBase):
         if character_ekey is not None:
             data['characterEKey'] = character_ekey
         if backpack is not None:
-            data['backpackDef'] = backpack
+            data['backpackDef'] = self.maybesub(backpack)
         if backpack_ekey is not None:
             data['backpackEKey'] = backpack_ekey
         if pickaxe is not None:
@@ -419,7 +425,7 @@ class PartyMemberMeta(MetaBase):
         if pickaxe_ekey is not None:
             data['pickaxeEKey'] = pickaxe_ekey
         if contrail is not None:
-            data['contrailDef'] = contrail
+            data['contrailDef'] = self.maybesub(contrail)
         if contrail_ekey is not None:
             data['contrailEKey'] = contrail_ekey
         if scratchpad is not None:
@@ -480,6 +486,17 @@ class PartyMeta(MetaBase):
             }),
             'PlatformSessions_j': json.dumps({
                 'PlatformSessions': [],
+            }),
+            'PartyMatchmakingInfo_j': json.dumps({
+                'PartyMatchmakingInfo': {
+                    'buildId': -1,
+                    'hotfixVersion': -1,
+                    'regionId': '',
+                    'playlistName': 'None',
+                    'tournamentId': '',
+                    'eventWindowId': '',
+                    'linkCode': '',
+                }
             }),
         }
 
@@ -1293,7 +1310,7 @@ class ClientPartyMember(PartyMemberBase):
             resets variants.
         """
         if asset is not None:
-            if '.' not in asset:
+            if asset != '' and '.' not in asset:
                 asset = ("AthenaCharacterItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/Characters/{0}.{0}'".format(asset))
         else:
@@ -1336,7 +1353,7 @@ class ClientPartyMember(PartyMemberBase):
             resets variants.
         """
         if asset is not None:
-            if '.' not in asset:
+            if asset != '' and '.' not in asset:
                 asset = ("AthenaBackpackItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/Backpacks/{0}.{0}'".format(asset))
         else:
@@ -1353,6 +1370,18 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
+
+    async def clear_backpack(self):
+        """|coro|
+
+        Clears the currently set backpack.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        await self.set_backpack(asset="")
 
     async def set_pet(self, asset: Optional[str] = None, *,
                       key: Optional[str] = None,
@@ -1379,7 +1408,7 @@ class ClientPartyMember(PartyMemberBase):
             resets variants.
         """
         if asset is not None:
-            if '.' not in asset:
+            if asset != '' and '.' not in asset:
                 asset = ("AthenaPetItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/PetCarriers/{0}.{0}'".format(asset))
         else:
@@ -1396,6 +1425,18 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
+
+    async def clear_pet(self):
+        """|coro|
+
+        Clears the currently set pet.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        await self.set_backpack(asset="")
 
     async def set_pickaxe(self, asset: Optional[str] = None, *,
                           key: Optional[str] = None,
@@ -1422,7 +1463,7 @@ class ClientPartyMember(PartyMemberBase):
             resets variants.
         """
         if asset is not None:
-            if '.' not in asset:
+            if asset != '' and '.' not in asset:
                 asset = ("AthenaPickaxeItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/Pickaxes/{0}.{0}'".format(asset))
         else:
@@ -1465,7 +1506,7 @@ class ClientPartyMember(PartyMemberBase):
             resets variants.
         """
         if asset is not None:
-            if '.' not in asset:
+            if asset != '' and '.' not in asset:
                 asset = ("AthenaContrailItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/Contrails/{0}.{0}'".format(asset))
         else:
@@ -1483,8 +1524,20 @@ class ClientPartyMember(PartyMemberBase):
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
 
+    async def clear_contrail(self):
+        """|coro|
+
+        Clears the currently set contrail.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        await self.set_contrail(asset="")
+
     async def set_emote(self, asset: str, *,
-                        run_for: Optional[int] = None,
+                        run_for: Optional[float] = None,
                         key: Optional[str] = None,
                         section: Optional[int] = None) -> None:
         """|coro|
@@ -1500,16 +1553,16 @@ class ClientPartyMember(PartyMemberBase):
 
                 You don't have to include the full path of the asset. The EID
                 is enough.
-        run_for: Optional[:class:`int`]
-            Seconds this emote should run for before being cancelled. ``None``
-            (default) means will run infinitely and you can then clear it with
-            :meth:`PartyMember.clear_emote()`.
+        run_for: Optional[:class:`float`]
+            Seconds the emote should run for before being cancelled. ``None``
+            (default) means it will run indefinitely and you can then clear it
+            with :meth:`PartyMember.clear_emote()`.
         key: Optional[:class:`str`]
             The encyption key to use for this emote.
         section: Optional[:class:`int`]
             The section.
         """
-        if '.' not in asset:
+        if asset != '' and '.' not in asset:
             asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
                      "Cosmetics/Dances/{0}.{0}'".format(asset))
 
@@ -1529,6 +1582,7 @@ class ClientPartyMember(PartyMemberBase):
             await self.patch(updated=prop)
 
     async def set_emoji(self, asset: str, *,
+                        run_for: Optional[float] = 2,
                         key: Optional[str] = None,
                         section: Optional[int] = None) -> None:
         """|coro|
@@ -1544,12 +1598,20 @@ class ClientPartyMember(PartyMemberBase):
 
                 You don't have to include the full path of the asset. The ID is
                 enough.
+        run_for: Optional[:class:`float`]
+            Seconds the emoji should run for before being cancelled. ``None``
+            means it will run indefinitely and you can then clear it with
+            :meth:`PartyMember.clear_emote()`. Defaults to ``2`` seconds which
+            is roughly the time an emoji naturally plays for. Note that an
+            emoji is only cleared visually and audibly when the emoji
+            naturally ends, not when :meth:`PartyMember.clear_emote()` is
+            called.
         key: Optional[:class:`str`]
             The encyption key to use for this emoji.
         section: Optional[:class:`int`]
             The section.
         """
-        if '.' not in asset:
+        if asset != '' and '.' not in asset:
             asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
                      "Cosmetics/Dances/Emoji/{0}.{0}'".format(asset))
 
@@ -1560,9 +1622,59 @@ class ClientPartyMember(PartyMemberBase):
         )
 
         self._cancel_clear_emote()
-        self.clear_emote_task = self.client.loop.create_task(
-            self._schedule_clear_emote(2)
+        if run_for is not None:
+            self.clear_emote_task = self.client.loop.create_task(
+                self._schedule_clear_emote(run_for)
+            )
+
+        if not self.edit_lock.locked():
+            await self.patch(updated=prop)
+
+    async def set_shout(self, asset: str, *,
+                        run_for: Optional[float] = 3,
+                        key: Optional[str] = None,
+                        section: Optional[int] = None) -> None:
+        """|coro|
+
+        Sets the shout of the client.
+
+        Parameters
+        ----------
+        asset: :class:`str`
+            The ID of the shout.
+
+            .. note::
+
+                You don't have to include the full path of the asset. The ID is
+                enough.
+        run_for: Optional[:class:`float`]
+            Seconds the shout should run for before being cancelled. ``None``
+            means it will run indefinitely and you can then clear it with
+            :meth:`PartyMember.clear_emote()`. Defaults to ``3`` seconds which
+            is roughly the time a shout naturally plays for. Note that a
+            shout is only cleared visually and audibly when the shout
+            naturally ends, not when :meth:`PartyMember.clear_emote()` is
+            called.
+        key: Optional[:class:`str`]
+            The encyption key to use for this shout.
+        section: Optional[:class:`int`]
+            The section.
+        """
+        if asset != '' and '.' not in asset:
+            asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
+                     "Cosmetics/Dances/Shouts/{0}.{0}'".format(asset))
+
+        prop = self.meta.set_emote(
+            emote=asset,
+            emote_ekey=key,
+            section=section
         )
+
+        self._cancel_clear_emote()
+        if run_for is not None:
+            self.clear_emote_task = self.client.loop.create_task(
+                self._schedule_clear_emote(run_for)
+            )
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
@@ -1679,7 +1791,7 @@ class ClientPartyMember(PartyMemberBase):
             How many quests you have completed, I think (didn't test this).
         """
         if quest is not None:
-            if '.' not in quest:
+            if quest != '' and '.' not in quest:
                 quest = ("FortQuestItemDefinition'/Game/Athena/Items/"
                          "Quests/DailyQuests/Quests/{0}.{0}'".format(quest))
         else:
@@ -1693,6 +1805,18 @@ class ClientPartyMember(PartyMemberBase):
 
         if not self.edit_lock.locked():
             await self.patch(updated=prop)
+
+    async def clear_assisted_challenge(self):
+        """|coro|
+
+        Clears the currently set assisted challenge.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        await self.set_assisted_challenge(quest="")
 
 
 class PartyBase:

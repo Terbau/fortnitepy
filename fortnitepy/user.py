@@ -362,7 +362,7 @@ class User(UserBase):
 
     def __repr__(self) -> str:
         return ('<User id={0.id!r} display_name={0.display_name!r} '
-                'jid={0.jid!r}'.format(self))
+                'epicgames_account={0.epicgames_account!r}>'.format(self))
 
     async def block(self) -> None:
         """|coro|
@@ -387,7 +387,8 @@ class BlockedUser(UserBase):
 
     def __repr__(self) -> str:
         return ('<BlockedUser id={0.id!r} '
-                'display_name={0.display_name!r}'.format(self))
+                'display_name={0.display_name!r} '
+                'epicgames_account={0.epicgames_account!r}>'.format(self))
 
     async def unblock(self) -> None:
         """|coro|

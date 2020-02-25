@@ -121,14 +121,27 @@ class Auth:
             data=payload
         )
 
-    async def get_fortnite_exchange_code(self) -> str:
+    async def get_exchange_code(self) -> str:
         data = await self.client.http.account_get_exchange_data(
             auth='LAUNCHER_ACCESS_TOKEN'
         )
         return data.get('code')
 
+    async def exchange_launcher_code(self, code: str) -> dict:
+        payload = {
+            'grant_type': 'exchange_code',
+            'exchange_code': code,
+            'token_type': 'eg1',
+        }
+
+        return await self.client.http.account_oauth_grant(
+            auth='basic {0}'.format(self.launcher_token),
+            device_id=True,
+            data=payload
+        )
+
     async def exchange_fortnite_code(self) -> dict:
-        code = await self.get_fortnite_exchange_code()
+        code = await self.get_exchange_code()
         if code is None:
             raise AuthException('Could not get exchange code')
 
@@ -142,6 +155,12 @@ class Auth:
             auth='basic {0}'.format(self.fortnite_token),
             device_id=True,
             data=payload
+        )
+
+    async def kill_token(self, token: str) -> None:
+        await self.client.http.account_sessions_kill_token(
+            token,
+            auth='bearer {0}'.format(token)
         )
 
     async def schedule_token_refresh(self) -> None:
@@ -234,19 +253,6 @@ class EmailAndPasswordAuth(Auth):
         response = await self.client.http.epicgames_get_csrf()
         return response.cookies['XSRF-TOKEN'].value
 
-    async def exchange_epicgames_code(self, code: str) -> dict:
-        payload = {
-            'grant_type': 'exchange_code',
-            'exchange_code': code,
-            'token_type': 'eg1',
-        }
-
-        return await self.client.http.account_oauth_grant(
-            auth='basic {0}'.format(self.launcher_token),
-            device_id=True,
-            data=payload
-        )
-
     async def launcher_authenticate(self) -> dict:
         log.info('Fetching valid xsrf token.')
         token = await self.fetch_xsrf_token()
@@ -289,7 +295,7 @@ class EmailAndPasswordAuth(Auth):
         data = await self.client.http.epicgames_get_exchange_data(token)
 
         log.info('Exchanging code.')
-        data = await self.exchange_epicgames_code(data['code'])
+        data = await self.exchange_launcher_code(data['code'])
         self.launcher_access_token = data['access_token']
         return data
 
@@ -334,22 +340,9 @@ class ExchangeCodeAuth(Auth):
     def identifier(self) -> str:
         return self.exchange_code
 
-    async def exchange_epicgames_code(self, code: str) -> dict:
-        payload = {
-            'grant_type': 'exchange_code',
-            'exchange_code': code,
-            'token_type': 'eg1',
-        }
-
-        return await self.client.http.account_oauth_grant(
-            auth='basic {0}'.format(self.launcher_token),
-            device_id=True,
-            data=payload
-        )
-
     async def launcher_authenticate(self) -> dict:
         log.info('Exchanging code.')
-        data = await self.exchange_epicgames_code(self.exchange_code)
+        data = await self.exchange_launcher_code(self.exchange_code)
         self.launcher_access_token = data['access_token']
         return data
 
@@ -391,11 +384,13 @@ class DeviceAuth(Auth):
         self.account_id = account_id
         self.secret = secret
 
+        self.ios_token = kwargs.get('ios_token', 'MzQ0NmNkNzI2OTRjNGE0NDg1ZDgxYjc3YWRiYjIxNDE6OTIwOWQ0YTVlMjVhNDU3ZmI5YjA3NDg5ZDMxM2I0MWE=')  # noqa
+
     @property
     def identifier(self) -> str:
         return self.account_id
 
-    async def launcher_authenticate(self) -> dict:
+    async def device_auth_authenticate(self) -> dict:
         payload = {
             'grant_type': 'device_auth',
             'device_id': self.device_id,
@@ -405,13 +400,22 @@ class DeviceAuth(Auth):
         }
 
         data = await self.client.http.account_oauth_grant(
-            auth='basic {0}'.format(self.launcher_token),
+            auth='basic {0}'.format(self.ios_token),
             data=payload
         )
         self.launcher_access_token = data['access_token']
         return data
 
+    async def launcher_authenticate(self) -> dict:
+        code = await self.get_exchange_code()
+        data = await self.exchange_launcher_code(code)
+
+        await self.kill_token(self.launcher_access_token)
+        self.launcher_access_token = data['access_token']
+        return data
+
     async def authenticate(self) -> dict:
+        await self.device_auth_authenticate()
         await self.launcher_authenticate()
         return await self.exchange_fortnite_code()
 
@@ -457,6 +461,15 @@ class AdvancedAuth(Auth):
     delete_existing_device_auths: :class:`bool`
         Whether or not to delete all existing device auths when a new
         is created.
+    ios_token: Optional[:class:`str`]
+        The ios token to use with authentication. You should generally
+        not need to set this manually.
+    launcher_token: Optional[:class:`str`]
+        The launcher token to use with authentication. You should generally
+        not need to set this manually.
+    fortnite_token: Optional[:class:`str`]
+        The fortnite token to use with authentication. You should generally
+        not need to set this manually.
     """
     def __init__(self, email: Optional[str] = None,
                  password: Optional[str] = None,
@@ -504,6 +517,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+
         return await auth.launcher_authenticate()
 
     async def run_exchange_code_authenticate(self) -> dict:
@@ -513,6 +527,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+
         return await auth.launcher_authenticate()
 
     async def run_device_authenticate(self, device_id: Optional[str] = None,
@@ -526,8 +541,13 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+
+        data = await auth.device_auth_authenticate()
+        self.launcher_access_token = data['access_token']
+
         data = await auth.launcher_authenticate()
         self.launcher_access_token = data['access_token']
+
         return await auth.exchange_fortnite_code()
 
     async def generate_device_auth(self, client_id: str) -> dict:
@@ -539,12 +559,6 @@ class AdvancedAuth(Auth):
             'account_id': data['accountId'],
             'secret': data['secret'],
         }
-
-    async def kill_token(self, token: str) -> None:
-        await self.client.http.account_sessions_kill_token(
-            token,
-            auth='bearer {0}'.format(token)
-        )
 
     async def authenticate(self) -> dict:
         data = None
@@ -606,5 +620,9 @@ class AdvancedAuth(Auth):
                                    details,
                                    account_data['email'])
 
+        code = await self.get_exchange_code()
+        data = await self.exchange_launcher_code(code)
+
         await self.kill_token(self.launcher_access_token)
-        return await self.run_device_authenticate(**details)
+        self.launcher_access_token = data['access_token']
+        return await self.exchange_fortnite_code()

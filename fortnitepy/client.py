@@ -428,7 +428,7 @@ class Client:
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', {})
         self.default_party_member_config = kwargs.get('default_party_member_config', [])  # noqa
-        self.build = kwargs.get('build', '++Fortnite+Release-11.00-CL-9603448')
+        self.build = kwargs.get('build', '++Fortnite+Release-12.00-CL-11586896')  # noqa
         self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
 
         self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
@@ -1040,7 +1040,7 @@ class Client:
 
         epic_accounts = [d for d in accounts if d['displayName'] is not None]
         if epic_accounts:
-            account = max(epic_accounts, key=lambda d: d['externalAuths'])
+            account = max(epic_accounts, key=lambda d: len(d['externalAuths']))
         else:
             account = accounts[0]
 
