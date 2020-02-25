@@ -5,6 +5,28 @@ Changelog
 
 Detailed version changes.
 
+v1.6.0
+------
+
+This update fixes device authentication and adds some new methods to play around with.
+
+Added
+~~~~~
+
+- Added :meth:`ClientPartyMember.set_shout()` to set a shout (Unreleased feature which plays small audio clips).  
+- Added a parameter ``run_for`` to :meth:`ClientPartyMember.set_emoji()`.
+- Added :meth:`ClientPartyMember.clear_backpack()`.
+- Added :meth:`ClientPartyMember.clear_pet()`.
+- Added :meth:`ClientPartyMember.clear_contrail()`.
+- Added :meth:`ClientPartyMember.clear_assisted_challenge()`.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused device auth to not work with newly generated details.
+- Fixed an issue that caused :meth:`Client.fetch_profile_by_display_name()` to not work if the account requested had linked external platforms to their account.
+
+
 v1.5.5
 ------
 
