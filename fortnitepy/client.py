@@ -1040,7 +1040,7 @@ class Client:
 
         epic_accounts = [d for d in accounts if d['displayName'] is not None]
         if epic_accounts:
-            account = max(epic_accounts, key=lambda d: d['externalAuths'])
+            account = max(epic_accounts, key=lambda d: len(d['externalAuths']))
         else:
             account = accounts[0]
 
