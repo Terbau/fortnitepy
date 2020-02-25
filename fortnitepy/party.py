@@ -220,6 +220,9 @@ class PartyMemberMeta(MetaBase):
             'CrossplayPreference_s': 'OptedIn',
             'VoiceChatEnabled_b': 'true',
             'VoiceConnectionId_s': '',
+            'SpectateAPartyMemberAvailable_b': "false",
+            'FeatDefinition_s': 'None',
+            'VoiceChatStatus_s': 'Disabled',
         }
 
         if meta is not None:
@@ -483,6 +486,17 @@ class PartyMeta(MetaBase):
             }),
             'PlatformSessions_j': json.dumps({
                 'PlatformSessions': [],
+            }),
+            'PartyMatchmakingInfo_j': json.dumps({
+                'PartyMatchmakingInfo': {
+                    'buildId': -1,
+                    'hotfixVersion': -1,
+                    'regionId': '',
+                    'playlistName': 'None',
+                    'tournamentId': '',
+                    'eventWindowId': '',
+                    'linkCode': '',
+                }
             }),
         }
 

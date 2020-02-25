@@ -151,7 +151,7 @@ class Friend(FriendBase):
 
     def __repr__(self) -> str:
         return ('<Friend id={0.id!r} display_name={0.display_name!r} '
-                'jid={0.jid!r}'.format(self))
+                'epicgames_account={0.epicgames_account!r}>'.format(self))
 
     def _update(self, data: dict) -> None:
         super()._update(data)
@@ -469,7 +469,7 @@ class PendingFriend(FriendBase):
 
     def __repr__(self) -> str:
         return ('<PendingFriend id={0.id!r} display_name={0.display_name!r} '
-                'jid={0.jid!r}'.format(self))
+                'epicgames_account={0.epicgames_account!r}>'.format(self))
 
     @property
     def created_at(self) -> Datetime:
