@@ -89,7 +89,7 @@ client.run()
 # Credit
 Thanks to [Kysune](https://github.com/SzymonLisowiec), [iXyles](https://github.com/iXyles), [Vrekt](https://github.com/Vrekt) and [amrsatrio](https://github.com/Amrsatrio) for ideas and/or work that this library is built upon.
 
-Also thanks to [discord.py](https:/github.com/Rapptz/discord.py) for much inspiration code-wise.
+Also thanks to [discord.py](https://github.com/Rapptz/discord.py) for much inspiration code-wise.
 
 # Need help?
 If you need more help feel free to join this [discord server](https://discord.gg/rnk869s).
