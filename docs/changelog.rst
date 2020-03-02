@@ -8,12 +8,12 @@ Detailed version changes.
 v1.6.1
 ------
 
-Hotpatch to fix bots not being able to start because of graphql response being changed.
+Hotpatch to fix bots not being able to start.
 
 Bug Fixes
 ~~~~~~~~~
 
-- Fixed an issue with graphql responses that caused bots not being able to start.
+- Fixed an issue that caused json payloads sometimes not being decoded.
 
 
 v1.6.0

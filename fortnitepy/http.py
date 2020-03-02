@@ -208,7 +208,7 @@ class HTTPClient:
     async def json_or_text(response: aiohttp.ClientResponse) -> Union[str,
                                                                       dict]:
         text = await response.text(encoding='utf-8')
-        if response.headers.get('content-type') == 'application/json':
+        if 'application/json' in response.headers.get('content-type', ''):
             return json.loads(text)
         return text
 
@@ -320,10 +320,6 @@ class HTTPClient:
             pass
 
         if graphql is not None:
-            try:
-                data = _data
-            except UnboundLocalError:
-                data = json.loads(data)
 
             error_data = None
             for child_data in data:
@@ -559,8 +555,7 @@ class HTTPClient:
             'x-xsrf-token': xsrf_token
         }
 
-        data = await self.get(EpicGames('/id/api/exchange'), headers=headers)
-        return json.loads(data)
+        return await self.get(EpicGames('/id/api/exchange'), headers=headers)
 
     ###################################
     #          Entitlement            #
@@ -909,8 +904,7 @@ class HTTPClient:
 
     async def fortnitecontent_get(self) -> dict:
         r = FortniteContentWebsite('/content/api/pages/fortnite-game')
-        data = await self.get(r)
-        return json.loads(data)
+        return await self.get(r)
 
     ###################################
     #            Friends              #
@@ -1007,7 +1001,7 @@ class HTTPClient:
     async def presence_get_last_online(self) -> dict:
         r = PresencePublicService('/presence/api/v1/_/{client_id}/last-online',
                                   client_id=self.client.user.id)
-        return json.loads(await self.get(r))
+        return await self.get(r)
 
     ###################################
     #              Stats              #
