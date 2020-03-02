@@ -320,6 +320,11 @@ class HTTPClient:
             pass
 
         if graphql is not None:
+            try:
+                data = _data
+            except UnboundLocalError:
+                data = json.loads(data)
+
             error_data = None
             for child_data in data:
                 if 'errors' in child_data:
