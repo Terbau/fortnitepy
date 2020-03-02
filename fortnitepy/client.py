@@ -769,11 +769,11 @@ class Client:
             soup = BeautifulSoup(data, 'html.parser')
 
             token = soup.find(id='purchaseToken')['value']
-            data = json.loads(await self.http.payment_website_order_preview(
+            data = await self.http.payment_website_order_preview(
                 token,
                 'fn',
                 '09176f4ff7564bbbb499bbe20bd6348f'
-            ))
+            )
             if 'syncToken' not in data:
                 pass
 
