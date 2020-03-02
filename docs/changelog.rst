@@ -5,6 +5,17 @@ Changelog
 
 Detailed version changes.
 
+v1.6.1
+------
+
+Hotpatch to fix bots not being able to start because of graphql response being changed.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue with graphql responses that caused bots not being able to start.
+
+
 v1.6.0
 ------
 
