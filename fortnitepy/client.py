@@ -185,7 +185,10 @@ async def start_multiple(clients: List['Client'], *,
     Raises
     ------
     AuthException
-        An error occured when attempting to log in.
+        Raised if invalid credentials in any form was passed or some
+        other misc failure.
+    HTTPException
+        A request error occured while logging in.
     """  # noqa
     loop = asyncio.get_event_loop()
 
@@ -282,7 +285,10 @@ def run_multiple(clients: List['Client'], *,
     Raises
     ------
     AuthException
-        An error occured when attempting to log in.
+        Raised if invalid credentials in any form was passed or some
+        other misc failure.
+    HTTPException
+        A request error occured while logging in.
     """  # noqa
     loop = asyncio.get_event_loop()
     _stopped = False
@@ -639,7 +645,10 @@ class Client:
         Raises
         ------
         AuthException
-            An error occured when attempting to log in.
+            Raised if invalid credentials in any form was passed or some
+            other misc failure.
+        HTTPException
+            A request error occured while logging in.
         """
         loop = self.loop
         _stopped = False
@@ -709,7 +718,10 @@ class Client:
         Raises
         ------
         AuthException
-            An error occured when attempting to log in.
+            Raised if invalid credentials in any form was passed or some
+            other misc failure.
+        HTTPException
+            A request error occured while logging in.
         """
         _started_while_restarting = self._restarting
 
@@ -904,9 +916,10 @@ class Client:
         Raises
         ------
         AuthException
-            An error occured while authenticating.
+            Raised if invalid credentials in any form was passed or some
+            other misc failure.
         HTTPException
-            An error occured while requesting something.
+            A request error occured while logging in.
         """
         self._restarting = True
 
@@ -2112,7 +2125,7 @@ class Client:
                 except HTTPException as exc:
                     if exc.message_code != ('errors.com.epicgames.social.'
                                             'party.user_has_party'):
-                        exc.reraise()
+                        raise
 
                     data = await self.http.party_lookup_user(self.user.id)
                     async with self._leave_lock:
@@ -2124,7 +2137,7 @@ class Client:
                             m = ('errors.com.epicgames.social.'
                                  'party.party_not_found')
                             if e.message_code != m:
-                                e.reraise()
+                                raise
 
                     await self.xmpp.leave_muc()
 
@@ -2194,7 +2207,7 @@ class Client:
                             party_id
                         )
                     )
-                e.reraise()
+                raise
 
             if check_private:
                 if party_data['config']['joinability'] == 'INVITE_AND_FORMER':
@@ -2220,7 +2233,7 @@ class Client:
                 if e.message_code == ('errors.com.epicgames.social.'
                                       'party.party_join_forbidden'):
                     raise Forbidden('Client has no right to join this party.')
-                e.reraise()
+                raise
 
             party_data = await self.http.party_lookup(party_id)
             party = ClientParty(self, party_data)

@@ -312,12 +312,8 @@ class HTTPClient:
         if raw:
             return r
 
-        try:
-            _data = json.loads(data)
-            if 'errorCode' in _data:
-                raise HTTPException(r, _data)
-        except (KeyError, TypeError, json.decoder.JSONDecodeError):
-            pass
+        if 'errorCode' in data:
+            raise HTTPException(r, data)
 
         if graphql is not None:
 
@@ -373,7 +369,7 @@ class HTTPClient:
                 return await self.fn_request(method, route, auth, graphql,
                                              **kwargs)
 
-            exc.reraise()
+            raise
 
     async def get(self, route: Union[Route, str],
                   auth: Optional[str] = None,

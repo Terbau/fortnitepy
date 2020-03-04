@@ -43,7 +43,8 @@ class PurchaseException(FortniteException):
 
 
 class AuthException(FortniteException):
-    """This exception is raised when auth fails."""
+    """This exception is raised when auth fails by invalid credentials
+    passed or some other misc failure."""
     pass
 
 
@@ -166,9 +167,3 @@ class HTTPException(FortniteException):
         )
 
         super().__init__(self.text)
-
-    def reraise(self, from_none=False) -> None:
-        if not from_none:
-            raise self
-        else:
-            raise self from None

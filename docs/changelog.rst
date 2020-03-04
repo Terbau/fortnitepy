@@ -5,6 +5,28 @@ Changelog
 
 Detailed version changes.
 
+v1.6.2
+------
+
+Fixes :exc:`HTTPException` not being raised and changes some stuff related to :exc:`AuthException`.
+
+Changes
+~~~~~~~
+
+- :exc:`AuthException` is now only raised when invalid credentials (email/password, device auth, exchange code or 2fa code) are passed and some other misc failures. It will no longer eat all errors raised.
+- Removed ``HTTPException.reraise()``.
+
+Added
+~~~~~
+
+- Added parameter ``prompt_exchange_code_if_throttled`` to :class:`AuthException`. If set to ``True`` it will prompt exchange code if the account is throttled.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused no :exc:`HTTPException`'s to be raised. This caused other errors which often looked weird.
+
+
 v1.6.1
 ------
 
