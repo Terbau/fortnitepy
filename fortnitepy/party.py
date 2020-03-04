@@ -1016,7 +1016,7 @@ class PartyMember(PartyMemberBase):
                 raise Forbidden(
                     'You dont have permission to kick this member.'
                 )
-            e.reraise()
+            raise
 
     async def promote(self) -> None:
         """|coro|
@@ -1248,7 +1248,7 @@ class ClientPartyMember(PartyMemberBase):
             except HTTPException as e:
                 m = 'errors.com.epicgames.social.party.party_not_found'
                 if e.message_code != m:
-                    e.reraise()
+                    raise
 
         await self.client.xmpp.leave_muc()
         p = await self.client._create_party()
@@ -2296,7 +2296,7 @@ class ClientParty(PartyBase):
             m = 'errors.com.epicgames.social.party.ping_forbidden'
             if e.message_code == m:
                 raise Forbidden('You can only invite friends to your party.')
-            e.reraise()
+            raise
 
     async def _leave(self, ignore_not_found: bool = True) -> None:
         await self.client.xmpp.leave_muc()
@@ -2308,7 +2308,7 @@ class ClientParty(PartyBase):
                 m = 'errors.com.epicgames.social.party.party_not_found'
                 if ignore_not_found and e.message_code == m:
                     return
-                e.reraise()
+                raise
 
     async def set_privacy(self, privacy: PartyPrivacy) -> None:
         """|coro|

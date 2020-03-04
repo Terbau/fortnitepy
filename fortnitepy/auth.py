@@ -75,9 +75,6 @@ class Auth:
             self._update(data)
         except asyncio.CancelledError:
             pass
-        except Exception as e:
-            raise AuthException('Could not authenticate. '
-                                'Error: {}'.format(e)) from None
 
     async def get_eula_version(self) -> int:
         data = await self.client.http.eulatracking_get_data()
@@ -92,7 +89,7 @@ class Auth:
                 await self.client.http.fortnite_grant_access()
             except HTTPException as e:
                 if e.message_code != 'errors.com.epicgames.bad_request':
-                    e.reraise()
+                    raise
 
     def _update(self, data: dict) -> None:
         self.access_token = data['access_token']
@@ -142,9 +139,7 @@ class Auth:
 
     async def exchange_fortnite_code(self) -> dict:
         code = await self.get_exchange_code()
-        if code is None:
-            raise AuthException('Could not get exchange code')
-
+        
         payload = {
             'grant_type': 'exchange_code',
             'token_type': 'eg1',
@@ -227,7 +222,7 @@ class EmailAndPasswordAuth(Auth):
         The accounts password.
     two_factor_code: Optional[:class:`int`]
         The current two factor code if needed. If not passed here, it
-        will be promted later.
+        will be prompted later.
     device_id: Optional[:class:`str`]
         A 32 char hex representing your device.
     launcher_token: Optional[:class:`str`]
@@ -267,9 +262,15 @@ class EmailAndPasswordAuth(Auth):
                 token
             )
         except HTTPException as e:
+            m = 'errors.com.epicgames.account.invalid_account_credentials'
+            if e.message_code == m:
+                raise AuthException(
+                    'Invalid account credentials passed.'
+                ) from e
+
             if e.message_code != ('errors.com.epicgames.common.'
                                   'two_factor_authentication.required'):
-                e.reraise(from_none=True)
+                raise
 
             log.info('Logging in interrupted. 2fa required.')
             log.info('Fetching new valid xsrf token.')
@@ -342,7 +343,17 @@ class ExchangeCodeAuth(Auth):
 
     async def launcher_authenticate(self) -> dict:
         log.info('Exchanging code.')
-        data = await self.exchange_launcher_code(self.exchange_code)
+        try:
+            data = await self.exchange_launcher_code(self.exchange_code)
+        except HTTPException as e:
+            m = 'errors.com.epicgames.account.oauth.exchange_code_not_found'
+            if e.message_code == m:
+                raise AuthException(
+                    'Invalid exchange code supplied'
+                ) from e
+
+            raise
+
         self.launcher_access_token = data['access_token']
         return data
 
@@ -399,10 +410,20 @@ class DeviceAuth(Auth):
             'token_type': 'eg1'
         }
 
-        data = await self.client.http.account_oauth_grant(
-            auth='basic {0}'.format(self.ios_token),
-            data=payload
-        )
+        try:
+            data = await self.client.http.account_oauth_grant(
+                auth='basic {0}'.format(self.ios_token),
+                data=payload
+            )
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.account.invalid_account_credentials'
+            if exc.message_code == m:
+                raise AuthException(
+                    'Invalid device auth details passed.'
+                ) from exc
+
+            raise
+
         self.launcher_access_token = data['access_token']
         return data
 
@@ -458,6 +479,10 @@ class AdvancedAuth(Auth):
         If this is set to ``True`` and no exchange code is passed,
         you will be prompted to enter the exchange code in the console
         if needed.
+    prompt_exchange_code_if_throttled: :class:`bool`
+        | If this is set to ``True`` and you receive a throttling response,
+        you will be prompted to enter the exchange code in the console.
+        | **NOTE:** This only works if ``prompt_exchange_code`` is ``True``.
     delete_existing_device_auths: :class:`bool`
         Whether or not to delete all existing device auths when a new
         is created.
@@ -479,6 +504,7 @@ class AdvancedAuth(Auth):
                  account_id: Optional[str] = None,
                  secret: Optional[str] = None,
                  prompt_exchange_code: bool = False,
+                 prompt_exchange_code_if_throttled: bool = False,
                  delete_existing_device_auths: bool = False,
                  **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -492,6 +518,7 @@ class AdvancedAuth(Auth):
 
         self.delete_existing_device_auths = delete_existing_device_auths
         self.prompt_exchange_code = prompt_exchange_code
+        self.prompt_exchange_code_if_throttled = prompt_exchange_code_if_throttled  # noqa
         self.ios_token = kwargs.get('ios_token', 'MzQ0NmNkNzI2OTRjNGE0NDg1ZDgxYjc3YWRiYjIxNDE6OTIwOWQ0YTVlMjVhNDU3ZmI5YjA3NDg5ZDMxM2I0MWE=')  # noqa
         self.kwargs = kwargs
 
@@ -569,9 +596,20 @@ class AdvancedAuth(Auth):
             try:
                 data = await self.run_email_and_password_authenticate()
             except HTTPException as e:
-                m = 'errors.com.epicgames.accountportal.captcha_invalid'
-                if e.message_code != m:
-                    e.reraise(from_none=True)
+                m = ['errors.com.epicgames.accountportal.captcha_invalid']
+                if (self.prompt_exchange_code
+                        and self.prompt_exchange_code_if_throttled):
+                    m.append('errors.com.epicgames.common.throttled')
+
+                if e.message_code not in m:
+                    raise
+
+                if (e.message_code in m
+                        and not self.exchange_code_ready()
+                        and not self.prompt_exchange_code):
+                    raise AuthException(
+                        'This account requires exchange code.'
+                    ) from e
 
         if data is None:
             if self.prompt_exchange_code:
@@ -588,10 +626,7 @@ class AdvancedAuth(Auth):
                         loop=self.client.loop
                     )
 
-            if self.exchange_code_ready():
                 data = await self.run_exchange_code_authenticate()
-            else:
-                raise AuthException('This account requires exchange code.')
 
         client_id = data['account_id']
         self.launcher_access_token = data['access_token']

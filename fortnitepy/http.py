@@ -312,12 +312,8 @@ class HTTPClient:
         if raw:
             return r
 
-        try:
-            _data = json.loads(data)
-            if 'errorCode' in _data:
-                raise HTTPException(r, _data)
-        except (KeyError, TypeError, json.decoder.JSONDecodeError):
-            pass
+        if 'errorCode' in data:
+            raise HTTPException(r, data)
 
         if graphql is not None:
 

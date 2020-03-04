@@ -329,7 +329,7 @@ class Friend(FriendBase):
                        'errors.com.epicgames.validation.validation_failed')
             if e.message_code in ignored:
                 raise ValueError('Invalid nickname')
-            e.reraise()
+            raise
         self._nickname = nickname
 
     async def remove_nickname(self) -> None:
@@ -374,7 +374,7 @@ class Friend(FriendBase):
                        'errors.com.epicgames.validation.validation_failed')
             if e.message_code in ignored:
                 raise ValueError('Invalid note')
-            e.reraise()
+            raise
         self._note = note
 
     async def remove_note(self) -> None:
