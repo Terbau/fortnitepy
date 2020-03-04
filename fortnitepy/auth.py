@@ -139,7 +139,7 @@ class Auth:
 
     async def exchange_fortnite_code(self) -> dict:
         code = await self.get_exchange_code()
-        
+
         payload = {
             'grant_type': 'exchange_code',
             'token_type': 'eg1',
@@ -284,11 +284,23 @@ class EmailAndPasswordAuth(Auth):
                         loop=self.client.loop
                     )
 
-            await self.client.http.epicgames_mfa_login(
-                e.raw['metadata']['twoFactorMethod'],
-                code,
-                token
-            )
+            try:
+                await self.client.http.epicgames_mfa_login(
+                    e.raw['metadata']['twoFactorMethod'],
+                    code,
+                    token
+                )
+            except HTTPException as exc:
+                m = (
+                    'errors.com.epicgames.accountportal.mfa_code_invalid',
+                    'errors.com.epicgames.accountportal.validation'
+                )
+                if exc.message_code in m:
+                    raise AuthException(
+                        'Invalid 2fa code passed.'
+                    ) from exc
+
+                raise
 
         await self.client.http.epicgames_redirect(token)
 

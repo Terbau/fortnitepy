@@ -1114,7 +1114,8 @@ class ClientPartyMember(PartyMemberBase):
                     if exc.message_code == m:
                         self.revision = int(exc.message_vars[1])
                         continue
-                    exc.reraise()
+                    
+                    raise
 
     async def _edit(self, *coros: List[Union[Awaitable, functools.partial]],
                     from_default: bool = True) -> None:
@@ -2261,7 +2262,8 @@ class ClientParty(PartyBase):
                     if exc.message_code == m:
                         self.revision = int(exc.message_vars[1])
                         continue
-                    exc.reraise()
+                    
+                    raise
 
     async def invite(self, user_id: str) -> None:
         """|coro|

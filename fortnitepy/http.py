@@ -369,7 +369,7 @@ class HTTPClient:
                 return await self.fn_request(method, route, auth, graphql,
                                              **kwargs)
 
-            exc.reraise()
+            raise
 
     async def get(self, route: Union[Route, str],
                   auth: Optional[str] = None,
