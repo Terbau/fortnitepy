@@ -50,6 +50,7 @@ from .store import Store
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 from .presence import Presence
+from .auth import RefreshTokenAuth
 
 log = logging.getLogger(__name__)
 
@@ -922,9 +923,16 @@ class Client:
             A request error occured while logging in.
         """
         self._restarting = True
+        launcher_refresh_token = self.auth.launcher_refresh_token
 
         asyncio.ensure_future(self.recover_events(), loop=self.loop)
         await self.logout(close_http=False, dispatch_logout=False)
+
+        auth = RefreshTokenAuth(
+            refresh_token=launcher_refresh_token
+        )
+        auth.initialize(self)
+        self.auth = auth
 
         async def runner():
             try:
