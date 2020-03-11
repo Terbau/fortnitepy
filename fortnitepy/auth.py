@@ -30,7 +30,7 @@ import logging
 import uuid
 
 from aioconsole import ainput
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Optional, Any, Callable, Awaitable, Union
 
 from .errors import AuthException, HTTPException
 
@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 _prompt_lock = asyncio.Lock()
+AnyCallable = Union[Callable, Awaitable]
 
 
 class Auth:
@@ -355,8 +356,9 @@ class ExchangeCodeAuth(Auth):
 
     Parameters
     ----------
-    exchange_code: :class:`str`
-        The exchange code.
+    exchange_code: Union[:class:`str`, Union[Callable, Awaitable]]
+        The exchange code or a function/coroutine that when called returns
+        the exchange code.
     device_id: Optional[:class:`str`]
         A 32 char hex representing your device.
     launcher_token: Optional[:class:`str`]
@@ -366,18 +368,36 @@ class ExchangeCodeAuth(Auth):
         The fortnite token to use with authentication. You should generally
         not need to set this manually.
     """
-    def __init__(self, exchange_code: str, **kwargs: Any) -> None:
+    def __init__(self, exchange_code: Union[str, AnyCallable],
+                 **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.exchange_code = exchange_code
+        self.resolved_code = None
+
+    async def resolve(self, code_or_callable: Union[str, AnyCallable]) -> str:
+        if isinstance(code_or_callable, str):
+            return code_or_callable
+
+        elif asyncio.iscoroutinefunction(code_or_callable):
+            res = await code_or_callable()
+        else:
+            res = code_or_callable()
+
+        if not isinstance(res, str):
+            raise TypeError('Return type of callable func/coro must be str')
+
+        return res
 
     @property
     def identifier(self) -> str:
-        return self.exchange_code
+        return self.resolved_code
 
     async def launcher_authenticate(self) -> dict:
         log.info('Exchanging code.')
+        self.resolved_code = await self.resolve(self.exchange_code)
+
         try:
-            data = await self.exchange_launcher_code(self.exchange_code)
+            data = await self.exchange_launcher_code(self.resolved_code)
         except HTTPException as e:
             m = 'errors.com.epicgames.account.oauth.exchange_code_not_found'
             if e.message_code == m:
@@ -500,8 +520,9 @@ class AdvancedAuth(Auth):
         The two factor code to use for the login if needed. If this is
         not passed but later needed, you will be prompted to enter it
         in the console.
-    exchange_code: Optional[:class:`str`]
-        The exchange code to use to login.
+    exchange_code: Optional[Union[:class:`str`, Union[Callable, Awaitable]]]
+        The exchange code or a function/coroutine that when called returns
+        the exchange code.
     device_id: Optional[:class:`str`]
         The device id to use for the login.
     account_id: Optional[:class:`str`]
@@ -532,7 +553,7 @@ class AdvancedAuth(Auth):
     def __init__(self, email: Optional[str] = None,
                  password: Optional[str] = None,
                  two_factor_code: Optional[int] = None,
-                 exchange_code: Optional[str] = None,
+                 exchange_code: Optional[Union[str, AnyCallable]] = None,
                  device_id: Optional[str] = None,
                  account_id: Optional[str] = None,
                  secret: Optional[str] = None,
@@ -659,7 +680,7 @@ class AdvancedAuth(Auth):
                         loop=self.client.loop
                     )
 
-                data = await self.run_exchange_code_authenticate()
+            data = await self.run_exchange_code_authenticate()
 
         client_id = data['account_id']
         self._update_launcher_data(data)
