@@ -268,7 +268,10 @@ class XMPPClient:
         body = ctx.body
 
         pinger = body['pinger_id']
-        data = (await self.client.http.party_lookup_ping(pinger))[0]
+        try:
+            data = (await self.client.http.party_lookup_ping(pinger))[0]
+        except IndexError:
+            return
 
         invite = None
         for inv in data['invites']:
