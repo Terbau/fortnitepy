@@ -5,6 +5,34 @@ Changelog
 
 Detailed version changes.
 
+v1.7.0
+------
+
+Update to fix some issues regarding auth and overall control over the application + some more.
+
+Changes
+~~~~~~~
+
+- The ``exchange_code`` argument in :class:`ExchangeCodeAuth` and keyword argument in :class:`AdvancedAuth` now also accepts a callable or awaitable that must return an exchange code in form of a :class:`str`.
+
+Added
+~~~~~
+
+- Added :meth:`Client.fetch_profile_by_email()` to fetch a :class:`User` by their email.
+- Added :class:`RefreshTokenAuth` which can be used to authenticate by a launcher refresh token.
+- Added keyword argument ``gap_timeout`` to :func:`start_multiple()` and :func:`run_multiple()`. The value passed decides how long it should sleep between starting the clients to avoid throttling.
+- Added :attr:`PartyMember.enlightenments` to check the members enlightenment values.
+- Added keyword argument ``enlightenment`` to :meth:`ClientPartyMember.set_outfit()`. Read more about it in the docs.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused :meth:`Client.restart()` not to work with all of the available auth methods.
+- Fixed an issue where the wrong refresh_token was refreshed which resulted in no active launcher access token to be valid after the first auth refresh (~8 hours).
+- Fixed :func:`run_multiple()` not shutting down correctly in environments that depend on signals to shut down the process.
+- The client now ignores ghost pings (invites).
+
+
 v1.6.2
 ------
 
