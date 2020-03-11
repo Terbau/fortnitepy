@@ -153,6 +153,7 @@ async def _start_client(client: 'Client', *,
 
 
 async def start_multiple(clients: List['Client'], *,
+                         gap_timeout: float = 0.2,
                          shutdown_on_error: bool = True,
                          ready_callback: Optional[AnyCallable] = None,
                          all_ready_callback: Optional[AnyCallable] = None
@@ -168,12 +169,15 @@ async def start_multiple(clients: List['Client'], *,
     .. info::
 
         Due to throttling by epicgames on login, the clients are started
-        with a 0.2 second gap.
+        with a 0.2 second gap. You can change this value with the gap_timeout
+        keyword argument.
 
     Parameters
     ----------
     clients: List[:class:`Client`]
         A list of the clients you wish to start.
+    gap_timeout: :class:`float`
+        The time to sleep between starting clients. Defaults to ``0.2``.
     shutdown_on_error: :class:`bool`
         If the function should cancel all other start tasks if one of the
         tasks fails.
@@ -209,7 +213,7 @@ async def start_multiple(clients: List['Client'], *,
     asyncio.ensure_future(all_ready_callback_runner())
 
     tasks = {}
-    for client in clients:
+    for i, client in enumerate(clients, 1):
         tasks[client] = loop.create_task(_start_client(
             client,
             shutdown_on_error=shutdown_on_error,
@@ -217,7 +221,8 @@ async def start_multiple(clients: List['Client'], *,
         ))
 
         # sleeping between starting to avoid throttling
-        await asyncio.sleep(0.2)
+        if i < len(clients):
+            await asyncio.sleep(gap_timeout)
 
     log.debug('Starting all clients')
     return_when = (asyncio.FIRST_EXCEPTION
@@ -252,6 +257,7 @@ async def close_multiple(clients: List['Client']) -> None:
 
 
 def run_multiple(clients: List['Client'], *,
+                 gap_timeout: float = 0.2,
                  shutdown_on_error: bool = True,
                  ready_callback: Optional[AnyCallable] = None,
                  all_ready_callback: Optional[AnyCallable] = None) -> None:
@@ -266,13 +272,16 @@ def run_multiple(clients: List['Client'], *,
 
     .. info::
 
-        Due to throttling by epicgames on login, the clients are started with
-        a 0.2 second gap.
+        Due to throttling by epicgames on login, the clients are started
+        with a 0.2 second gap. You can change this value with the gap_timeout
+        keyword argument.
 
     Parameters
     ----------
     clients: List[:class:`Client`]
         A list of the clients you wish to start.
+    gap_timeout: :class:`float`
+        The time to sleep between starting clients. Defaults to ``0.2``.
     shutdown_on_error: :class:`bool`
         If the function should shut down all other start tasks gracefully if
         one of the tasks fails.
@@ -292,40 +301,50 @@ def run_multiple(clients: List['Client'], *,
         A request error occured while logging in.
     """  # noqa
     loop = asyncio.get_event_loop()
+    _closing = False
     _stopped = False
 
-    def stopper(*args):
-        nonlocal _stopped
+    def close(*args):
+        nonlocal _closing
 
-        if not _stopped:
-            loop.stop()
-            _stopped = True
+        def stopper(*argss):
+            nonlocal _stopped
+            if not _stopped:
+                loop.stop()
+                _stopped = True
+
+        if not _closing:
+            _closing = True
+            fut = asyncio.ensure_future(close_multiple(clients))
+            fut.add_done_callback(stopper)
 
     try:
-        loop.add_signal_handler(signal.SIGINT, stopper)
-        loop.add_signal_handler(signal.SIGTERM, stopper)
+        loop.add_signal_handler(signal.SIGINT, close)
+        loop.add_signal_handler(signal.SIGTERM, close)
     except NotImplementedError:
         pass
 
     async def runner():
         await start_multiple(
             clients,
+            gap_timeout=gap_timeout,
             shutdown_on_error=shutdown_on_error,
             ready_callback=ready_callback,
             all_ready_callback=all_ready_callback,
         )
 
     future = asyncio.ensure_future(runner(), loop=loop)
-    future.add_done_callback(stopper)
+    future.add_done_callback(close)
 
     try:
         loop.run_forever()
     except KeyboardInterrupt:
-        _stopped = True
-        log.info('Terminating event loop.')
+
+        if not _stopped:
+            loop.run_until_complete(close_multiple(clients))
     finally:
-        future.remove_done_callback(stopper)
-        loop.run_until_complete(close_multiple(clients))
+        future.remove_done_callback(close)
+
         log.info('Cleaning up loop')
         _cleanup_loop(loop)
 
