@@ -23,6 +23,8 @@ how you can set up this auth with file storage for the preferred login which is 
 
 .. autoclass:: DeviceAuth
 
+.. autoclass:: RefreshTokenAuth
+
 .. autoclass:: AdvancedAuth
 
 

@@ -495,8 +495,12 @@ class DeviceAuth(Auth):
 
 
 class RefreshTokenAuth(Auth):
-    """Authenticates by the passed refresh token.
+    """Authenticates by the passed launcher refresh token.
 
+    Parameters
+    ----------
+    refresh_token: :class:`str`
+        A valid launcher refresh token.
     """
     def __init__(self, refresh_token: str,
                  **kwargs: Any) -> None:
