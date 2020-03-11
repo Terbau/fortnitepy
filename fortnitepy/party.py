@@ -796,6 +796,13 @@ class PartyMemberBase(User):
         return self.meta.contrail_variants
 
     @property
+    def enlightenments(self) -> List[Tuple[int, int]]:
+        """List[:class:`tuple`]: A list of tuples containing the
+        enlightenments of this member.
+        """
+        return [tuple(d.values()) for d in self.meta.scratchpad]
+
+    @property
     def emote(self) -> Optional[str]:
         """Optional[:class:`str`]: The EID of the emote this member is
         currently playing. ``None`` if no emote is currently playing.
@@ -1288,7 +1295,8 @@ class ClientPartyMember(PartyMemberBase):
 
     async def set_outfit(self, asset: Optional[str] = None, *,
                          key: Optional[str] = None,
-                         variants: Optional[List[Dict[str, str]]] = None
+                         variants: Optional[List[Dict[str, str]]] = None,
+                         enlightenment: Optional[List[int]] = None
                          ) -> None:
         """|coro|
 
@@ -1309,6 +1317,25 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this outfit. Defaults to ``None`` which
             resets variants.
+        enlightenment: Optional[:class:`list`]
+            A list/tuple containing exactly two integer values describing the
+            season and the level you want to enlighten the current outfit with.
+
+            .. note::
+
+                Using enlightenments often requires you to set a specific
+                variant for the skin.
+
+            Example.: ::
+
+                # First value is the season in Fortnite Chapter 2
+                # Second value is the level for the season
+                (1, 300)
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1320,10 +1347,20 @@ class ClientPartyMember(PartyMemberBase):
 
         variants = [x for x in self.meta.variants
                     if x['item'] != 'AthenaCharacter'] + (variants or [])
+
+        if enlightenment is not None and len(enlightenment) == 2:
+            enlightenment = [
+                {
+                    't': enlightenment[0],
+                    'v': enlightenment[1]
+                }
+            ]
+
         prop = self.meta.set_cosmetic_loadout(
             character=asset,
             character_ekey=key,
-            variants=variants
+            variants=variants,
+            scratchpad=enlightenment
         )
 
         if not self.edit_lock.locked():
