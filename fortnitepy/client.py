@@ -29,7 +29,6 @@ import asyncio
 import sys
 import signal
 import logging
-import json
 
 from bs4 import BeautifulSoup
 from OpenSSL.SSL import SysCallError
@@ -1062,7 +1061,7 @@ class Client:
 
         Returns
         -------
-        :class:`User`
+        Optional[:class:`User`]
             The user requested. If not found it will return ``None``.
         """
         if cache:
@@ -1109,6 +1108,16 @@ class Client:
         raw: :class:`bool`
             If set to True it will return the data as you would get it from
             the api request. *Defaults to ``False``*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting the user.
+
+        Returns
+        -------
+        List[:class:`User`]
+            A list containing all payloads found for this user.
         """
         res = await self.http.account_graphql_get_by_display_name(display_name)
         return [User(self, account) for account in res['account']]
@@ -1148,7 +1157,7 @@ class Client:
 
         Returns
         -------
-        :class:`User`
+        Optional[:class:`User`]
             The user requested. If not found it will return ``None``
         """
         try:

@@ -1121,7 +1121,7 @@ class ClientPartyMember(PartyMemberBase):
                     if exc.message_code == m:
                         self.revision = int(exc.message_vars[1])
                         continue
-                    
+
                     raise
 
     async def _edit(self, *coros: List[Union[Awaitable, functools.partial]],
@@ -1389,6 +1389,11 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this backpack. Defaults to ``None`` which
             resets variants.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1444,6 +1449,11 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this pet. Defaults to ``None`` which
             resets variants.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1499,6 +1509,11 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this pickaxe. Defaults to ``None`` which
             resets variants.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1542,6 +1557,11 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this contrail. Defaults to ``None`` which
             resets variants.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1599,6 +1619,11 @@ class ClientPartyMember(PartyMemberBase):
             The encyption key to use for this emote.
         section: Optional[:class:`int`]
             The section.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
             asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
@@ -1648,6 +1673,11 @@ class ClientPartyMember(PartyMemberBase):
             The encyption key to use for this emoji.
         section: Optional[:class:`int`]
             The section.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
             asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
@@ -1697,6 +1727,11 @@ class ClientPartyMember(PartyMemberBase):
             The encyption key to use for this shout.
         section: Optional[:class:`int`]
             The section.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
             asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
@@ -1731,6 +1766,11 @@ class ClientPartyMember(PartyMemberBase):
         """|coro|
 
         Clears/stops the emote currently playing.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
 
         prop = self.meta.set_emote(
@@ -1762,6 +1802,11 @@ class ClientPartyMember(PartyMemberBase):
         season_level: Optional[:class:`int`]
             The season level.
             *Defaults to 1*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         prop = self.meta.set_banner(
             banner_icon=icon,
@@ -1798,6 +1843,11 @@ class ClientPartyMember(PartyMemberBase):
             Sets the self boost xp and shows it visually.
         friend_boost_xp: Optional[:class:`int`]
             Set the friend boost xp and shows it visually.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         prop = self.meta.set_battlepass_info(
             has_purchased=has_purchased,
@@ -1827,6 +1877,11 @@ class ClientPartyMember(PartyMemberBase):
                 quest id is enough.
         num_completed: Optional[:class:`int`]
             How many quests you have completed, I think (didn't test this).
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if quest is not None:
             if quest != '' and '.' not in quest:
@@ -2299,7 +2354,7 @@ class ClientParty(PartyBase):
                     if exc.message_code == m:
                         self.revision = int(exc.message_vars[1])
                         continue
-                    
+
                     raise
 
     async def invite(self, user_id: str) -> None:
