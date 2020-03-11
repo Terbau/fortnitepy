@@ -72,7 +72,7 @@ class Auth:
         try:
             log.info('Running authentication.')
             data = await self.authenticate()
-            self._update(data)
+            self._update_data(data)
         except asyncio.CancelledError:
             pass
 
@@ -91,7 +91,22 @@ class Auth:
                 if e.message_code != 'errors.com.epicgames.bad_request':
                     raise
 
-    def _update(self, data: dict) -> None:
+    def _update_launcher_data(self, data: dict) -> None:
+        self.launcher_access_token = data['access_token']
+        self.launcher_expires_in = data['expires_in']
+        self.launcher_expires_at = self.client.from_iso(data["expires_at"])
+        self.launcher_token_type = data['token_type']
+        self.launcher_refresh_token = data['refresh_token']
+        self.launcher_refresh_expires = data['refresh_expires']
+        self.launcher_refresh_expires_at = data['refresh_expires_at']
+        self.launcher_account_id = data['account_id']
+        self.launcher_client_id = data['client_id']
+        self.launcher_internal_client = data['internal_client']
+        self.launcher_client_service = data['client_service']
+        self.launcher_app = data['app']
+        self.launcher_in_app_id = data['in_app_id']
+
+    def _update_data(self, data: dict) -> None:
         self.access_token = data['access_token']
         self.expires_in = data['expires_in']
         self.expires_at = self.client.from_iso(data["expires_at"])
@@ -106,14 +121,15 @@ class Auth:
         self.app = data['app']
         self.in_app_id = data['in_app_id']
 
-    async def grant_refresh_token(self, refresh_token: str) -> dict:
+    async def grant_refresh_token(self, refresh_token: str,
+                                  auth_token: str) -> dict:
         payload = {
             'grant_type': 'refresh_token',
             'refresh_token': refresh_token
         }
 
         return await self.client.http.account_oauth_grant(
-            auth='basic {0}'.format(self.fortnite_token),
+            auth='basic {0}'.format(auth_token),
             device_id=True,
             data=payload
         )
@@ -159,7 +175,7 @@ class Auth:
         )
 
     async def schedule_token_refresh(self) -> None:
-        subtracted = self.expires_at - datetime.datetime.utcnow()
+        subtracted = self.launcher_expires_at - datetime.datetime.utcnow()
         self.token_timeout = (subtracted).total_seconds() - 300
         await asyncio.sleep(self.token_timeout)
 
@@ -181,12 +197,17 @@ class Auth:
             if self.client.user.party is not None:
                 await self.client.user.party._leave()
 
-            data = await self.grant_refresh_token(self.refresh_token)
-            self.launcher_access_token = data['access_token']
-            self.refresh_token = data['refresh_token']
+            data = await self.grant_refresh_token(
+                self.launcher_refresh_token,
+                self.launcher_token
+            )
+            self._update_launcher_data(data)
 
-            exchange_data = await self.exchange_fortnite_code()
-            self._update(exchange_data)
+            exchange_data = await self.grant_refresh_token(
+                self.refresh_token,
+                self.fortnite_token
+            )
+            self._update_data(exchange_data)
 
             log.debug('Refreshing xmpp session')
             await self.client.xmpp.close()
@@ -309,7 +330,7 @@ class EmailAndPasswordAuth(Auth):
 
         log.info('Exchanging code.')
         data = await self.exchange_launcher_code(data['code'])
-        self.launcher_access_token = data['access_token']
+        self._update_launcher_data(data)
         return data
 
     async def authenticate(self) -> dict:
@@ -366,7 +387,7 @@ class ExchangeCodeAuth(Auth):
 
             raise
 
-        self.launcher_access_token = data['access_token']
+        self._update_launcher_data(data)
         return data
 
     async def authenticate(self) -> dict:
@@ -436,7 +457,7 @@ class DeviceAuth(Auth):
 
             raise
 
-        self.launcher_access_token = data['access_token']
+        self._update_launcher_data(data)
         return data
 
     async def launcher_authenticate(self) -> dict:
@@ -444,7 +465,7 @@ class DeviceAuth(Auth):
         data = await self.exchange_launcher_code(code)
 
         await self.kill_token(self.launcher_access_token)
-        self.launcher_access_token = data['access_token']
+        self._update_launcher_data(data)
         return data
 
     async def authenticate(self) -> dict:
@@ -582,10 +603,10 @@ class AdvancedAuth(Auth):
         auth.initialize(self.client)
 
         data = await auth.device_auth_authenticate()
-        self.launcher_access_token = data['access_token']
+        self._update_launcher_data(data)
 
         data = await auth.launcher_authenticate()
-        self.launcher_access_token = data['access_token']
+        self._update_launcher_data(data)
 
         return await auth.exchange_fortnite_code()
 
@@ -641,7 +662,7 @@ class AdvancedAuth(Auth):
                 data = await self.run_exchange_code_authenticate()
 
         client_id = data['account_id']
-        self.launcher_access_token = data['access_token']
+        self._update_launcher_data(data)
 
         if self.delete_existing_device_auths:
             tasks = []
@@ -671,5 +692,5 @@ class AdvancedAuth(Auth):
         data = await self.exchange_launcher_code(code)
 
         await self.kill_token(self.launcher_access_token)
-        self.launcher_access_token = data['access_token']
+        self._update_launcher_data(data)
         return await self.exchange_fortnite_code()
