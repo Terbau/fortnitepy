@@ -494,6 +494,32 @@ class DeviceAuth(Auth):
         return await self.exchange_fortnite_code()
 
 
+class RefreshTokenAuth(Auth):
+    """Authenticates by the passed refresh token.
+
+    """
+    def __init__(self, refresh_token: str,
+                 **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.refresh_token = refresh_token
+
+    @property
+    def identifier(self) -> str:
+        return self.refresh_token
+
+    async def launcher_authenticate(self) -> dict:
+        data = await self.grant_refresh_token(
+            self.refresh_token,
+            self.launcher_token
+        )
+        self._update_launcher_data(data)
+
+    async def authenticate(self) -> dict:
+        await self.launcher_authenticate()
+        return await self.exchange_fortnite_code()
+
+
 class AdvancedAuth(Auth):
     """Authenticates by the available data in the following order:
 
