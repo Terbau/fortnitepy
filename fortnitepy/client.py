@@ -29,7 +29,6 @@ import asyncio
 import sys
 import signal
 import logging
-import json
 
 from bs4 import BeautifulSoup
 from OpenSSL.SSL import SysCallError
@@ -50,6 +49,7 @@ from .store import Store
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 from .presence import Presence
+from .auth import RefreshTokenAuth
 
 log = logging.getLogger(__name__)
 
@@ -152,6 +152,7 @@ async def _start_client(client: 'Client', *,
 
 
 async def start_multiple(clients: List['Client'], *,
+                         gap_timeout: float = 0.2,
                          shutdown_on_error: bool = True,
                          ready_callback: Optional[AnyCallable] = None,
                          all_ready_callback: Optional[AnyCallable] = None
@@ -167,12 +168,15 @@ async def start_multiple(clients: List['Client'], *,
     .. info::
 
         Due to throttling by epicgames on login, the clients are started
-        with a 0.2 second gap.
+        with a 0.2 second gap. You can change this value with the gap_timeout
+        keyword argument.
 
     Parameters
     ----------
     clients: List[:class:`Client`]
         A list of the clients you wish to start.
+    gap_timeout: :class:`float`
+        The time to sleep between starting clients. Defaults to ``0.2``.
     shutdown_on_error: :class:`bool`
         If the function should cancel all other start tasks if one of the
         tasks fails.
@@ -208,7 +212,7 @@ async def start_multiple(clients: List['Client'], *,
     asyncio.ensure_future(all_ready_callback_runner())
 
     tasks = {}
-    for client in clients:
+    for i, client in enumerate(clients, 1):
         tasks[client] = loop.create_task(_start_client(
             client,
             shutdown_on_error=shutdown_on_error,
@@ -216,7 +220,8 @@ async def start_multiple(clients: List['Client'], *,
         ))
 
         # sleeping between starting to avoid throttling
-        await asyncio.sleep(0.2)
+        if i < len(clients):
+            await asyncio.sleep(gap_timeout)
 
     log.debug('Starting all clients')
     return_when = (asyncio.FIRST_EXCEPTION
@@ -251,6 +256,7 @@ async def close_multiple(clients: List['Client']) -> None:
 
 
 def run_multiple(clients: List['Client'], *,
+                 gap_timeout: float = 0.2,
                  shutdown_on_error: bool = True,
                  ready_callback: Optional[AnyCallable] = None,
                  all_ready_callback: Optional[AnyCallable] = None) -> None:
@@ -265,13 +271,16 @@ def run_multiple(clients: List['Client'], *,
 
     .. info::
 
-        Due to throttling by epicgames on login, the clients are started with
-        a 0.2 second gap.
+        Due to throttling by epicgames on login, the clients are started
+        with a 0.2 second gap. You can change this value with the gap_timeout
+        keyword argument.
 
     Parameters
     ----------
     clients: List[:class:`Client`]
         A list of the clients you wish to start.
+    gap_timeout: :class:`float`
+        The time to sleep between starting clients. Defaults to ``0.2``.
     shutdown_on_error: :class:`bool`
         If the function should shut down all other start tasks gracefully if
         one of the tasks fails.
@@ -291,40 +300,50 @@ def run_multiple(clients: List['Client'], *,
         A request error occured while logging in.
     """  # noqa
     loop = asyncio.get_event_loop()
+    _closing = False
     _stopped = False
 
-    def stopper(*args):
-        nonlocal _stopped
+    def close(*args):
+        nonlocal _closing
 
-        if not _stopped:
-            loop.stop()
-            _stopped = True
+        def stopper(*argss):
+            nonlocal _stopped
+            if not _stopped:
+                loop.stop()
+                _stopped = True
+
+        if not _closing:
+            _closing = True
+            fut = asyncio.ensure_future(close_multiple(clients))
+            fut.add_done_callback(stopper)
 
     try:
-        loop.add_signal_handler(signal.SIGINT, stopper)
-        loop.add_signal_handler(signal.SIGTERM, stopper)
+        loop.add_signal_handler(signal.SIGINT, close)
+        loop.add_signal_handler(signal.SIGTERM, close)
     except NotImplementedError:
         pass
 
     async def runner():
         await start_multiple(
             clients,
+            gap_timeout=gap_timeout,
             shutdown_on_error=shutdown_on_error,
             ready_callback=ready_callback,
             all_ready_callback=all_ready_callback,
         )
 
     future = asyncio.ensure_future(runner(), loop=loop)
-    future.add_done_callback(stopper)
+    future.add_done_callback(close)
 
     try:
         loop.run_forever()
     except KeyboardInterrupt:
-        _stopped = True
-        log.info('Terminating event loop.')
+
+        if not _stopped:
+            loop.run_until_complete(close_multiple(clients))
     finally:
-        future.remove_done_callback(stopper)
-        loop.run_until_complete(close_multiple(clients))
+        future.remove_done_callback(close)
+
         log.info('Cleaning up loop')
         _cleanup_loop(loop)
 
@@ -922,9 +941,16 @@ class Client:
             A request error occured while logging in.
         """
         self._restarting = True
+        launcher_refresh_token = self.auth.launcher_refresh_token
 
         asyncio.ensure_future(self.recover_events(), loop=self.loop)
         await self.logout(close_http=False, dispatch_logout=False)
+
+        auth = RefreshTokenAuth(
+            refresh_token=launcher_refresh_token
+        )
+        auth.initialize(self)
+        self.auth = auth
 
         async def runner():
             try:
@@ -1035,7 +1061,7 @@ class Client:
 
         Returns
         -------
-        :class:`User`
+        Optional[:class:`User`]
             The user requested. If not found it will return ``None``.
         """
         if cache:
@@ -1082,6 +1108,16 @@ class Client:
         raw: :class:`bool`
             If set to True it will return the data as you would get it from
             the api request. *Defaults to ``False``*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting the user.
+
+        Returns
+        -------
+        List[:class:`User`]
+            A list containing all payloads found for this user.
         """
         res = await self.http.account_graphql_get_by_display_name(display_name)
         return [User(self, account) for account in res['account']]
@@ -1121,7 +1157,7 @@ class Client:
 
         Returns
         -------
-        :class:`User`
+        Optional[:class:`User`]
             The user requested. If not found it will return ``None``
         """
         try:
@@ -1230,6 +1266,65 @@ class Client:
                         u = self.store_user(result, try_cache=cache)
                         profiles.append(u)
         return profiles
+
+    async def fetch_profile_by_email(self, email, *,
+                                     cache: bool = False,
+                                     raw: bool = False) -> Optional[User]:
+        """|coro|
+
+        Fetches a single profile by the email.
+
+        .. warning::
+
+            Because of epicgames throttling policy, you can only do this
+            request three times in a timespan of 600 seconds. If you were
+            to do more than three requests in that timespan, a
+            :exc:`HTTPException` would be raised.
+
+        Parameters
+        ----------
+        email: :class:`str`
+            The email of the account you are requesting.
+        cache: :class:`bool`
+            If set to True it will try to get the profile from the friends or
+            user cache and fall back to an api request if not found.
+
+            .. note::
+
+                This method does two api requests but with this set to False
+                only one request will be done as long as the user is found in
+                one of the caches.
+
+        raw: :class:`bool`
+            If set to True it will return the data as you would get it from
+            the api request.
+
+            .. note::
+
+                Setting raw to True does not work with cache set to True.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting the user.
+
+        Returns
+        -------
+        Optional[:class:`User`]
+            The user requested. If not found it will return ``None``
+        """
+        try:
+            res = await self.http.account_get_by_email(email)
+        except HTTPException as e:
+            m = 'errors.com.epicgames.account.account_not_found'
+            if e.message_code == m:
+                return None
+            raise
+
+        # Request the account data through graphql since the one above returns
+        # empty external auths payload.
+        account_id = res['id']
+        return await self.fetch_profile(account_id, cache=cache, raw=raw)
 
     async def initialize_states(self) -> None:
         tasks = (

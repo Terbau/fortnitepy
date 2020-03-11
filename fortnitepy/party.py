@@ -796,6 +796,13 @@ class PartyMemberBase(User):
         return self.meta.contrail_variants
 
     @property
+    def enlightenments(self) -> List[Tuple[int, int]]:
+        """List[:class:`tuple`]: A list of tuples containing the
+        enlightenments of this member.
+        """
+        return [tuple(d.values()) for d in self.meta.scratchpad]
+
+    @property
     def emote(self) -> Optional[str]:
         """Optional[:class:`str`]: The EID of the emote this member is
         currently playing. ``None`` if no emote is currently playing.
@@ -1114,7 +1121,7 @@ class ClientPartyMember(PartyMemberBase):
                     if exc.message_code == m:
                         self.revision = int(exc.message_vars[1])
                         continue
-                    
+
                     raise
 
     async def _edit(self, *coros: List[Union[Awaitable, functools.partial]],
@@ -1288,7 +1295,8 @@ class ClientPartyMember(PartyMemberBase):
 
     async def set_outfit(self, asset: Optional[str] = None, *,
                          key: Optional[str] = None,
-                         variants: Optional[List[Dict[str, str]]] = None
+                         variants: Optional[List[Dict[str, str]]] = None,
+                         enlightenment: Optional[List[int]] = None
                          ) -> None:
         """|coro|
 
@@ -1309,6 +1317,25 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this outfit. Defaults to ``None`` which
             resets variants.
+        enlightenment: Optional[:class:`list`]
+            A list/tuple containing exactly two integer values describing the
+            season and the level you want to enlighten the current outfit with.
+
+            .. note::
+
+                Using enlightenments often requires you to set a specific
+                variant for the skin.
+
+            Example.: ::
+
+                # First value is the season in Fortnite Chapter 2
+                # Second value is the level for the season
+                (1, 300)
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1320,10 +1347,20 @@ class ClientPartyMember(PartyMemberBase):
 
         variants = [x for x in self.meta.variants
                     if x['item'] != 'AthenaCharacter'] + (variants or [])
+
+        if enlightenment is not None and len(enlightenment) == 2:
+            enlightenment = [
+                {
+                    't': enlightenment[0],
+                    'v': enlightenment[1]
+                }
+            ]
+
         prop = self.meta.set_cosmetic_loadout(
             character=asset,
             character_ekey=key,
-            variants=variants
+            variants=variants,
+            scratchpad=enlightenment
         )
 
         if not self.edit_lock.locked():
@@ -1352,6 +1389,11 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this backpack. Defaults to ``None`` which
             resets variants.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1407,6 +1449,11 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this pet. Defaults to ``None`` which
             resets variants.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1462,6 +1509,11 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this pickaxe. Defaults to ``None`` which
             resets variants.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1505,6 +1557,11 @@ class ClientPartyMember(PartyMemberBase):
         variants: Optional[:class:`list`]
             The variants to use for this contrail. Defaults to ``None`` which
             resets variants.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -1562,6 +1619,11 @@ class ClientPartyMember(PartyMemberBase):
             The encyption key to use for this emote.
         section: Optional[:class:`int`]
             The section.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
             asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
@@ -1611,6 +1673,11 @@ class ClientPartyMember(PartyMemberBase):
             The encyption key to use for this emoji.
         section: Optional[:class:`int`]
             The section.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
             asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
@@ -1660,6 +1727,11 @@ class ClientPartyMember(PartyMemberBase):
             The encyption key to use for this shout.
         section: Optional[:class:`int`]
             The section.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
             asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
@@ -1694,6 +1766,11 @@ class ClientPartyMember(PartyMemberBase):
         """|coro|
 
         Clears/stops the emote currently playing.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
 
         prop = self.meta.set_emote(
@@ -1725,6 +1802,11 @@ class ClientPartyMember(PartyMemberBase):
         season_level: Optional[:class:`int`]
             The season level.
             *Defaults to 1*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         prop = self.meta.set_banner(
             banner_icon=icon,
@@ -1761,6 +1843,11 @@ class ClientPartyMember(PartyMemberBase):
             Sets the self boost xp and shows it visually.
         friend_boost_xp: Optional[:class:`int`]
             Set the friend boost xp and shows it visually.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         prop = self.meta.set_battlepass_info(
             has_purchased=has_purchased,
@@ -1790,6 +1877,11 @@ class ClientPartyMember(PartyMemberBase):
                 quest id is enough.
         num_completed: Optional[:class:`int`]
             How many quests you have completed, I think (didn't test this).
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
         """
         if quest is not None:
             if quest != '' and '.' not in quest:
@@ -2262,7 +2354,7 @@ class ClientParty(PartyBase):
                     if exc.message_code == m:
                         self.revision = int(exc.message_vars[1])
                         continue
-                    
+
                     raise
 
     async def invite(self, user_id: str) -> None:
