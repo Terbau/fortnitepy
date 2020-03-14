@@ -24,18 +24,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import aioxmpp
 import asyncio
+import datetime
+import itertools
 import json
 import logging
-import datetime
 import uuid
-import itertools
-
+import unicodedata
 from collections import defaultdict
-from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any
+from typing import TYPE_CHECKING, Any, Awaitable, Optional, Union
 
-from .errors import XMPPError, PartyError
+import aioxmpp
+
+from .errors import PartyError, XMPPError
 from .message import FriendMessage, PartyMessage
 from .party import Party, PartyInvitation, PartyJoinConfirmation
 from .presence import Presence
@@ -44,6 +45,10 @@ if TYPE_CHECKING:
     from .client import Client
 
 log = logging.getLogger(__name__)
+
+
+def is_RandALCat(c):
+    return unicodedata.bidirectional(c) in ('R', 'AL')
 
 
 class EventContext:
@@ -117,6 +122,14 @@ class XMPPClient:
     def jid(self, id: str) -> aioxmpp.JID:
         return aioxmpp.JID.fromstr('{}@{}'.format(id,
                                                   self.client.service_host))
+
+    def _remove_illegal_characters(self, chars: str) -> str:
+        for c in chars:
+            if is_RandALCat(c):
+                chars = chars.replace(c, '')
+            if ord(c) == 0:
+                chars = chars.replace(c, '')
+        return chars
 
     def _create_invite(self, from_id: str, data: dict) -> dict:
         now = datetime.datetime.utcnow()
@@ -816,7 +829,10 @@ class XMPPClient:
             self.xmpp_client.local_jid.resource
         )
 
-        room, fut = self.muc_service.join(muc_jid, nick)
+        room, fut = self.muc_service.join(
+            muc_jid,
+            self._remove_illegal_characters(nick)
+            )
 
         room.on_message.connect(self.muc_on_message)
         room.on_join.connect(self.muc_on_member_join)
@@ -851,7 +867,7 @@ class XMPPClient:
         msg = aioxmpp.Message(
             type_=aioxmpp.MessageType.GROUPCHAT
         )
-        msg.body[None] = content
+        msg.body[None] = self._remove_illegal_characters(content)
         self.muc_room.send_message(msg)
 
     async def send_friend_message(self, jid: aioxmpp.JID,
@@ -863,7 +879,8 @@ class XMPPClient:
             to=jid,
             type_=aioxmpp.MessageType.CHAT,
         )
-        msg.body[None] = content
+        msg.body[None] = self._remove_illegal_characters(content)
+        print(msg.body[None])
         await self.stream.send(msg)
 
     def set_presence(self, status: Optional[Union[str, dict]] = None) -> None:
