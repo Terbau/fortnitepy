@@ -49,7 +49,7 @@ from .store import Store
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 from .presence import Presence
-from .auth import RefreshTokenAuth
+from .auth import RefreshTokenAuth, ExchangeCodeAuth
 
 log = logging.getLogger(__name__)
 
@@ -714,6 +714,24 @@ class Client:
 
         if not future.cancelled():
             return future.result()
+
+    async def check_oauth_code(self) -> bool:
+        """|coro|
+        Checks if the current exchange code is valid.
+        """
+        if not isinstance(self.auth, ExchangeCodeAuth):
+            raise TypeError('This function is only availible when using '
+                            'ExchangeCodeAuth')
+        try:
+            await self.auth.launcher_authenticate()
+        except Exception:
+            return False
+        finally:
+            await self.logout(dispatch_logout=False)
+        token = self.auth.launcher_refresh_token
+        self.auth = RefreshTokenAuth(token)
+        self.auth.initialize(self)
+        return True
 
     async def start(self, dispatch_ready: bool = True) -> None:
         """|coro|
