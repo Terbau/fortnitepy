@@ -2384,8 +2384,15 @@ class ClientParty(PartyBase):
         if len(self.members) == self.max_size:
             raise PartyError('Party is full')
 
+        private_states = (
+            PartyPrivacy.PRIVATE_ALLOW_FRIENDS_OF_FRIENDS,
+            PartyPrivacy.PRIVATE
+        )
         try:
-            await self.client.http.party_send_invite(self.id, user_id)
+            if self.privacy in private_states:
+                await self.client.http.party_send_invite(self.id, user_id)
+            else:
+                await self.client.http.party_send_ping(user_id)
         except HTTPException as e:
             m = 'errors.com.epicgames.social.party.ping_forbidden'
             if e.message_code == m:

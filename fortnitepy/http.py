@@ -1067,15 +1067,16 @@ class HTTPClient:
         )
         return await self.post(r, json=payload, params=params)
 
-    # NOTE: Depracated since fortnite v11.30
-    #       Use param sendPing=True with send_invite
-    # async def party_send_ping(self, user_id):
-    #     r = PartyService(
-    #         '/party/api/v1/Fortnite/user/{user_id}/pings/{client_id}',
-    #         user_id=user_id,
-    #         client_id=self.client.user.id
-    #     )
-    #     return await self.post(r, json={})
+    # NOTE: Depracated since fortnite v11.30. Use param sendPing=True with
+    #       send_invite
+    # NOTE: Now used for sending invites from private parties
+    async def party_send_ping(self, user_id):
+        r = PartyService(
+            '/party/api/v1/Fortnite/user/{user_id}/pings/{client_id}',
+            user_id=user_id,
+            client_id=self.client.user.id
+        )
+        return await self.post(r, json={})
 
     async def party_delete_ping(self, user_id: str) -> Any:
         r = PartyService(
@@ -1228,10 +1229,15 @@ class HTTPClient:
                 }
             },
             'meta': {
-                'urn:epic:cfg:party-type-id_s': 'default',
+                'urn:epic:cfg:accepting-members_b': False,
                 'urn:epic:cfg:build-id_s': str(self.client.party_build_id),
-                'urn:epic:cfg:join-request-action_s': 'Manual',
+                'urn:epic:cfg:can-join_b': True,
                 'urn:epic:cfg:chat-enabled_b': _chat_enabled,
+                'urn:epic:cfg:invite-perm_s': 'Noone',
+                'urn:epic:cfg:join-request-action_s': 'Manual',
+                'urn:epic:cfg:not-accepting-members-reason_i': 0,
+                'urn:epic:cfg:party-type-id_s': 'default',
+                'urn:epic:cfg:presence-perm_s': 'Noone',
             }
         }
 
