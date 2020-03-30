@@ -119,32 +119,40 @@ class XMPPClient:
                                                   self.client.service_host))
 
     def _create_invite(self, from_id: str, data: dict) -> dict:
-        now = datetime.datetime.utcnow()
-        expires_at = now + datetime.timedelta(hours=4)
+        sent_at = self.client.from_iso(data['sent'])
+        expires_at = sent_at + datetime.timedelta(hours=4)
 
         for m in data['members']:
             if m['account_id'] == from_id:
                 member = m
                 break
 
-        build_id = data['meta']['urn:epic:cfg:build-id_s']
+        party_m = data['meta']
+        member_m = member['meta']
+
+        meta = {
+            'urn:epic:conn:type_s': 'game',
+            'urn:epic:cfg:build-id_s': party_m['urn:epic:cfg:build-id_s'],
+            'urn:epic:invite:platformdata_s': '',
+        }
+
+        if 'Platform_j' in member_m:
+            meta['Platform_j'] = json.loads(
+                member_m['Platform_j']
+            )['Platform']['platformStr']
+
+        if 'urn:epic:member:dn_s' in member['meta']:
+            meta['urn:epic:member:dn_s'] = member_m['urn:epic:member:dn_s']
+
         inv = {
             'party_id': data['id'],
             'sent_by': from_id,
             'sent_to': self.client.user.id,
-            'sent_at': self.client.to_iso(now),
-            'updated_at': self.client.to_iso(now),
+            'sent_at': self.client.to_iso(sent_at),
+            'updated_at': self.client.to_iso(sent_at),
             'expires_at': self.client.to_iso(expires_at),
             'status': 'SENT',
-            'meta': {
-                'urn:epic:conn:type_s': 'game',
-                'urn:epic:conn:platform_s': json.loads(
-                    member['meta']['Platform_j']
-                )['Platform']['platformStr'],
-                'urn:epic:member:dn_s': member['meta']['urn:epic:member:dn_s'],
-                'urn:epic:cfg:build-id_s': build_id,
-                'urn:epic:invite:platformdata_s': '',
-            }
+            'meta': meta
         }
         return inv
 
@@ -273,13 +281,12 @@ class XMPPClient:
         except IndexError:
             return
 
-        invite = None
         for inv in data['invites']:
             if inv['sent_by'] == pinger and inv['status'] == 'SENT':
                 invite = inv
-
-        if invite is None:
-            invite = self._create_invite(pinger, data)
+                break
+        else:
+            invite = self._create_invite(pinger, {**body, **data})
 
         if 'urn:epic:cfg:build-id_s' not in invite['meta']:
             pres = self.client.get_presence(pinger)
