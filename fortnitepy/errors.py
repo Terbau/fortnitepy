@@ -35,6 +35,12 @@ class FortniteException(Exception):
     """
     pass
 
+class ClientException(FortniteException):
+    """Exception that's thrown when an operation in the :class:`Client` fails.
+
+    These are usually for exceptions that happened due to user input.
+    """
+    pass
 
 class PurchaseException(FortniteException):
     """This exception is raised if the game could not be purchased on
