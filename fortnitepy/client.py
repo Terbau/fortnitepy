@@ -645,7 +645,7 @@ class Client:
             logger.setLevel(level=logging.ERROR)
 
     def register_subclassed_events(self) -> None:
-        methods = [func for func in dir(self) if callable(getattr(self, func))]
+        methods = [func for func in dir(self) if str(func) != "cogs" and str(func) != "extensions" and callable(getattr(self, func))]
         for method_name in methods:
             if method_name.startswith(self.event_prefix):
                 event = method_name[len(self.event_prefix):]
