@@ -169,15 +169,15 @@ this decorator if you are in a subclass of :class:`Client`.
 
 	.. warning::
 
-        This event is not called when the client starts in :class:`Client.logout()`.
+        This event is not called when the client starts in :class:`Client.close()`.
 
-.. function:: event_logout()
+.. function:: event_close()
 
 	This event is called when the client is beginning to log out. 
 
 	.. warning::
 
-        This event is not called when the client logs out in :class:`Client.logout()`.
+        This event is not called when the client logs out in :class:`Client.close()`.
 
 	.. note::
 

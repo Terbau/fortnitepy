@@ -242,7 +242,7 @@ async def start_multiple(clients: List['Client'], *,
 async def close_multiple(clients: List['Client']) -> None:
     """|coro|
 
-    Closes multiple clients at the same time by calling :meth:`Client.logout()`
+    Closes multiple clients at the same time by calling :meth:`Client.close()`
     on all of them.
 
     Parameters
@@ -252,7 +252,7 @@ async def close_multiple(clients: List['Client']) -> None:
     """
     loop = asyncio.get_event_loop()
 
-    tasks = [loop.create_task(client.logout())
+    tasks = [loop.create_task(client.close())
              for client in clients if not client._closing]
     await asyncio.gather(*tasks)
 
@@ -688,7 +688,7 @@ class Client:
                 await self.start()
             finally:
                 if not self._closing and self.is_ready():
-                    await self.logout()
+                    await self.close()
 
         try:
             loop.add_signal_handler(signal.SIGINT, stopper)
@@ -709,7 +709,7 @@ class Client:
             if not self._closing and self.is_ready():
                 log.info('Client not logged out when terminating loop. '
                          'Logging out now.')
-                loop.run_until_complete(self.logout())
+                loop.run_until_complete(self.close())
 
             log.info('Cleaning up loop')
             _cleanup_loop(loop)
@@ -860,30 +860,10 @@ class Client:
         await self.initialize_party()
         log.debug('Party created')
 
-    async def logout(self, *,
+    async def _close(self, *,
                      close_http: bool = True,
-                     dispatch_logout: bool = True) -> None:
-        """|coro|
-
-        Logs the user out and closes running services.
-
-        Parameters
-        ----------
-        close_http: :class:`bool`
-            Whether or not to close the clients :class:`aiohttp.ClientSession`
-            when logged out.
-        dispatch_logout: :class:`bool`
-            Whether or not to dispatch the logout event.
-
-        Raises
-        ------
-        HTTPException
-            An error occured while logging out.
-        """
+                     dispatch_close: bool = True) -> None:
         self._closing = True
-
-        if dispatch_logout:
-            await self.dispatch_and_wait_event('logout')
 
         try:
             if self.user.party is not None:
@@ -924,7 +904,35 @@ class Client:
         self._closing = False
         log.debug('Successfully logged out')
 
-    def is_closed(self):
+    async def close(self, *,
+                    close_http: bool = True,
+                    dispatch_close: bool = True) -> None:
+        """|coro|
+
+        Logs the user out and closes running services.
+
+        Parameters
+        ----------
+        close_http: :class:`bool`
+            Whether or not to close the clients :class:`aiohttp.ClientSession`
+            when logged out.
+        dispatch_close: :class:`bool`
+            Whether or not to dispatch the close event.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while logging out.
+        """
+        if dispatch_close:
+            await self.dispatch_and_wait_event('close')
+
+        await self._close(
+            close_http=close_http,
+            dispatch_close=dispatch_close
+        )
+
+    def is_closed(self) -> bool:
         """:class:`bool`: Whether the client is running or not."""
         return self._closed
 
@@ -946,7 +954,7 @@ class Client:
         launcher_refresh_token = self.auth.launcher_refresh_token
 
         asyncio.ensure_future(self.recover_events(), loop=self.loop)
-        await self.logout(close_http=False, dispatch_logout=False)
+        await self.close(close_http=False, dispatch_close=False)
 
         auth = RefreshTokenAuth(
             refresh_token=launcher_refresh_token
