@@ -6,6 +6,12 @@ Changelog
 Detailed version changes.
 
 
+v2.0.1
+------
+
+Hotpatch to add ext.commands to packages. Silly mistake by me.
+
+
 v2.0.0
 ------
 
