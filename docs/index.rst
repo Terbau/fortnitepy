@@ -1,6 +1,9 @@
 Welcome to fortnitepy's documentation!
 ======================================
 
+Documentation Contents
+----------------------
+
 .. toctree::
    :maxdepth: 3
    
@@ -9,6 +12,13 @@ Welcome to fortnitepy's documentation!
    faq
    changelog
 
+Extensions
+----------
+
+.. toctree::
+  :maxdepth: 3
+
+  ext/commands/index.rst
 
 
 If you still can't find what you are looking for, try one of these pages:
