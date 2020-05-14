@@ -5,6 +5,103 @@ Changelog
 
 Detailed version changes.
 
+
+v2.0.0
+------
+
+Big update which adds a commands extension and other huge changes.
+
+Changes
+~~~~~~~
+
+- The main way to access the clients party has been moved from :class:`ClientUser` to :class:`Client`. ``client.user.party`` -> ``client.party``.
+- :class:`Client`'s keyword arg ``default_party_config`` has been completely reworked. Read more about it on :class:`Client`'s page.
+- :class:`Client`'s keyword arg ``default_party_member_config`` has been completely reworked. Read more about it on :class:`Client`'s page.
+- Renamed ``Client.logout()`` -> :meth:`Client.close()`.
+- Renamed ``event_logout()`` -> :func:`event_close()`.
+- Renamed ``PartyInvitation`` -> :class:`ReceivedPartyInvitation`.
+- :attr:`Presence.avatar` now returns :class:`Avatar`.
+
+Added
+~~~~~
+
+- Ext.commands has been ported from discord.py to work with fortnitepy. All changes are wayyyy to big to mention in this changelog. You can read more about it here :ref:`here <fortnitepy_ext_commands>`.
+- Added :meth:`Client.search_profiles()` to search up to 100 users by a name prefix.
+- Added :class:`ProfileSearchEntryUser`.
+- Added enum :class:`ProfileSeachPlatform`.
+- Added enum :class:`ProfileSearchMatchType`.
+- Added :meth:`Client.search_sac_by_slug()` to search for support a creator code owners by a slug.
+- Added :class:`SacSearchEntryUser`.
+- Added :class:`Avatar`. This can be passed to :class:`Client` on initialization to set an avatar for the bot.
+- Added enum :class:`KairosBackgroundColorPreset` which offers color presets for :class:`Avatar`.
+- Added :meth:`Client.set_avatar()` to set a new avatar while the client is running.
+- Added :meth:`Friend.fetch_mutual_friends()` to fetch friends the client and this friend have in common.
+- Added event :func:`event_party_team_swap()`.
+- Added event :func:`event_party_member_in_match_change()`.
+- Added event :func:`event_party_member_match_players_left_change()`.
+- Added new example for integration with the web server Sanic.
+- Added an ios session that is kept alive at all times. This means that you finally can use internal device auth methods after launch.
+- Added :meth:`Client.remove_all_friends()`.
+- Added enums :class:`SeasonStartTimestamp` and :class:`SeasonEndTimestamp` to help with passing season start and ends to stats methods.
+- Added ``start_time`` and ``end_time`` kwargs to all battlepass level fetch methods. This can be used to fetch levels from past chapter 2 seasons.
+- Added enum :class:`AwayStatus`.
+- Added :class:`JustChattingClientPartyMember` that can be passed to :class:`DefaultPartyMemberConfig` for the client to 
+- Added :class:`DefaultPartyConfig`.
+- Added :class:`DefaultPartyMemberConfig`.
+- Added enum :class:`PartyDiscoverability`.
+- Added enum :class:`PartyJoinability`.
+- Added :class:`SentPartyInvitation` which represents a sent party invite and offers functionality like resending the invite and cancelling it.
+- Added :meth:`ClientParty.edit()`.
+- Added :meth:`ClientParty.edit_and_keep()`.
+- Added :attr:`PartyMember.position` to get a members position in a party.
+- Added :attr:`PartyMember.will_yield_leadership`.
+- Added :meth:`PartyMember.is_just_chatting()`.
+- Added :meth:`PartyMember.in_match()`.
+- Added :meth:`ClientPartyMember.set_in_match()`.
+- Added :meth:`ClientPartyMember.clear_in_match()`.
+- Added :attr:`PartyMember.match_started_at`.
+- Added :attr:`PartyMember.match_players_left`.
+- Added :meth:`PartyMember.swap_position()`.
+- Added keyword ``enlightenment`` to :meth:`ClientPartyMember.set_backpack()`.
+- Added :meth:`Party.get_member()`.
+- Added :meth:`ClientParty.fetch_invites()`.
+- Added :attr:`Presence.away`.
+- Added :attr:`Presence.in_kairos`.
+
+Removed
+~~~~~~~
+
+- Removed ``Client.update_net_cl()``.
+- Removed ``Friend.fetch_mutual_friend_count``. You can now use the new :meth:`Friend.fetch_mutual_friends()`.
+- Removed ``ClientPartyMember.set_shout()``.
+- Removed ``Presence.avatar_colors``.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused party methods and sometimes party to be ``None`` whenever a new party was being created.
+- Fixed an issue that caused sessions to not be correctly killed when closing.
+- Fixed an issue where it was not possible to register more than one of each event.
+- Fixed an issue that caused :func:`event_party_member_confirm()` to not always work.
+- :meth:`Client.to_iso()` now only has floating point precision of three like fortnite expects.
+- :meth:`Client.run()` and other utility run functions now works correctly in docker environments.
+- Fixed an issue that caused display name cache lookups in profile fetch methods to not work.
+- :meth:`Client.event()` can now also correctly be used on staticmethods.
+- Fixed an issue that caused ``start_time`` and ``end_time`` in all stats fetch methods to not work.
+- :meth:`Client.fetch_multiple_br_stats()` now accepts more than 51 owners.
+- Fixed an issue where :exc:`HTTPException`'s were incomplete when raised from a graphql request.
+- Fixed an issue that caused some meta values to be incorrect in some instances because of a parsing error.
+- Fixed an issue where :attr:`PartyMember.platform` could be ``None`` in some rare cases.
+- Fixed an issue that crashed the client on startup if the clients display name contained arabic or other letters that are read in the other direction.
+
+Miscellanious
+~~~~~~~~~~~~~
+
+- Updated the build version.
+- Removed documentation for old client kwarg ``engine_build``.
+- Fixed some documentation issues.
+
+
 v1.7.0
 ------
 
