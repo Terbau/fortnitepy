@@ -92,7 +92,7 @@ class FriendMessage(MessageBase):
         content: :class:`str`
             The content of the message
         """
-        await self.author.send(content)
+        return await self.author.send(content)
 
 
 class PartyMessage(MessageBase):
@@ -125,4 +125,4 @@ class PartyMessage(MessageBase):
         content: :class:`str`
             The content of the message
         """
-        await self.party.send(content)
+        return await self.party.send(content)

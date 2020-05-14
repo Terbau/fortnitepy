@@ -45,21 +45,17 @@ from .friend import Friend, PendingFriend
 from .enums import (Platform, Region, ProfileSearchPlatform,
                     SeasonStartTimestamp, SeasonEndTimestamp)
 from .cache import Cache
-from .party import ClientParty
+from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, ClientParty)
 from .stats import StatsV2
 from .store import Store
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 from .presence import Presence
 from .auth import RefreshTokenAuth
+from .kairos import Avatar, get_random_default_avatar
+from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
 
 log = logging.getLogger(__name__)
-
-# Type defs
-AnyCallableWithClient = Union[Callable, Awaitable]  # noqa
-AnyCallable = Union[Callable, Awaitable]
-StrOrInt = Union[str, int]
-Datetime = datetime.datetime
 
 
 # all credit for this function goes to discord.py.
@@ -102,7 +98,7 @@ def _cleanup_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 async def _start_client(client: 'Client', *,
                         shutdown_on_error: bool = True,
-                        after: Optional[AnyCallableWithClient] = None
+                        after: Optional[MaybeCoro] = None
                         ) -> None:
     loop = asyncio.get_event_loop()
 
@@ -156,8 +152,8 @@ async def _start_client(client: 'Client', *,
 async def start_multiple(clients: List['Client'], *,
                          gap_timeout: float = 0.2,
                          shutdown_on_error: bool = True,
-                         ready_callback: Optional[AnyCallable] = None,
-                         all_ready_callback: Optional[AnyCallable] = None
+                         ready_callback: Optional[MaybeCoro] = None,
+                         all_ready_callback: Optional[MaybeCoro] = None
                          ) -> None:
     """|coro|
 
@@ -260,8 +256,8 @@ async def close_multiple(clients: List['Client']) -> None:
 def run_multiple(clients: List['Client'], *,
                  gap_timeout: float = 0.2,
                  shutdown_on_error: bool = True,
-                 ready_callback: Optional[AnyCallable] = None,
-                 all_ready_callback: Optional[AnyCallable] = None) -> None:
+                 ready_callback: Optional[MaybeCoro] = None,
+                 all_ready_callback: Optional[MaybeCoro] = None) -> None:
     """This function sets up a loop and then calls :func:`start_multiple()`
     for you. If you already have a running event loop, you should start
     the clients with :func:`start_multiple()`. On shutdown, all clients
@@ -382,7 +378,7 @@ class Client:
     status: :class:`str`
         The status you want the client to send with its presence to friends.
         Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
-    platform: Optional[:class:`.Platform`]
+    platform: :class:`.Platform`
         The platform you want the client to display as its source.
         Defaults to :attr:`Platform.WINDOWS`.
     net_cl: :class:`str`
@@ -390,54 +386,15 @@ class Client:
         in official logs. Defaults to an empty string which is the recommended
         usage as of ``v0.9.0`` since you then
         won't need to update it when a new update is pushed by Fortnite.
-    default_party_config: Optional[:class:`dict`]
-        The party configuration used when creating parties.
-        Defaults to:
-
-        .. code-block:: python3
-
-            {
-                'privacy': PartyPrivacy.PUBLIC,
-                'joinability': 'OPEN',
-                'max_size': 16,
-                'sub_type': 'default',
-                'type': 'default',
-                'invite_ttl_seconds': 14400,
-                'chat_enabled': True,
-            }
-
-    default_party_member_config: List[:class:`functools.partial`]
-        A list of coroutines in the form of partials. This config will be
-        automatically equipped by the bot when joining new parties.
-
-        .. code-block:: python3
-
-            from fortnitepy import ClientPartyMember
-            from functools import partial
-
-            [
-                partial(ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'),
-                partial(ClientPartyMember.set_banner, icon="OtherBanner28", season_level=100)
-            ]
-
+    default_party_config: :class:`DefaultPartyConfig`
+        The party configuration used when creating parties. If not specified,
+        the client will use the default values specified in the data class.
+    default_party_member_config: :class:`DefaultPartyMemberConfig`
+        The party member configuration used when creating parties. If not specified,
+        the client will use the default values specified in the data class.
     build: :class:`str`
         The build used by Fortnite.
         Defaults to a valid but maybe outdated value.
-
-        .. note::
-
-            The build is updated with every major version but is not that
-            important to update as netCL.
-
-    engine_build: :class:`str`
-        The engine build used by Fortnite.
-        Defaults to a valid but maybe outdated value.
-
-        .. note::
-
-            The build is updated with every major version but is not that
-            important to update as netCL.
-
     os: :class:`str`
         The os version string to use in the user agent.
         Defaults to ``Windows/10.0.17134.1.768.64bit`` which is valid no
@@ -451,10 +408,12 @@ class Client:
 
     Attributes
     ----------
-    user: :class:`ClientUser`
-        The user the client is logged in as.
     loop: :class:`asyncio.AbstractEventLoop`
         The event loop that client implements.
+    user: :class:`ClientUser`
+        The user the client is logged in as.
+    party: :class:`ClientParty`
+        The party the client is currently connected to.
     """  # noqa
 
     def __init__(self, auth, *,
@@ -466,12 +425,13 @@ class Client:
         self.cache_users = cache_users
 
         self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')  # noqa
+        self.avatar = kwargs.get('avatar', get_random_default_avatar())  # noqa
         self.platform = kwargs.get('platform', Platform.WINDOWS)
         self.net_cl = kwargs.get('net_cl', '')
         self.party_build_id = '1:1:{0.net_cl}'.format(self)
-        self.default_party_config = kwargs.get('default_party_config', {})
-        self.default_party_member_config = kwargs.get('default_party_member_config', [])  # noqa
-        self.build = kwargs.get('build', '++Fortnite+Release-12.00-CL-11586896')  # noqa
+        self.default_party_config = kwargs.get('default_party_config', DefaultPartyConfig())  # noqa
+        self.default_party_member_config = kwargs.get('default_party_member_config', DefaultPartyMemberConfig())  # noqa
+        self.build = kwargs.get('build', '++Fortnite+Release-12.50-CL-13193885')  # noqa
         self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
 
         self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
@@ -487,6 +447,7 @@ class Client:
         self.http = HTTPClient(self, connector=kwargs.get('connector'))
         self.http.add_header('Accept-Language', 'en-EN')
         self.xmpp = None
+        self.party = None
 
         self._listeners = {}
         self._events = {}
@@ -503,15 +464,11 @@ class Client:
         self._closed = False
         self._closing = False
         self._restarting = False
+        self._first_start = True
+
+        self._join_confirmation = False
 
         self.setup_internal()
-        self.register_subclassed_events()
-        self.update_default_party_config(
-            kwargs.get('default_party_config')
-        )
-        self.update_default_party_member_config(
-            kwargs.get('default_party_member_config')
-        )
 
     @staticmethod
     def from_iso(iso: str) -> datetime.datetime:
@@ -539,7 +496,27 @@ class Client:
         -------
         :class:`str`
         """
-        return dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        iso = dt.strftime('%Y-%m-%dT%H:%M:%S.%f')
+
+        # fortnite's services expect three digit precision on millis
+        return iso[:23] + 'Z'
+
+    @property
+    def default_party_config(self) -> DefaultPartyConfig:
+        return self._default_party_config
+
+    @default_party_config.setter
+    def default_party_config(self, obj: DefaultPartyConfig) -> None:
+        obj._inject_client(self)
+        self._default_party_config = obj
+
+    @property
+    def default_party_member_config(self) -> DefaultPartyMemberConfig:
+        return self._default_party_member_config
+
+    @default_party_member_config.setter
+    def default_party_member_config(self, o: DefaultPartyMemberConfig) -> None:
+        self._default_party_member_config = o
 
     @property
     def friends(self) -> Dict[str, Friend]:
@@ -573,83 +550,12 @@ class Client:
         """
         return self._presences._cache
 
-    async def update_net_cl(self, net_cl: str, *,
-                            leave_party: bool = True) -> None:
-        """|coro|
-
-        Parameters
-        ----------
-        net_cl: :class:`str`
-            The net_cl you want to set.
-        leave_party: :class:`bool`
-            Set to ``False`` if you don't want the bot to leave its current
-            party. Defaults to ``True`` since a party created with the old
-            net_cl won't work.
-
-        Raises
-        ------
-        HTTPException
-            An error occured while requesting to leave the party.
-        """
-        self.net_cl = net_cl
-        self.party_build_id = '1:1:{0}'.format(net_cl)
-
-        if leave_party:
-            await self.user.party.me.leave()
-
-    def update_default_party_config(self, config: dict) -> None:
-        if config is None:
-            return
-
-        if not isinstance(config, dict):
-            raise PartyError('\'config\' must be a dictionary')
-
-        _default_conf = {
-            'privacy': PartyPrivacy.PUBLIC.value,
-            'join_confirmation': False,
-            'joinability': 'OPEN',
-            'discoverability': 'ALL',
-            'max_size': 16,
-            'sub_type': 'default',
-            'type': 'DEFAULT',
-            'invite_ttl_seconds': 14400,
-            'chat_enabled': True,
-        }
-
-        try:
-            val = self.default_party_config['privacy'].value
-            self.default_party_config['privacy'] = val
-        except (KeyError, AttributeError):
-            pass
-
-        default_config = {**_default_conf, **self.default_party_config}
-        self.default_party_config = {**default_config, **config}
-
     def _check_party_confirmation(self) -> None:
-        val = ('party_member_confirm' in self._events
-               and len(self._events['party_member_confirm']) > 0)
-        self.update_default_party_config({'join_confirmation': val})
-
-    def update_default_party_member_config(self, config: list) -> None:
-        if config is None:
-            return
-
-        names = []
-        results = []
-
-        unfiltered = [*config[::-1], *self.default_party_member_config[::-1]]
-        for elem in unfiltered:
-            coro = elem.func
-            if coro.__qualname__ not in names:
-                names.append(coro.__qualname__)
-                results.append(elem)
-
-            if not (asyncio.iscoroutine(coro)
-                    or asyncio.iscoroutinefunction(coro)):
-                raise TypeError('default_party_member_config must be list of '
-                                'partials of coroutines')
-
-        self.default_party_member_config = results
+        k = 'party_member_confirm'
+        val = k in self._events and len(self._events[k]) > 0
+        if val != self._join_confirmation:
+            self._join_confirmation = val
+            self.default_party_config.update({'join_confirmation': val})
 
     def exc_handler(self, loop: asyncio.AbstractEventLoop, ctx: dict) -> None:
         exc = ctx.get('exception')
@@ -662,7 +568,7 @@ class Client:
         if logger.getEffectiveLevel() == 30:
             logger.setLevel(level=logging.ERROR)
 
-    def register_subclassed_events(self) -> None:
+    def register_methods(self) -> None:
         methods = [func for func in dir(self) if callable(getattr(self, func))]
         for method_name in methods:
             if method_name.startswith(self.event_prefix):
@@ -762,6 +668,10 @@ class Client:
         """
         _started_while_restarting = self._restarting
 
+        if self._first_start:
+            self.register_methods()
+            self._first_start = False
+
         self._check_party_confirmation()
 
         self.loop.set_exception_handler(self.exc_handler)
@@ -803,6 +713,7 @@ class Client:
                 return True
         return False
 
+    # deprecated as of lately
     async def quick_purchase_fortnite(self) -> None:
         data = await self.http.orderprocessor_quickpurchase()
         status = data.get('quickPurchaseStatus', False)
@@ -846,12 +757,6 @@ class Client:
             self.http.account_get_external_auths_by_id(self.auth.account_id),
         ]
 
-        if self.kill_other_sessions:
-            tasks.append(self.http.account_sessions_kill(
-                'OTHERS_ACCOUNT_CLIENT_SERVICE'
-            ))
-            log.debug('Killing other sessions')
-
         data, ext_data, extra_ext_data, *_ = await asyncio.gather(*tasks)
         data['externalAuths'] = ext_data['myAccount']['externalAuths'] or []
         data['extraExternalAuths'] = extra_ext_data
@@ -863,9 +768,6 @@ class Client:
         if self.accept_eula:
             await self.auth.accept_eula()
             log.debug('EULA accepted')
-
-        if not await self.account_owns_fortnite():
-            await self.quick_purchase_fortnite()
 
         await state_fut
 
@@ -882,8 +784,8 @@ class Client:
         self._closing = True
 
         try:
-            if self.user.party is not None:
-                await self.user.party._leave()
+            if self.party is not None:
+                await self.party._leave()
         except Exception:
             pass
 
@@ -892,10 +794,22 @@ class Client:
         except Exception:
             pass
 
-        try:
-            await self.http.account_session_kill_token(self.auth.access_token)
-        except Exception:
-            pass
+        async def killer(token):
+            try:
+                await self.http.account_sessions_kill_token(token)
+            except HTTPException:
+                # All exchanged sessions should be killed when the original
+                # session is killed, but this doesn't seem to be consistant.
+                # The solution is to attempt to kill each token and then just
+                # catch 401.
+                pass
+
+        tasks = (
+            killer(self.auth.ios_access_token),
+            killer(self.auth.launcher_access_token),
+            killer(self.auth.access_token),
+        )
+        await asyncio.gather(*tasks)
 
         self._friends.clear()
         self._pending_friends.clear()
@@ -967,13 +881,13 @@ class Client:
             A request error occured while logging in.
         """
         self._restarting = True
-        launcher_refresh_token = self.auth.launcher_refresh_token
+        ios_refresh_token = self.auth.ios_refresh_token
 
         asyncio.ensure_future(self.recover_events(), loop=self.loop)
         await self.close(close_http=False, dispatch_close=False)
 
         auth = RefreshTokenAuth(
-            refresh_token=launcher_refresh_token
+            refresh_token=ios_refresh_token
         )
         auth.initialize(self)
         self.auth = auth
@@ -1043,10 +957,14 @@ class Client:
         """
         await self._ready.wait()
 
+    def construct_party(self, data, *, cls=None):
+        clazz = cls or self.default_party_config.cls
+        return clazz(self, data)
+
     async def initialize_party(self) -> None:
         data = await self.http.party_lookup_user(self.user.id)
         if len(data['current']) > 0:
-            party = ClientParty(self, data['current'][0])
+            party = self.construct_party(data['current'][0])
             await party._leave()
             log.debug('Left old party')
 
@@ -1093,7 +1011,7 @@ class Client:
         if cache:
             for u in self._users._cache.values():
                 try:
-                    if u.display_name.lower() == display_name.lower():
+                    if u.display_name.casefold() == display_name.casefold():
                         return u
                 except AttributeError:
                     pass
@@ -1237,16 +1155,17 @@ class Client:
         tasks = []
 
         def find_by_display_name(dn):
-            for u in self._users._cache.values():
-                try:
-                    if u.display_name.lower() == dn.lower():
-                        profiles.append(u)
-                        break
-                except AttributeError:
-                    pass
-            else:
-                task = self.http.account_graphql_get_by_display_name(elem)
-                tasks.append(task)
+            if cache:
+                for u in self._users._cache.values():
+                    try:
+                        if u.display_name.casefold() == dn.casefold():
+                            profiles.append(u)
+                            return
+                    except AttributeError:
+                        pass
+
+            task = self.http.account_graphql_get_by_display_name(elem)
+            tasks.append(task)
 
         for elem in users:
             if self.is_display_name(elem):
@@ -1839,6 +1758,19 @@ class Client:
         """
         await self.http.friends_remove_or_decline(user_id)
 
+    # NOTE: Not tested
+    async def remove_all_friends(self) -> None:
+        """|coro|
+
+        Removes all friends of the client.
+
+        Raises
+        ------
+        HTTPException
+            Something went wrong when requesting fortnite's services.
+        """
+        await self.http.friends_remove_all()
+
     async def dispatch_and_wait_event(self, event: str,
                                       *args: Any,
                                       **kwargs: Any) -> None:
@@ -1847,9 +1779,14 @@ class Client:
         if len(tasks) > 0:
             await asyncio.gather(*tasks)
 
+    def _dispatcher(self, coro: Awaitable,
+                    *args: Any,
+                    **kwargs: Any) -> asyncio.Future:
+        return asyncio.ensure_future(coro(*args, **kwargs), loop=self.loop)
+
     def dispatch_event(self, event: str,
                        *args: Any,
-                       **kwargs: Any) -> None:
+                       **kwargs: Any) -> List[asyncio.Future]:
         listeners = self._listeners.get(event)
         if listeners:
             removed = []
@@ -1879,9 +1816,13 @@ class Client:
                 for idx in reversed(removed):
                     del listeners[idx]
 
-        if event in self._events.keys():
+        tasks = []
+        if event in self._events:
             for coro in self._events[event]:
-                asyncio.ensure_future(coro(*args, **kwargs), loop=self.loop)
+                task = self._dispatcher(coro, *args, **kwargs)
+                tasks.append(task)
+
+        return tasks
 
     def wait_for(self, event: str, *,
                  check: Callable = None,
@@ -1979,6 +1920,10 @@ class Client:
         listeners.append((future, check))
         return asyncio.wait_for(future, timeout, loop=self.loop)
 
+    def _event_has_handlers(self, event: str) -> bool:
+        handlers = self._events.get(event.lower())
+        return handlers is not None and len(handlers) > 0
+
     def add_event_handler(self, event: str, coro: Awaitable[Any]) -> None:
         """Registers a coroutine as an event handler. You can register as many
         coroutines as you want to a single event.
@@ -1998,7 +1943,10 @@ class Client:
         if not asyncio.iscoroutinefunction(coro):
             raise TypeError('event registered must be a coroutine function')
 
-        if event[len(self.event_prefix):] not in self._events.keys():
+        if event.startswith(self.event_prefix):
+            event = event[len(self.event_prefix):]
+
+        if event not in self._events:
             self._events[event] = []
         self._events[event].append(coro)
 
@@ -2013,15 +1961,13 @@ class Client:
             The coroutine that already functions as a handler for the
             specified event.
         """
-        if event not in self._events.keys():
+        if event not in self._events:
             return
 
-        try:
-            self._events[event].remove(coro)
-        except ValueError:
-            pass
+        self._events[event] = [c for c in self._events[event] if c != coro]
 
-    def event(self, event_or_coro: Union[str, Awaitable[Any]]) -> Awaitable:
+    def event(self,
+              event_or_coro: Union[str, Awaitable[Any]] = None) -> Awaitable:
         """A decorator to register an event.
 
         .. note::
@@ -2048,19 +1994,25 @@ class Client:
             Event is not specified as argument or function name with event
             prefix.
         """
-        is_coro = not isinstance(event_or_coro, str)
+        is_coro = callable(event_or_coro)
 
         def pred(coro):
+            if isinstance(coro, staticmethod):
+                coro = coro.__func__
+
             if not asyncio.iscoroutinefunction(coro):
                 raise TypeError('the decorated function must be a coroutine')
 
-            if is_coro and not coro.__name__.startswith(self.event_prefix):
-                raise TypeError('non specified events must follow '
-                                'this function name format: '
-                                '"{}<event>"'.format(self.event_prefix))
+            if is_coro or event_or_coro is None:
+                if not coro.__name__.startswith(self.event_prefix):
+                    raise TypeError('non specified events must follow '
+                                    'this function name format: '
+                                    '"{}<event>"'.format(self.event_prefix))
 
-            name = (coro.__name__[len(self.event_prefix):]
-                    if is_coro else event_or_coro)
+                name = coro.__name__[len(self.event_prefix):]
+            else:
+                name = event_or_coro
+
             self.add_event_handler(name, coro)
             log.debug('{} has been registered as a handler for the '
                       'event {}'.format(coro.__name__, name))
@@ -2068,8 +2020,8 @@ class Client:
         return pred(event_or_coro) if is_coro else pred
 
     async def fetch_br_stats(self, user_id: str, *,
-                             start_time: Optional[Datetime] = None,
-                             end_time: Optional[Datetime] = None
+                             start_time: Optional[DatetimeOrTimestamp] = None,
+                             end_time: Optional[DatetimeOrTimestamp] = None
                              ) -> StatsV2:
         """|coro|
 
@@ -2079,13 +2031,13 @@ class Client:
         ----------
         user_id: :class:`str`
             The id of the user you want to fetch stats for.
-        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the time period to get stats from.
-            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
             The UTC end time of the time period to get stats from.
-            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
 
         Raises
@@ -2103,13 +2055,17 @@ class Client:
         :class:`StatsV2`
             An object representing the stats for this user. If the user was
             not found ``None`` is returned.
-        """
+        """  # noqa
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
             start_time = int((start_time - epoch).total_seconds())
+        elif isinstance(start_time, SeasonStartTimestamp):
+            start_time = start_time.value
 
         if isinstance(end_time, datetime.datetime):
             end_time = int((end_time - epoch).total_seconds())
+        elif isinstance(end_time, SeasonEndTimestamp):
+            end_time = end_time.value
 
         tasks = [
             self.fetch_profile(user_id, cache=True),
@@ -2126,9 +2082,30 @@ class Client:
 
         return StatsV2(*results) if results[0] is not None else None
 
-    async def fetch_multiple_br_stats(self, user_ids: str, stats: List[str], *,
-                                      start_time: Optional[Datetime] = None,
-                                      end_time: Optional[Datetime] = None
+    async def _multiple_stats_chunk_requester(self, user_ids: List[str],
+                                              stats: List[str],
+                                              start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                              end_time: Optional[DatetimeOrTimestamp] = None  # noqa
+                                              ) -> List[dict]:
+        chunks = [user_ids[i:i+51] for i in range(0, len(user_ids), 51)]
+
+        tasks = []
+        for chunk in chunks:
+            tasks.append(self.http.stats_get_mutliple_v2(
+                chunk,
+                stats,
+                start_time=start_time,
+                end_time=end_time
+            ))
+
+        results = await asyncio.gather(*tasks)
+        return [item for sub in results for item in sub]
+
+    async def fetch_multiple_br_stats(self, user_ids: List[str],
+                                      stats: List[str],
+                                      *,
+                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                      end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                       ) -> Dict[str, StatsV2]:
         """|coro|
 
@@ -2183,13 +2160,13 @@ class Client:
                     fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo')
                 ]
 
-        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the time period to get stats from.
-            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
             The UTC end time of the time period to get stats from.
-            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
 
         Raises
@@ -2206,14 +2183,23 @@ class Client:
         """  # noqa
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
-            start_time = (start_time - epoch).total_seconds()
+            start_time = int((start_time - epoch).total_seconds())
+        elif isinstance(start_time, SeasonStartTimestamp):
+            start_time = start_time.value
 
         if isinstance(end_time, datetime.datetime):
-            end_time = (end_time - epoch).total_seconds()
+            end_time = int((end_time - epoch).total_seconds())
+        elif isinstance(end_time, SeasonEndTimestamp):
+            end_time = end_time.value
 
         tasks = [
             self.fetch_profiles(user_ids, cache=True),
-            self.http.stats_get_mutliple_v2(user_ids, stats)
+            self._multiple_stats_chunk_requester(
+                user_ids,
+                stats,
+                start_time=start_time,
+                end_time=end_time
+            )
         ]
         results = await asyncio.gather(*tasks)
         if len(results[0]) > 0 and isinstance(results[0][0], dict):
@@ -2228,7 +2214,10 @@ class Client:
         return res
 
     async def fetch_multiple_battlepass_levels(self,
-                                               users: List[str]
+                                               users: List[str],
+                                               *,
+                                               start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                               end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                                ) -> Dict[str, float]:
         """|coro|
 
@@ -2238,6 +2227,19 @@ class Client:
         ----------
         users: List[:class:`str`]
             List of user ids.
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
+            The UTC start time of the window to get the battlepass level from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
+            The UTC end time of the window to get the battlepass level from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+
+        .. note::
+
+            If neither start_time nor end_time is ``None`` (default), then
+            the battlepass level from the current season is fetched.
 
         Raises
         ------
@@ -2248,23 +2250,61 @@ class Client:
         -------
         Dict[:class:`str`, :class:`float`]
             Users battlepass level mapped to their account id. Returns ``None``
-            if no battlepass level was found.
-        """
-        data = await self.http.stats_get_mutliple_v2(
+            if no battlepass level was found. If a user has career board set
+            to private, he/she will not appear in the result. Therefore you
+            should never expect a user to be included.
+        """  # noqa
+        epoch = datetime.datetime.utcfromtimestamp(0)
+        if isinstance(start_time, datetime.datetime):
+            start_time = int((start_time - epoch).total_seconds())
+        elif isinstance(start_time, SeasonStartTimestamp):
+            start_time = start_time.value
+
+        if isinstance(end_time, datetime.datetime):
+            end_time = int((end_time - epoch).total_seconds())
+        elif isinstance(end_time, SeasonEndTimestamp):
+            end_time = end_time.value
+
+        data = await self._multiple_stats_chunk_requester(
             users,
-            ('s11_social_bp_level',)
+            ('s11_social_bp_level',),
+            start_time=start_time,
+            end_time=end_time
         )
 
         return {e['accountId']: e['stats'].get('s11_social_bp_level', None)
                 for e in data}
 
-    async def fetch_battlepass_level(self, user_id: str) -> float:
+    async def fetch_battlepass_level(self, user_id: str, *,
+                                     start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                     end_time: Optional[DatetimeOrTimestamp] = None  # noqa
+                                     ) -> float:
         """|coro|
 
         Fetches a users battlepass level.
 
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The user id to fetch the battlepass level for.
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
+            The UTC start time of the window to get the battlepass level from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
+            The UTC end time of the window to get the battlepass level from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+
+        .. note::
+
+            If neither start_time nor end_time is ``None`` (default), then
+            the battlepass level from the current season is fetched.
+
         Raises
         ------
+        Forbidden
+            User has private career board.
         HTTPException
             An error occured while requesting.
 
@@ -2272,8 +2312,15 @@ class Client:
         -------
         :class:`float`
             The users battlepass level.
-        """
-        data = await self.fetch_multiple_battlepass_levels((user_id,))
+        """  # noqa
+        data = await self.fetch_multiple_battlepass_levels(
+            (user_id,),
+            start_time=start_time,
+            end_time=end_time
+        )
+        if user_id not in data:
+            raise Forbidden('User has private career board.')
+
         return data[user_id]
 
     async def fetch_leaderboard(self, stat: str) -> List[Dict[str, StrOrInt]]:
@@ -2335,9 +2382,9 @@ class Client:
                             config: Optional[dict] = None) -> ClientParty:
         async with self._join_party_lock:
             if isinstance(config, dict):
-                cf = {**self.default_party_config, **config}
+                cf = {**self.default_party_config.config, **config}
             else:
-                cf = self.default_party_config
+                cf = self.default_party_config.config
 
             while True:
                 try:
@@ -2363,17 +2410,22 @@ class Client:
                     await self.xmpp.leave_muc()
 
             config = {**cf, **data['config']}
-            party = ClientParty(self, data)
+            party = self.construct_party(data)
             await party._update_members(members=data['members'])
-            self.user.set_party(party)
+            self.party = party
 
-            fut = asyncio.ensure_future(party.patch(updated={
-                'RawSquadAssignments_j': party.meta.refresh_squad_assignments()
-            }), loop=self.loop)
+            tasks = [
+                self.loop.create_task(party.join_chat()),
+            ]
+            await party.meta.meta_ready_event.wait()
 
-            await party.join_chat()
-            await party.set_privacy(config['privacy'])
-            await fut
+            updated, deleted = party.meta.set_privacy(config['privacy'])
+            tasks.append(party.patch(
+                updated={**updated, **party.construct_squad_assignments()},
+                deleted=deleted
+            ))
+            await asyncio.gather(*tasks)
+
             return party
 
     def is_creating_party(self) -> bool:
@@ -2418,7 +2470,7 @@ class Client:
             The party that was just joined.
         """
         async with self._join_party_lock:
-            if party_id == self.user.party.id:
+            if party_id == self.party.id:
                 raise PartyError('You are already a member of this party.')
 
             try:
@@ -2437,13 +2489,13 @@ class Client:
                 if party_data['config']['joinability'] == 'INVITE_AND_FORMER':
                     raise Forbidden('You can\'t join a private party.')
 
-            await self.user.party._leave()
-            party = ClientParty(self, party_data)
-            self.user.set_party(party)
+            await self.party._leave()
+            party = self.construct_party(party_data)
+            self.party = party
 
             future = asyncio.ensure_future(self.wait_for(
                 'party_member_join',
-                check=lambda m: m.id == self.user.id
+                check=lambda m: m.id == self.user.id and party.id == m.party.id
             ), loop=self.loop)
 
             try:
@@ -2460,8 +2512,8 @@ class Client:
                 raise
 
             party_data = await self.http.party_lookup(party_id)
-            party = ClientParty(self, party_data)
-            self.user.set_party(party)
+            party = self.construct_party(party_data)
+            self.party = party
             asyncio.ensure_future(party.join_chat(), loop=self.loop)
             await party._update_members(party_data['members'])
 
@@ -2514,6 +2566,17 @@ class Client:
             Status was an invalid type.
         """
         await self.xmpp.send_presence(status=status, to=to)
+
+    def set_avatar(self, avatar: Avatar) -> None:
+        """Sets the client's avatar and updates it for all friends.
+
+        Parameters
+        ----------
+        avatar: :class:`Avatar`
+            The avatar to set.
+        """
+        self.avatar = avatar
+        self.party.update_presence()
 
     async def fetch_lightswitch_status(self,
                                        service_id: str = 'Fortnite') -> bool:
@@ -2638,7 +2701,7 @@ class Client:
 
         Parameters
         ----------
-        :class:`Region`
+        region: :class:`Region`
             The region to request active LTMs for.
 
         Raises

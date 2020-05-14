@@ -40,7 +40,7 @@ class StoreItemBase:
 
         try:
             self._asset = re.search(r'\.(.+)', self._asset_path).group(1)
-        except TypeError:
+        except (TypeError, AttributeError):
             self._asset = None
 
         self._gifts_enabled = (data['giftInfo']['bIsEnabled']

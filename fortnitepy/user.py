@@ -25,10 +25,11 @@ SOFTWARE.
 """
 
 import logging
-import datetime
 
 from aioxmpp import JID
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional
+from .enums import ProfileSearchPlatform, ProfileSearchMatchType
+from .typedefs import DatetimeOrTimestamp
 
 if TYPE_CHECKING:
     from .client import Client
@@ -145,10 +146,8 @@ class UserBase:
         return JID.fromstr('{0.id}@{0.client.service_host}'.format(self))
 
     async def fetch_br_stats(self, *,
-                             start_time: Optional[Union[int,
-                                                  datetime.datetime]] = None,
-                             end_time: Optional[Union[int,
-                                                datetime.datetime]] = None
+                             start_time: Optional[DatetimeOrTimestamp] = None,
+                             end_time: Optional[DatetimeOrTimestamp] = None
                              ) -> 'StatsV2':
         """|coro|
 
@@ -156,13 +155,13 @@ class UserBase:
 
         Parameters
         ----------
-        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the time period to get stats from.
-            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
             The UTC end time of the time period to get stats from.
-            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
 
         Raises
@@ -179,15 +178,36 @@ class UserBase:
         -------
         :class:`StatsV2`
             An object representing the stats for this user.
-        """
-        return await self.client.fetch_br_stats(self.id,
-                                                start_time=start_time,
-                                                end_time=end_time)
+        """  # noqa
+        return await self.client.fetch_br_stats(
+            self.id,
+            start_time=start_time,
+            end_time=end_time
+        )
 
-    async def fetch_battlepass_level(self) -> float:
+    async def fetch_battlepass_level(self, *,
+                                     start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                     end_time: Optional[DatetimeOrTimestamp] = None  # noqa
+                                     ) -> float:
         """|coro|
 
         Fetches this users battlepass level.
+
+        Parameters
+        ----------
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
+            The UTC start time of the window to get the battlepass level from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
+            The UTC end time of the window to get the battlepass level from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+
+        .. note::
+
+            If neither start_time nor end_time is ``None`` (default), then
+            the battlepass level from the current season is fetched.
 
         Raises
         ------
@@ -199,8 +219,12 @@ class UserBase:
         :class:`float`
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
-        """
-        return await self.client.fetch_battlepass_level(self.id)
+        """  # noqa
+        return await self.client.fetch_battlepass_level(
+            self.id,
+            start_time=start_time,
+            end_time=end_time
+        )
 
     def _update(self, data: dict) -> None:
         self._epicgames_display_name = data.get('displayName',
@@ -294,7 +318,6 @@ class ClientUser(UserBase):
 
     def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
         super().__init__(client, data)
-        self._party = None
         self._update(data)
 
     def __repr__(self) -> str:
@@ -344,12 +367,6 @@ class ClientUser(UserBase):
         self.minor_verified = data['minorVerified']
         self.minor_expected = data['minorExpected']
         self.minor_status = data['minorStatus']
-
-    def set_party(self, party: 'ClientParty') -> None:
-        self._party = party
-
-    def remove_party(self) -> None:
-        self._party = None
 
 
 class User(UserBase):

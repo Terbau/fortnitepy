@@ -46,7 +46,7 @@ class Playlist:
 
     def __repr__(self) -> str:
         return ('<Playlist internal_name={0.internal_name!r} '
-                'image_url={0.image_url!r}type={0.type!r}>'.format(self))
+                'image_url={0.image_url!r} type={0.type!r}>'.format(self))
 
     @property
     def image_url(self) -> str:
