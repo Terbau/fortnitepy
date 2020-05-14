@@ -29,7 +29,7 @@ __all__ = (
 _IS_ASCII = re.compile(r'^[\x00-\x7f]+$')
 
 
-def _string_width(string: str, *, _IS_ASCII: re.Pattern = _IS_ASCII) -> int:
+def _string_width(string: str, *, _IS_ASCII: Any = _IS_ASCII) -> int:
     """Returns string's width."""
     match = _IS_ASCII.match(string)
     if match:
