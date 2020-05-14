@@ -31,6 +31,7 @@ import logging
 import datetime
 import uuid
 import itertools
+import unicodedata
 
 from collections import defaultdict
 from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any
@@ -44,6 +45,10 @@ if TYPE_CHECKING:
     from .client import Client
 
 log = logging.getLogger(__name__)
+
+
+def is_RandALCat(c: str) -> bool:
+    return unicodedata.bidirectional(c) in ('R', 'AL')
 
 
 class EventContext:
@@ -117,6 +122,14 @@ class XMPPClient:
     def jid(self, id: str) -> aioxmpp.JID:
         return aioxmpp.JID.fromstr('{}@{}'.format(id,
                                                   self.client.service_host))
+
+    def _remove_illegal_characters(self, chars: str) -> str:
+        for c in chars:
+            if is_RandALCat(c):
+                chars = chars.replace(c, '')
+            if ord(c) in (0,):
+                chars = chars.replace(c, '')
+        return chars
 
     def _create_invite(self, from_id: str, data: dict) -> dict:
         sent_at = self.client.from_iso(data['sent'])
@@ -818,12 +831,16 @@ class XMPPClient:
         muc_jid = aioxmpp.JID.fromstr(
             'Party-{}@muc.prod.ol.epicgames.com'.format(party_id)
         )
-        nick = '{0.display_name}:{0.id}:{1}'.format(
-            self.client.user,
+        nick = '{0}:{0}:{1}'.format(
+            self._remove_illegal_characters(self.client.user.display_name),
+            self.client.user.id,
             self.xmpp_client.local_jid.resource
         )
 
-        room, fut = self.muc_service.join(muc_jid, nick)
+        room, fut = self.muc_service.join(
+            muc_jid,
+            nick
+        )
 
         room.on_message.connect(self.muc_on_message)
         room.on_join.connect(self.muc_on_member_join)
