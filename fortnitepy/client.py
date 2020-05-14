@@ -39,9 +39,11 @@ from .errors import (PartyError, HTTPException, PurchaseException,
                      NotFound, Forbidden)
 from .xmpp import XMPPClient
 from .http import HTTPClient
-from .user import ClientUser, User, BlockedUser
+from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
+                   ProfileSearchEntryUser)
 from .friend import Friend, PendingFriend
-from .enums import PartyPrivacy, Platform, Region
+from .enums import (Platform, Region, ProfileSearchPlatform,
+                    SeasonStartTimestamp, SeasonEndTimestamp)
 from .cache import Cache
 from .party import ClientParty
 from .stats import StatsV2
@@ -1325,6 +1327,106 @@ class Client:
         # empty external auths payload.
         account_id = res['id']
         return await self.fetch_profile(account_id, cache=cache, raw=raw)
+
+    async def search_profiles(self, prefix: str,
+                              platform: ProfileSearchPlatform
+                              ) -> List[ProfileSearchEntryUser]:
+        """|coro|
+
+        Searches after profiles by a prefix and returns up to 100 matches.
+
+        Parameters
+        ----------
+        prefix: :class:`str`
+            | The prefix you want to search by. The prefix is case insensitive.
+            | Example: ``Tfue`` will return Tfue's profile + up to 99 other
+            profiles which have display names that start with or match exactly
+            to ``Tfue`` like ``Tfue_Faze dequan``.
+        platform: :class:`ProfileSearchPlatform`
+            The platform you wish to search by.
+
+            ..note::
+
+                The platform is only important for prefix matches. All exact
+                matches are returned regardless of which platform is
+                specified.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        List[:class:`ProfileSearchEntryUser`]
+            An ordered list of users that matched the prefix.
+        """
+        if not isinstance(platform, ProfileSearchPlatform):
+            raise TypeError(
+                'The platform passed must be a constant from '
+                'fortnitepy.ProfileSearchPlatform'
+            )
+
+        res = await self.http.user_search_by_prefix(
+            prefix,
+            platform.value
+        )
+
+        user_ids = [d['accountId'] for d in res]
+        profiles = await self.fetch_profiles(user_ids, raw=True)
+        lookup = {p['id']: p for p in profiles}
+
+        entries = []
+        for data in res:
+            profile_data = lookup.get(data['accountId'])
+            if profile_data is None:
+                continue
+
+            obj = ProfileSearchEntryUser(self, profile_data, data)
+            entries.append(obj)
+
+        return entries
+
+    async def search_sac_by_slug(self, slug: str) -> List[SacSearchEntryUser]:
+        """|coro|
+
+        Searches for an owner of slug + retrieves owners of similar slugs.
+
+        Parameters
+        ----------
+        slug: :class:`str`
+            The slug (support a creator code) you wish to search for.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting fortnite's services.
+
+        Returns
+        -------
+        List[:class:`SacSearchEntryUser`]
+            An ordered list of users who matched the exact or slightly
+            modified slug.
+        """
+        res = await self.http.payment_website_search_sac_by_slug(slug)
+
+        user_ids = [e['id'] for e in res]
+        profiles = await self.fetch_profiles(
+            list(user_ids),
+            raw=True
+        )
+        lookup = {p['id']: p for p in profiles}
+
+        entries = []
+        for data in res:
+            profile_data = lookup.get(data['id'])
+            if profile_data is None:
+                continue
+
+            obj = SacSearchEntryUser(self, profile_data, data)
+            entries.append(obj)
+
+        return entries
 
     async def initialize_states(self) -> None:
         tasks = (

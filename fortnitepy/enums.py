@@ -136,6 +136,17 @@ class Platform(Enum):
     ANDROID     = 'AND'
 
 
+class ProfileSearchPlatform(Enum):
+    EPIC_GAMES  = 'epic'
+    PLAYSTATION = 'psn'
+    XBOX        = 'xbl'
+
+
+class ProfileSearchMatchType(Enum):
+    EXACT = 'exact'
+    PREFIX = 'prefix'
+
+
 class ReadyState(Enum):
     READY       = 'Ready'
     NOT_READY   = 'NotReady'

@@ -38,7 +38,8 @@ from .message import FriendMessage, PartyMessage
 from .party import (PartyMember, ClientPartyMember, Party, ClientParty,
                     PartyInvitation, PartyJoinConfirmation)
 from .presence import Presence, PresenceGameplayStats, PresenceParty
-from .user import ClientUser, User, BlockedUser, ExternalAuth
+from .user import (ClientUser, User, BlockedUser, ExternalAuth,
+                   ProfileSearchEntryUser, SacSearchEntryUser)
 from .stats import StatsV2
 from .enums import *
 from .errors import *

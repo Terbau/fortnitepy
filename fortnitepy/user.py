@@ -396,3 +396,64 @@ class BlockedUser(UserBase):
         Unblocks this friend.
         """
         await self.client.unblock_user(self.id)
+
+
+class ProfileSearchEntryUser(User):
+    """Represents a user entry in a profile search.
+
+    Parameters
+    ----------
+    matches: List[Tuple[:class:`str`, :class:`ProfileSearchPlatform`]]
+        | A list of tuples containing the display name the user matched
+        and the platform the display name is from.
+        | Example: ``[('Tfue', ProfileSearchPlatform.EPIC_GAMES)]``
+    match_type: :class:`ProfileSearchMatchType`
+        The type of match this user matched by.
+    mutual_friend_count: :class:`int`
+        The amount of **epic** mutual friends the client has with the user.
+    """
+    def __init__(self, client: 'Client',
+                 profile_data: dict,
+                 search_data: dict) -> None:
+        super().__init__(client, profile_data)
+
+        self.matches = [(d['value'], ProfileSearchPlatform(d['platform']))
+                        for d in search_data['matches']]
+        self.match_type = ProfileSearchMatchType(search_data['matchType'])
+        self.mutual_friend_count = search_data['epicMutuals']
+
+    def __str__(self) -> str:
+        return self.matches[0][0]
+
+    def __repr__(self) -> str:
+        return ('<ProfileSearchEntryUser id={0.id!r} '
+                'display_name={0.display_name!r} '
+                'epicgames_account={0.epicgames_account!r}>'.format(self))
+
+
+class SacSearchEntryUser(User):
+    """Represents a user entry in a support a creator code search.
+
+    Parameters
+    ----------
+    slug: :class:`str`
+        The slug (creator code) that matched.
+    active: :class:`bool`
+        Wether or not the creator code is active or not.
+    verified: :class:`bool`
+        Wether or not the creator code is verified or not.
+    """
+    def __init__(self, client: 'Client',
+                 profile_data: dict,
+                 search_data: dict) -> None:
+        super().__init__(client, profile_data)
+
+        self.slug = search_data['slug']
+        self.active = search_data['status'] == 'ACTIVE'
+        self.verified = search_data['verified']
+
+    def __repr__(self) -> str:
+        return ('<SacSearchEntryUser slug={0.slug!r} '
+                'id={0.id!r} '
+                'display_name={0.display_name!r} '
+                'epicgames_account={0.epicgames_account!r}>'.format(self))

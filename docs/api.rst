@@ -137,6 +137,22 @@ Enumerations
 	.. attribute:: SITTING_OUT
 
 
+.. class:: ProfileSearchPlatform
+	..attribute:: EPIC_GAMES
+
+		This represents all platforms that use epic games as account service like PC and Mobile.
+	.. attribute:: PLAYSTATION
+	.. attribute:: XBOX
+
+
+.. class:: ProfileSearchMatchType
+	.. attribute:: EXACT
+
+		The prefix matched the display name perfectly.
+	.. attribute:: PREFIX
+
+		The prefix matched the start of the display name perfectly.
+
 Event Reference
 ---------------
 

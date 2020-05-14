@@ -133,8 +133,8 @@ class LightswitchPublicService(Route):
     AUTH = 'LAUNCHER_ACCESS_TOKEN'
 
 
-class PersonaPublicService(Route):
-    BASE = 'https://persona-public-service-prod06.ol.epicgames.com'
+class ProfileSearchService(Route):
+    BASE = 'https://user-search-service-prod.ol.epicgames.com'
     AUTH = 'FORTNITE_ACCESS_TOKEN'
 
 
@@ -664,6 +664,14 @@ class HTTPClient:
         r = PaymentWebsite('/purchase/confirm-order')
         return await self.post(r, headers=headers, data=payload)
 
+    async def payment_website_search_sac_by_slug(self, slug: str) -> Any:
+        params = {
+            'slug': slug
+        }
+
+        r = PaymentWebsite('/affiliate/search-by-slug', auth=None)
+        return await self.get(r, params=params)
+
     ###################################
     #           Lightswitch           #
     ###################################
@@ -675,13 +683,17 @@ class HTTPClient:
         r = LightswitchPublicService('/lightswitch/api/service/bulk/status')
         return await self.get(r, params=params)
 
-    # NOTE: Will be deprecated by fortnite soon
-    async def get_by_display_name(self, display_name: str) -> Any:
+    ###################################
+    #           User Search           #
+    ###################################
+
+    async def user_search_by_prefix(self, prefix, platform):
         params = {
-            'q': display_name
+            'prefix': prefix,
+            'platform': platform
         }
 
-        r = PersonaPublicService('/persona/api/public/account/lookup')
+        r = ProfileSearchService('/api/v1/search')
         return await self.get(r, params=params)
 
     ###################################
