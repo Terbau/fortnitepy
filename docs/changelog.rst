@@ -6,16 +6,10 @@ Changelog
 Detailed version changes.
 
 
-v2.0.2
-------
+v2.0.1 - v2.0.3
+---------------
 
-Fixed a backwards compatibility issue with python 3.5 and 3.6.
-
-
-v2.0.1
-------
-
-Hotpatch to add ext.commands to packages. Silly mistake by me.
+Hotpatches to fix some overlooked major bugs.
 
 
 v2.0.0
