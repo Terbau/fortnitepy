@@ -328,7 +328,12 @@ class XMPPClient:
     async def event_party_member_joined(self,
                                         ctx: EventContext) -> None:
         body = ctx.body
-        party = ctx.party
+
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
 
         if party is None:
             return
@@ -336,7 +341,7 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
-        member = party.members.get(body.get('account_id'))
+        member = party.members.get(user_id)
         if member is None:
             member = party._create_member(body)
 
@@ -375,7 +380,12 @@ class XMPPClient:
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_LEFT')
     async def event_party_member_left(self, ctx: EventContext) -> None:
         body = ctx.body
-        party = ctx.party
+
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
 
         if party is None:
             return
@@ -383,7 +393,7 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
-        member = party.members.get(body.get('account_id'))
+        member = party.members.get(user_id)
         if member is None:
             return
 
@@ -393,7 +403,12 @@ class XMPPClient:
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_EXPIRED')  # noqa
     async def event_party_member_expired(self, ctx: EventContext) -> None:
         body = ctx.body
-        party = ctx.party
+
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
 
         if party is None:
             return
@@ -401,7 +416,7 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
-        member = party.members.get(body.get('account_id'))
+        member = party.members.get(user_id)
         if member is None:
             return
 
@@ -416,7 +431,12 @@ class XMPPClient:
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_KICKED')  # noqa
     async def event_party_member_kicked(self, ctx: EventContext) -> None:
         body = ctx.body
-        party = ctx.party
+
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
 
         if party is None:
             return
@@ -424,9 +444,10 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
-        member = party.members.get(body.get('account_id'))
+        member = party.members.get(user_id)
         if member is None:
             return
+
         party._remove_member(member.id)
 
         if member.id == self.client.user.id:
@@ -440,7 +461,12 @@ class XMPPClient:
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_DISCONNECTED')  # noqa
     async def event_party_member_disconnected(self, ctx: EventContext) -> None:
         body = ctx.body
-        party = ctx.party
+
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
 
         if party is None:
             return
@@ -448,7 +474,7 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
-        member = party.members.get(body.get('account_id'))
+        member = party.members.get(user_id)
         if member is None:
             return
 
@@ -460,13 +486,19 @@ class XMPPClient:
         body = ctx.body
         party = ctx.party
 
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
+
         if party is None:
             return
 
         if party.id != body.get('party_id'):
             return
 
-        member = party.members.get(body.get('account_id'))
+        member = party.members.get(user_id)
         if member is None:
             return
 
@@ -484,7 +516,12 @@ class XMPPClient:
     @dispatcher.event('com.epicgames.social.party.notification.v0.PARTY_UPDATED')  # noqa
     async def event_party_updated(self, ctx: EventContext) -> None:
         body = ctx.body
-        party = ctx.party
+
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
 
         if party is None:
             return
@@ -513,7 +550,12 @@ class XMPPClient:
     async def event_party_member_state_updated(self,
                                                ctx: EventContext) -> None:
         body = ctx.body
-        party = ctx.party
+
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
 
         if party is None:
             return
@@ -521,10 +563,10 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
-        member = party.members.get(body.get('account_id'))
+        member = party.members.get(user_id)
         if member is None:
             def check(m):
-                return m.id == body.get('account_id')
+                return m.id == user_id
 
             try:
                 member = await self.client.wait_for(
@@ -533,7 +575,7 @@ class XMPPClient:
                     timeout=3
                 )
             except asyncio.TimeoutError:
-                if body.get('account_id') == self.client.user.id:
+                if user_id == self.client.user.id:
                     await party._leave()
                     p = await self.client._create_party()
                     self.client.user.set_party(p)
@@ -581,7 +623,12 @@ class XMPPClient:
                                                       ctx: EventContext
                                                       ) -> None:
         body = ctx.body
-        party = ctx.party
+
+        user_id = body.get('account_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
 
         if party is None:
             return
@@ -589,7 +636,6 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
-        user_id = body['account_id']
         user = self.client.get_user(user_id)
         if user is None:
             user = await self.client.fetch_profile(user_id)

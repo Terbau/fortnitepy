@@ -353,6 +353,22 @@ def run_multiple(clients: List['Client'], *,
         return future.result()
 
 
+class LockEvent(asyncio.Lock):
+    def __init__(self, loop=None):
+        super().__init__(loop=loop)
+
+        self._event = asyncio.Event()
+        self.wait = self._event.wait
+
+    async def acquire(self):
+        self._event.clear()
+        await super().acquire()
+
+    def release(self):
+        self._event.set()
+        super().release()
+
+
 class Client:
     """Represents the client connected to Fortnite and EpicGames' services.
 
@@ -481,7 +497,7 @@ class Client:
         self._presences = Cache()
         self._ready = asyncio.Event(loop=self.loop)
         self._leave_lock = asyncio.Lock(loop=self.loop)
-        self._join_party_lock = asyncio.Lock(loop=self.loop)
+        self._join_party_lock = LockEvent(loop=self.loop)
         self._refresh_task = None
         self._start_runner_task = None
         self._closed = False
@@ -2359,6 +2375,9 @@ class Client:
             await party.set_privacy(config['privacy'])
             await fut
             return party
+
+    def is_creating_party(self) -> bool:
+        return self._join_party_lock.locked()
 
     async def join_to_party(self, party_id: str, *,
                             check_private: bool = True) -> ClientParty:
