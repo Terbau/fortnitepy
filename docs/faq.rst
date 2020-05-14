@@ -9,34 +9,16 @@ Frequently Asked Questions (FAQ)
 General
 -------
 
-How can I fix the "Incompatible net_cl" error?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[Python 3.8] Why does other asynchronous libraries suddenly break when using fortnitepy?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. note::
+The default event loop that asyncio uses on windows was changed in python 3.8. Fortnitepy relies
+on a library that still needs the old loop to work. Most libraries does not care what loop is used
+and therefore fortnitepy changes the event loop when first imported. If other libraries break
+its most likely at the point of importing fortnitepy.
 
-    Since fortnitepy v0.9.0 net_cl is not needed and this error will therefore not be an issue.
-
-When fortnite releases a new content update they also update a specific number named netcl needed for the party 
-service to work. When updating this lib I also update the net_cl to match the new one. However, since fortnite 
-seems to update their game every week I sometimes don't keep up and you have to find and initialize the client 
-with the correct one yourself.
-
-**Guide to find netcl:**
-
-1. Navigate to the folder where you find your fortnite logs. Usually something like this: ``C:\Users\%your_user%\AppData\Local\FortniteGame\Saved\Logs``.
-2. Go into the latest log file (Typically named ``FortniteGame``).
-3. Press ctrl + f and do a search for ``netcl``. You should then find a seven digit number.
-
-**This is how you launch the client with the manual netcl:**
-
-.. code-block::
-
-    # pass the netcl to with the net_cl keyword when initializing the client.
-    client = fortnitepy.Client(
-        email='email',
-        password='password',
-        net_cl='7605985'
-    )
+The fix is to either set the event loop policy yourself when on windows to :class:`asyncio.SelectorEventLoopPolicy`,
+or to import fortnitepy at the top of your entrypoint file.
 
 How can I get a users K/D or Win Percentage?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -89,6 +71,36 @@ will ask for the code on startup. Then just type it into console and if accepted
 the login process will continue.
 
 Alternatively, you might pass the code when intitializing :class:`Client` with the keyword ``two_factor_code``.
+
+
+How can I fix the "Incompatible net_cl" error?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    Since fortnitepy v0.9.0 net_cl is not needed and this error will therefore not be an issue.
+
+When fortnite releases a new content update they also update a specific number named netcl needed for the party 
+service to work. When updating this lib I also update the net_cl to match the new one. However, since fortnite 
+seems to update their game every week I sometimes don't keep up and you have to find and initialize the client 
+with the correct one yourself.
+
+**Guide to find netcl:**
+
+1. Navigate to the folder where you find your fortnite logs. Usually something like this: ``C:\Users\%your_user%\AppData\Local\FortniteGame\Saved\Logs``.
+2. Go into the latest log file (Typically named ``FortniteGame``).
+3. Press ctrl + f and do a search for ``netcl``. You should then find a seven digit number.
+
+**This is how you launch the client with the manual netcl:**
+
+.. code-block::
+
+    # pass the netcl to with the net_cl keyword when initializing the client.
+    client = fortnitepy.Client(
+        email='email',
+        password='password',
+        net_cl='7605985'
+    )
 
 
 
