@@ -37,7 +37,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     install_requires=requirements,
     extras_require=extras_require,
-    packages=setuptools.find_packages(),
+    packages=['fortnitepy', 'fortnitepy.ext.commands'],
     python_requires='>=3.5.3',
     classifiers=[
         'License :: OSI Approved :: MIT License',
