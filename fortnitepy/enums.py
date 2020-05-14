@@ -26,6 +26,7 @@ SOFTWARE.
 """
 
 from enum import Enum
+from aioxmpp import PresenceShow
 
 
 class PartyPrivacy(Enum):
@@ -69,6 +70,17 @@ class PartyPrivacy(Enum):
         'invitePermission': 'Leader',
         'acceptingMembers': False,
     }
+
+
+class PartyDiscoverability(Enum):
+    ALL          = 'ALL'
+    INVITED_ONLY = 'INVITED_ONLY'
+
+
+class PartyJoinability(Enum):
+    OPEN              = 'OPEN'
+    INVITE_ONLY       = 'INVITE_ONLY'
+    INVITE_AND_FORMER = 'INVITE_AND_FORMER' 
 
 
 class DefaultCharactersChapter1(Enum):
@@ -136,7 +148,70 @@ class Platform(Enum):
     ANDROID     = 'AND'
 
 
+class ProfileSearchPlatform(Enum):
+    EPIC_GAMES  = 'epic'
+    PLAYSTATION = 'psn'
+    XBOX        = 'xbl'
+
+
+class ProfileSearchMatchType(Enum):
+    EXACT = 'exact'
+    PREFIX = 'prefix'
+
+
 class ReadyState(Enum):
     READY       = 'Ready'
     NOT_READY   = 'NotReady'
     SITTING_OUT = 'SittingOut'
+
+
+class AwayStatus(Enum):
+    ONLINE        = PresenceShow.NONE
+    AWAY          = PresenceShow.AWAY
+    EXTENDED_AWAY = PresenceShow.EXTENDED_AWAY
+
+
+class SeasonStartTimestamp(Enum):
+    SEASON_1  = 1508889600
+    SEASON_2  = 1513209600
+    SEASON_3  = 1519257600
+    SEASON_4  = 1525132800
+    SEASON_5  = 1531353600
+    SEASON_6  = 1538006400
+    SEASON_7  = 1544054400
+    SEASON_8  = 1551312000
+    SEASON_9  = 1557360000
+    SEASON_10 = 1564617600
+    SEASON_11 = 1571097600
+    SEASON_12 = 1582156800
+
+
+class SeasonEndTimestamp(Enum):
+    SEASON_1  = 1513123200
+    SEASON_2  = 1519171200
+    SEASON_3  = 1525046400
+    SEASON_4  = 1531353600
+    SEASON_5  = 1538006400
+    SEASON_6  = 1544054400
+    SEASON_7  = 1551312000
+    SEASON_8  = 1557360000
+    SEASON_9  = 1564617600
+    SEASON_10 = 1570924800
+    SEASON_11 = 1582156800
+
+
+class KairosBackgroundColorPreset(Enum):
+    TEAL         = ["#8EFDE5","#1CBA9E","#034D3F"]
+    SWEET_RED    = ["#FF81AE","#D8033C","#790625"]
+    LIGHT_ORANGE = ["#FFDF00","#FBA000","#975B04"]
+    GREEN        = ["#CCF95A","#30C11B","#194D12"]
+    LIGHT_BLUE   = ["#B4F2FE","#00ACF2","#005679"]
+    DARK_BLUE    = ["#1CA2E6","#0C5498","#081E3E"]
+    PINK         = ["#FFB4D6","#FF619C","#7D3449"]
+    RED          = ["#F16712","#D8033C","#6E0404"]
+    GRAY         = ["#AEC1D3","#687B8E","#36404A"]
+    ORANGE       = ["#FFAF5D","#FF6D32","#852A05"]
+    DARK_PURPLE  = ["#E93FEB","#7B009C","#500066"]
+    LIME         = ["#DFFF73","#86CF13","#404B07"]
+    INDIGO       = ["#B35EEF","#4D1397","#2E0A5D"]
+

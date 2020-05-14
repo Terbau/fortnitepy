@@ -137,6 +137,86 @@ Enumerations
 	.. attribute:: SITTING_OUT
 
 
+.. class:: ProfileSearchPlatform
+	..attribute:: EPIC_GAMES
+
+		This represents all platforms that use epic games as account service like PC and Mobile.
+	.. attribute:: PLAYSTATION
+	.. attribute:: XBOX
+
+
+.. class:: ProfileSearchMatchType
+	.. attribute:: EXACT
+
+		The prefix matched the display name perfectly.
+	.. attribute:: PREFIX
+
+		The prefix matched the start of the display name perfectly.
+
+.. class:: AwayStatus
+    .. attribute:: ONLINE
+
+		User is currently active.
+    .. attribute:: AWAY
+
+		User has set his status to away in-game
+    .. attribute:: EXTENDED_AWAY
+
+		User is AFK. This can only be applied by the game and it is set after a specific time of no activity.
+
+.. class:: SeasonEndTimestamp
+
+	An enumeration of season start dates.
+
+    .. attribute:: SEASON_1
+    .. attribute:: SEASON_2
+    .. attribute:: SEASON_3
+    .. attribute:: SEASON_4
+    .. attribute:: SEASON_5
+    .. attribute:: SEASON_6
+    .. attribute:: SEASON_7
+    .. attribute:: SEASON_8
+    .. attribute:: SEASON_9
+    .. attribute:: SEASON_10
+    .. attribute:: SEASON_11
+	.. attribute:: SEASON_12
+
+.. class:: SeasonEndTimestamp
+
+	An enumeration of season end dates.
+
+    .. attribute:: SEASON_1
+    .. attribute:: SEASON_2
+    .. attribute:: SEASON_3
+    .. attribute:: SEASON_4
+    .. attribute:: SEASON_5
+    .. attribute:: SEASON_6
+    .. attribute:: SEASON_7
+    .. attribute:: SEASON_8
+    .. attribute:: SEASON_9
+    .. attribute:: SEASON_10
+    .. attribute:: SEASON_11
+
+.. class:: KairosBackgroundColorPreset
+
+	An enumeration for color presets that can be used when setting the avatar background color.
+
+	.. attribute:: TEAL
+	.. attribute:: SWEET_RED
+	.. attribute:: LIGHT_ORANGE
+	.. attribute:: GREEN
+	.. attribute:: LIGHT_BLUE
+	.. attribute:: DARK_BLUE
+	.. attribute:: PINK
+	.. attribute:: RED
+	.. attribute:: GRAY
+	.. attribute:: ORANGE
+	.. attribute:: DARK_PURPLE
+	.. attribute:: LIME
+	.. attribute:: INDIGO
+
+.. _fortnitepy-api-events:
+
 Event Reference
 ---------------
 
@@ -153,19 +233,19 @@ this decorator if you are in a subclass of :class:`Client`.
 
 	.. warning::
 
-        This event is not called when the client starts in :class:`Client.logout()`.
+        This event is not called when the client starts in :class:`Client.close()`.
 
-.. function:: event_logout()
+.. function:: event_close()
 
 	This event is called when the client is beginning to log out. 
 
 	.. warning::
 
-        This event is not called when the client logs out in :class:`Client.logout()`.
+        This event is not called when the client logs out in :class:`Client.close()`.
 
 	.. note::
 
-		This event behaves differently from the other events. The logout of the account waits until the event handlers for this event is finished processing. This makes it so you are able to do heavy and/or time consuming operations before the client fully logs out. This unfortunately also means that this event is not compatible with :meth:`Client.wait_for()`.
+		This event behaves differently from the other events. The client will wait until the event handlers for this event is finished processing before actually closing. This makes it so you are able to do heavy and/or time consuming operations before the client fully logs out. This unfortunately also means that this event is not compatible with :meth:`Client.wait_for()`.
 
 .. function:: event_restart()
 
@@ -256,7 +336,7 @@ this decorator if you are in a subclass of :class:`Client`.
 	This event is called when a party invitation is received.
 	
 	:param invitation: Invitation object.
-	:type invitation: :class:`PartyInvitation`
+	:type invitation: :class:`ReceivedPartyInvitation`
 
 .. function:: event_party_member_expire(member)
 
@@ -376,6 +456,19 @@ this decorator if you are in a subclass of :class:`Client`.
 	:type before: :class:`Privacy`
 	:param after: The current party privacy.
 	:type after: :class:`Privacy`
+
+.. function:: event_party_team_swap(member, other)
+
+	.. note::
+
+		Because of how party teams work, you can swap team with another member without their permission. If you don't want this to be possible, you can set ``team_change_allowed`` to ``False`` in :class:`DefaultPartyConfig`.
+
+	This event is called whenever a party member swaps party team with another member. You can get their new positions from :attr:`PartyMember.position`.
+
+	:param member: The member that instigated the team swap.
+	:type member: :class:`PartyMember`
+	:param other: The member that was swapped teams with.
+	:type other: :class:`PartyMember`
 
 .. function:: event_party_member_ready_change(member, before, after)
 
@@ -553,6 +646,28 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param after: The current contrail variants. Same structure as :attr:`PartyMember.contrail_variants`.
 	:type after: :class:`list`
 
+.. function:: event_party_member_in_match_change(member, before, after)
+
+	This event is called when a member join or leaves a match.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous match state.
+	:type before: :class:`bool`
+	:param after: The new and current match state.
+	:type after: :class:`bool`
+
+.. function:: event_party_member_match_players_left_change(member, before, after)
+
+	This event is called when the servercount changes in the match the member is currently in.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous servercount.
+	:type before: :class:`int`
+	:param after: The previous servercount.
+	:type after: :class:`int`
+
 
 Stats Reference
 ---------------
@@ -617,7 +732,7 @@ Stats
 	  'score': int,
 	  'playersoutlives': int,
 	  'minutesplayed': int,
-      'matchesplayed': int,
+	  'matchesplayed': int,
 	  'lastmodified': datetime.datetime,
 	}
 
@@ -672,6 +787,20 @@ BlockedUser
 	:members:
 	:inherited-members:
 
+ProfileSearchEntryUser
+~~~~~~~~~~~
+
+.. autoclass:: ProfileSearchEntryUser()
+	:members:
+	:inherited-members:
+
+SacSearchEntryUser
+~~~~~~~~~~~
+
+.. autoclass:: SacSearchEntryUser()
+	:members:
+	:inherited-members:
+
 Friend
 ~~~~~~
 
@@ -714,6 +843,12 @@ ClientPartyMember
 	:members:
 	:inherited-members:
 
+JustChattingClientPartyMember
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: JustChattingClientPartyMember
+	:members:
+
 Party
 ~~~~~
 
@@ -728,10 +863,10 @@ ClientParty
 	:members:
 	:inherited-members:
 
-PartyInvitation
+ReceivedPartyInvitation
 ~~~~~~~~~~~~~~~
 
-.. autoclass:: PartyInvitation()
+.. autoclass:: ReceivedPartyInvitation()
 	:members:
 
 PartyJoinConfirmation
@@ -794,6 +929,24 @@ Playlist
 ~~~~~~~~
 
 .. autoclass:: Playlist()
+	:members:
+
+
+Data Classes
+------------
+
+Data classes used as data containers in the library.
+
+DefaultPartyConfig
+~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: DefaultPartyConfig()
+	:members:
+
+.. autoclass:: DefaultPartyMemberConfig()
+	:members:
+
+.. autoclass:: Avatar()
 	:members:
 
 

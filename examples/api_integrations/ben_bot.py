@@ -68,7 +68,7 @@ class MyClient(fortnitepy.Client):
             if cid is None or data['type'] != 'Outfit':
                 return await message.reply('Could not find the requested outfit.')
 
-            await self.user.party.me.set_outfit(
+            await self.party.me.set_outfit(
                 asset=cid
             )
 
@@ -79,7 +79,7 @@ class MyClient(fortnitepy.Client):
             if eid is None or data['type'] != 'Emote':
                 return await message.reply('Could not find the requested emote.')
 
-            await self.user.party.me.set_emote(
+            await self.party.me.set_emote(
                 asset=eid,
                 run_for=10
             )

@@ -105,10 +105,12 @@ venv.bak/
 
 .vscode
 tests/
+exttest/
 test*
+__ignore*
 voice.py
 output.txt
 todo.txt
 
-examples/integrations/terax_api.py
+examples/api_integrations/terax_api.py
 device_auths.json

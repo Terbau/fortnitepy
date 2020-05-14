@@ -92,7 +92,7 @@ class MyClient(fortnitepy.Client):
                 return await message.reply('Could not find the requested outfit.')
 
             outfit_data = data['data']
-            await self.user.party.me.set_outfit(
+            await self.party.me.set_outfit(
                 asset=outfit_data['id'],
                 variants=self.build_random_variants('outfit', outfit_data.get('variants', []))
             )
@@ -104,7 +104,7 @@ class MyClient(fortnitepy.Client):
                 return await message.reply('Could not find the requested emote.')
 
             emote_data = data['data']
-            await self.user.party.me.set_emote(
+            await self.party.me.set_emote(
                 asset=emote_data['id'],
                 run_for=10
             )
