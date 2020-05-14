@@ -55,7 +55,7 @@ class IDConverter(Converter):
     def __init__(self) -> None:
         self._id_regex = re.compile(r'([0-9a-fA-F]{32})$')
 
-    def _get_id_match(self, argument: str) -> re.Match:
+    def _get_id_match(self, argument: str) -> Any:
         return self._id_regex.match(argument)
 
 
