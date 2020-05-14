@@ -6,6 +6,12 @@ Changelog
 Detailed version changes.
 
 
+v2.0.2
+------
+
+Fixed a backwards compatibility issue with python 3.5 and 3.6.
+
+
 v2.0.1
 ------
 
