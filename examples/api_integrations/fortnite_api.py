@@ -31,7 +31,7 @@ class MyClient(fortnitepy.Client):
             auth=fortnitepy.AdvancedAuth(
                 email=email,
                 password=password,
-                prompt_exchange_code=True,
+                prompt_authorization_code=True,
                 delete_existing_device_auths=True,
                 **device_auth_details
             )
