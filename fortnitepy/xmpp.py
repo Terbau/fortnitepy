@@ -762,11 +762,12 @@ class XMPPClient:
             except (KeyError, AttributeError):
                 pass
 
-        if presence.type_ == (aioxmpp.PresenceType.UNAVAILABLE
-                              and friend.is_online()):
+        if not is_available and friend.is_online():
             friend._update_last_logout(datetime.datetime.utcnow())
+            self.client._presences.remove(user_id, None)
+        else:
+            self.client._presences.set(user_id, _pres)
 
-        self.client._presences.set(user_id, _pres)
         self.client.dispatch_event('friend_presence', _pres)
 
     def setup_callbacks(self,
