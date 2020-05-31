@@ -1293,11 +1293,14 @@ class HTTPClient:
     async def party_update_member_meta(self, party_id: str,
                                        user_id: str,
                                        updated_meta: dict,
-                                       deleted_meta: dict,
-                                       revision: int) -> Any:
+                                       deleted_meta: list,
+                                       overridden_meta: dict,
+                                       revision: int,
+                                       override={}) -> Any:
         payload = {
             'delete': deleted_meta,
             'update': updated_meta,
+            'override': overridden_meta,
             'revision': revision,
         }
 
@@ -1312,6 +1315,7 @@ class HTTPClient:
     async def party_update_meta(self, party_id: str,
                                 updated_meta: dict,
                                 deleted_meta: list,
+                                overridden_meta: dict,
                                 config: dict,
                                 revision: int) -> Any:
         payload = {
@@ -1322,7 +1326,8 @@ class HTTPClient:
             },
             'meta': {
                 'delete': deleted_meta,
-                'update': updated_meta
+                'update': updated_meta,
+                'override': overridden_meta
             },
             'party_state_overridden': {},
             'party_privacy_type': config['joinability'],

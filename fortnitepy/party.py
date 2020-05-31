@@ -264,12 +264,14 @@ class Patchable:
     def update_meta_config(self, data: dict) -> None:
         raise NotImplementedError
 
-    async def do_patch(self, updated: dict = None,
-                       deleted: list = None) -> None:
+    async def do_patch(self, updated: Optional[dict] = None,
+                       deleted: Optional[list] = None,
+                       overridden: Optional[dict] = None) -> None:
         raise NotImplementedError
 
     async def patch(self, updated: Optional[dict] = None,
-                    deleted: Optional[dict] = None) -> Any:
+                    deleted: Optional[list] = None,
+                    overridden: Optional[dict] = None) -> Any:
 
         async with self.patch_lock:
             try:
@@ -278,6 +280,7 @@ class Patchable:
                     try:
                         _updated = updated or self.meta.get_schema(max=30)
                         _deleted = deleted or self.meta.deleted_cache
+                        _overridden = overridden or {}
 
                         for val in _deleted:
                             try:
@@ -285,9 +288,13 @@ class Patchable:
                             except KeyError:
                                 pass
 
-                        await self.do_patch(updated=_updated, deleted=_deleted)
+                        await self.do_patch(
+                            updated=_updated,
+                            deleted=_deleted,
+                            overridden=_overridden
+                        )
                         self.revision += 1
-                        return updated, deleted
+                        return updated, deleted, overridden
                     except HTTPException as exc:
                         m = 'errors.com.epicgames.social.party.stale_revision'
                         if exc.message_code == m:
@@ -1569,13 +1576,15 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 'joined_at={0.joined_at!r}>'.format(self))
 
     async def do_patch(self, updated: Optional[dict] = None,
-                       deleted: Optional[dict] = None) -> None:
+                       deleted: Optional[list] = None,
+                       overridden: Optional[dict] = None) -> None:
         await self.client.http.party_update_member_meta(
             party_id=self.party.id,
             user_id=self.id,
             updated_meta=updated,
             deleted_meta=deleted,
-            revision=self.revision
+            overridden_meta=overridden,
+            revision=self.revision,
         )
 
     def update_meta_config(self, data: dict) -> None:
@@ -2799,11 +2808,13 @@ class ClientParty(PartyBase, Patchable):
         await self.client.xmpp.send_party_message(content)
 
     async def do_patch(self, updated: Optional[dict] = None,
-                       deleted: Optional[list] = None) -> None:
+                       deleted: Optional[list] = None,
+                       overridden: Optional[dict] = None) -> None:
         await self.client.http.party_update_meta(
             party_id=self.id,
             updated_meta=updated,
             deleted_meta=deleted,
+            overridden_meta=overridden,
             config=self.config,
             revision=self.revision
         )
