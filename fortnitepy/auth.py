@@ -442,13 +442,18 @@ class EmailAndPasswordAuth(Auth):
 
 
 class ExchangeCodeAuth(Auth):
-    """Authenticates by exchange code. You can get the code from `here
-    <https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2F
-    www.epicgames.com%2Fid%2Fapi%2Fexchange>`_ by logging in and copying
-    the code that then displays. If you are already logged in and want
-    to change accounts, simply log out at https://www.epicgames.com,
-    log in to the new account and then enter the link above again to
-    generate an exchange code.
+    """Authenticates by exchange code.
+
+    .. note::
+
+        The method to get an exchange code has been significantly harder
+        since epic patched the old method of copying the code from one of
+        their own endpoints that could be requested easily in a browser.
+        To obtain an exchange code it is recommended to provide a custom
+        solution like running a selenium process where you log in on
+        https://epicgames.com and then redirect to /id/api/exchange/generate.
+        You can then return the exchange code. You can put this solution
+        in a function and then pass this to ``exchange_code``.
 
     .. note::
 

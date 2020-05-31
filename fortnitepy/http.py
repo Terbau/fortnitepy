@@ -553,7 +553,8 @@ class HTTPClient:
             'x-xsrf-token': xsrf_token
         }
 
-        return await self.get(EpicGames('/id/api/exchange'), headers=headers)
+        r = EpicGames('/id/api/exchange/generate')
+        return await self.post(r, headers=headers)
 
     ###################################
     #          Entitlement            #
