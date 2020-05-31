@@ -312,7 +312,7 @@ class Presence:
             kairos_p = self.raw_properties.get('KairosProfile_j', {})
 
         background = kairos_p.get('avatarBackground')
-        if background:
+        if background and not isinstance(background, list):
             background = json.loads(background)
 
         self.avatar = Avatar(
