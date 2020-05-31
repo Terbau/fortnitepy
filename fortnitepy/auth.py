@@ -369,7 +369,8 @@ class EmailAndPasswordAuth(Auth):
             m = 'errors.com.epicgames.account.invalid_account_credentials'
             if e.message_code == m:
                 raise AuthException(
-                    'Invalid account credentials passed.'
+                    'Invalid account credentials passed.',
+                    e
                 ) from e
 
             if e.message_code != ('errors.com.epicgames.common.'
@@ -401,7 +402,8 @@ class EmailAndPasswordAuth(Auth):
                 )
                 if exc.message_code in m:
                     raise AuthException(
-                        'Invalid 2fa code passed.'
+                        'Invalid 2fa code passed.',
+                        exc
                     ) from exc
 
                 raise
@@ -505,7 +507,8 @@ class ExchangeCodeAuth(Auth):
             m = 'errors.com.epicgames.account.oauth.exchange_code_not_found'
             if e.message_code == m:
                 raise AuthException(
-                    'Invalid exchange code supplied'
+                    'Invalid exchange code supplied',
+                    e
                 ) from e
 
             raise
@@ -588,7 +591,8 @@ class DeviceAuth(Auth):
             m = 'errors.com.epicgames.account.invalid_account_credentials'
             if exc.message_code == m:
                 raise AuthException(
-                    'Invalid device auth details passed.'
+                    'Invalid device auth details passed.',
+                    exc
                 ) from exc
 
             raise
@@ -698,10 +702,15 @@ class AdvancedAuth(Auth):
         If this is set to ``True`` and no exchange code is passed,
         you will be prompted to enter the exchange code in the console
         if needed.
+    prompt_exchange_code_if_invalid: :class:`bool`
+        Whether or not to prompt exchange code if the device auth details
+        was invalid. If this is False then the regular :exc:`AuthException` is
+        raised instead.
+        **NOTE:** This only works if ``prompt_exchange_code`` is ``True``.
     prompt_exchange_code_if_throttled: :class:`bool`
-        | If this is set to ``True`` and you receive a throttling response,
+        If this is set to ``True`` and you receive a throttling response,
         you will be prompted to enter the exchange code in the console.
-        | **NOTE:** This only works if ``prompt_exchange_code`` is ``True``.
+        **NOTE:** This only works if ``prompt_exchange_code`` is ``True``.
     delete_existing_device_auths: :class:`bool`
         Whether or not to delete all existing device auths when a new
         is created.
@@ -723,10 +732,12 @@ class AdvancedAuth(Auth):
                  account_id: Optional[str] = None,
                  secret: Optional[str] = None,
                  prompt_exchange_code: bool = False,
+                 prompt_exchange_code_if_invalid: bool = False,
                  prompt_exchange_code_if_throttled: bool = False,
                  delete_existing_device_auths: bool = False,
                  **kwargs: Any) -> None:
         super().__init__(**kwargs)
+
         self.email = email
         self.password = password
         self.two_factor_code = two_factor_code
@@ -737,6 +748,7 @@ class AdvancedAuth(Auth):
 
         self.delete_existing_device_auths = delete_existing_device_auths
         self.prompt_exchange_code = prompt_exchange_code
+        self.prompt_exchange_code_if_invalid = prompt_exchange_code_if_invalid
         self.prompt_exchange_code_if_throttled = prompt_exchange_code_if_throttled  # noqa
         self.kwargs = kwargs
 
@@ -796,36 +808,58 @@ class AdvancedAuth(Auth):
 
     async def ios_authenticate(self) -> dict:
         data = None
+        exchange_message = ''
+
         if self.device_auth_ready():
-            return await self.run_device_authenticate()
+            try:
+                return await self.run_device_authenticate()
+            except AuthException as exc:
+                original = exc.original
+                if (not self.prompt_exchange_code
+                        or not self.prompt_exchange_code_if_invalid):
+                    raise
+
+                if isinstance(original, HTTPException):
+                    m = 'errors.com.epicgames.account.invalid_account_credentials'  # noqa
+                    if original.message_code != m:
+                        raise
+
+                exchange_message = 'Invalid device auth details passed. '
 
         elif self.email_and_password_ready():
             try:
                 data = await self.run_email_and_password_authenticate()
             except HTTPException as e:
-                m = ['errors.com.epicgames.accountportal.captcha_invalid']
+                m = {
+                    'errors.com.epicgames.accountportal.captcha_invalid': 'Captcha was enforced. '  # noqa
+                }
                 if (self.prompt_exchange_code
                         and self.prompt_exchange_code_if_throttled):
-                    m.append('errors.com.epicgames.common.throttled')
+                    m['errors.com.epicgames.common.throttled'] = 'Account was throttled. '  # noqa
 
                 if e.message_code not in m:
                     raise
 
-                if (e.message_code in m
+                short = m.get(e.message_code)
+                if (short is not None
                         and not self.exchange_code_ready()
                         and not self.prompt_exchange_code):
                     raise AuthException(
-                        'This account requires exchange code.'
+                        'This account requires exchange code.',
+                        e
                     ) from e
+
+                exchange_message = short
 
         if data is None:
             if self.prompt_exchange_code:
                 if self.email is not None:
-                    text = 'Please enter the exchange code for {0}\n'.format(
-                        self.email
-                    )
+                    text = '{0}Please enter a valid exchange code ' \
+                           'for {1}\n'.format(exchange_message, self.email)
                 else:
-                    text = 'Please enter an exchange code.\n'
+                    text = '{0}Please enter an exchange code.\n'.format(
+                        exchange_message
+                    )
 
                 async with _prompt_lock:
                     self.exchange_code = await ainput(

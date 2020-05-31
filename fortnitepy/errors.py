@@ -44,8 +44,17 @@ class PurchaseException(FortniteException):
 
 class AuthException(FortniteException):
     """This exception is raised when auth fails by invalid credentials
-    passed or some other misc failure."""
-    pass
+    passed or some other misc failure.
+
+    Attributes
+    ----------
+    original: :exc:`FortniteException`
+        The original exception raised. The original error always inherits from
+        :exc:`FortniteException`.
+    """
+    def __init__(self, message, original):
+        super().__init__(message)
+        self.original = original
 
 
 class EventError(FortniteException):
