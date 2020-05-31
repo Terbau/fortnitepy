@@ -6,6 +6,21 @@ Changelog
 Detailed version changes.
 
 
+v2.0.5
+------
+
+Changes
+~~~~~~~
+
+- Added :class:`AuthorizationCodeAuth` as an auth method.
+- Added optional parameter ``authorization_code`` to :class:`AdvancedAuth`.
+- Added optional parameter ``prompt_authorization_code`` to :class:`AdvancedAuth`.
+- (**Breaking**) Renamed optional parameter ``prompt_exchange_code_if_invalid`` -> `prompt_code_if_invalid` for :class:`AdvancedAuth`.
+- (**Breaking**) Renamed optional parameter ``prompt_exchange_code_if_throttled`` -> `prompt_code_if_throttled` for :class:`AdvancedAuth`.
+- (**Breaking**) Renamed parameter ``exchange_code`` -> ``code`` for :class:`ExchangeCodeAuth`.
+- Updated all examples to use ``prompt_authorization_code`` since thats now the easiest method.
+
+
 v2.0.4
 ------
 
