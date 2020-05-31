@@ -6,6 +6,23 @@ Changelog
 Detailed version changes.
 
 
+v2.0.4
+------
+
+Small update which introduces some serious memory optimizations for accounts with many friends + exchange code fix.
+
+Changes
+~~~~~~~
+
+- Added keyword argument ``prompt_exchange_code_if_invalid`` to :class:`AdvancedAuth`.
+- Exchange code prompt messages now includes the cause for exchange code being needed.
+- Added :attr:`AuthException.original` which can be used to retrieve the original error object.
+- Made some serious changes to optimize memory usage.
+- Corrected the endpoint used for retrieving an exchange code in :class:`EmailAndPasswordAuth`.
+- Fixed an issue that caused invalid party team position swap requests to not be handled correctly.
+- Fixed an issue where constructing presences would fail in some cases due to an unexpected type.
+
+
 v2.0.1 - v2.0.3
 ---------------
 
