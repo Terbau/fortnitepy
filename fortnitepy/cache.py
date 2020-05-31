@@ -44,7 +44,9 @@ class Cache:
             asyncio.ensure_future(self.schedule_removal(key, timeout),
                                   loop=self.loop)
 
-    def remove(self, key: str) -> Any:
+    def remove(self, key: str, default: Optional[Any] = None) -> Any:
+        if default is not None:
+            return self._cache.pop(key, default)
         return self._cache.pop(key)
 
     def get(self, key: str, *,

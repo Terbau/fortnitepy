@@ -88,10 +88,19 @@ class ExternalAuth:
                 'external_display_name={0.external_display_name!r} '
                 'external_id={0.external_id!r}>'.format(self))
 
+    def get_raw(self):
+        return {
+            'type': self.type,
+            'accountId': self.id,
+            'externalAuthId': self.external_id,
+            'externalDisplayName': self.external_display_name,
+            **self.extra_info
+        }
+
 
 class UserBase:
     __slots__ = ('client', '_epicgames_display_name', '_external_display_name',
-                 '_id', '_external_auths', '_raw_external_auths')
+                 '_id', '_external_auths')
 
     def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
         self.client = client
@@ -255,7 +264,6 @@ class UserBase:
             break
 
         self._external_auths = ext_list
-        self._raw_external_auths = external_auths
 
     def _update_epicgames_display_name(self, display_name: str) -> None:
         self._epicgames_display_name = display_name
@@ -264,7 +272,7 @@ class UserBase:
         return {
             'displayName': self.display_name,
             'id': self.id,
-            'externalAuths': self._raw_external_auths
+            'externalAuths': [ext.get_raw() for ext in self._external_auths]
         }
 
 

@@ -224,7 +224,7 @@ class Friend(FriendBase):
         """:class:`Platform`: The platform the friend is currently online on.
         ``None`` if the friend is offline.
         """
-        pres = self.client.get_presence(self.id)
+        pres = self.last_presence
         if pres is not None:
             return pres.platform
 
@@ -246,7 +246,7 @@ class Friend(FriendBase):
         :class:`bool`
             ``True`` if the friend is currently online else ``False``.
         """
-        pres = self.client.get_presence(self.id)
+        pres = self.last_presence
         if pres is None:
             return False
         return pres.available
