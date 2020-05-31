@@ -25,14 +25,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '2.0.4'
+__version__ = '2.0.5'
 
 import asyncio
 from sys import platform, version_info
 
 from .client import Client, run_multiple, start_multiple, close_multiple
 from .auth import (Auth, EmailAndPasswordAuth, ExchangeCodeAuth,
-                   DeviceAuth, RefreshTokenAuth, AdvancedAuth)
+                   AuthorizationCodeAuth, DeviceAuth, RefreshTokenAuth,
+                   AdvancedAuth)
 from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
 from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, PartyMember,

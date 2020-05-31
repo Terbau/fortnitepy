@@ -21,6 +21,8 @@ how you can set up this auth with file storage for the preferred login which is 
 
 .. autoclass:: ExchangeCodeAuth
 
+.. autoclass:: AuthorizationCodeAuth
+
 .. autoclass:: DeviceAuth
 
 .. autoclass:: RefreshTokenAuth

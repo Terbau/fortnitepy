@@ -329,6 +329,9 @@ class EmailAndPasswordAuth(Auth):
         will be prompted later.
     device_id: Optional[:class:`str`]
         A 32 char hex representing your device.
+    ios_token: Optional[:class:`str`]
+        The ios token to use with authentication. You should generally
+        not need to set this manually.
     launcher_token: Optional[:class:`str`]
         The launcher token to use with authentication. You should generally
         not need to set this manually.
@@ -442,7 +445,7 @@ class EmailAndPasswordAuth(Auth):
 
 
 class ExchangeCodeAuth(Auth):
-    """Authenticates by exchange code.
+    """Authenticates by an exchange code.
 
     .. note::
 
@@ -457,17 +460,20 @@ class ExchangeCodeAuth(Auth):
 
     .. note::
 
-        The exchange code only works for a single login within a short
-        timeframe. Therefore you need to get a new code for each login.
-        You can get a new code by refreshing the site.
+        An exchange code only works for a single login within a short
+        timeframe (300 seconds). Therefore you need to get a new code for each
+        login. You can get a new code by refreshing the site.
 
     Parameters
     ----------
-    exchange_code: Union[:class:`str`, Callable, Awaitable]
+    code: Union[:class:`str`, Callable, Awaitable]
         The exchange code or a function/coroutine that when called returns
         the exchange code.
     device_id: Optional[:class:`str`]
-        A 32 char hex representing your device.
+        A 32 char hex string representing your device.
+    ios_token: Optional[:class:`str`]
+        The ios token to use with authentication. You should generally
+        not need to set this manually.
     launcher_token: Optional[:class:`str`]
         The launcher token to use with authentication. You should generally
         not need to set this manually.
@@ -475,10 +481,10 @@ class ExchangeCodeAuth(Auth):
         The fortnite token to use with authentication. You should generally
         not need to set this manually.
     """
-    def __init__(self, exchange_code: StrOrMaybeCoro,
+    def __init__(self, code: StrOrMaybeCoro,
                  **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.exchange_code = exchange_code
+        self.code = code
         self.resolved_code = None
 
     async def resolve(self, code: StrOrMaybeCoro) -> str:
@@ -501,7 +507,7 @@ class ExchangeCodeAuth(Auth):
 
     async def ios_authenticate(self) -> dict:
         log.info('Exchanging code.')
-        self.resolved_code = await self.resolve(self.exchange_code)
+        self.resolved_code = await self.resolve(self.code)
 
         try:
             data = await self.exchange_code_for_session(
@@ -541,6 +547,71 @@ class ExchangeCodeAuth(Auth):
         )
 
 
+class AuthorizationCodeAuth(ExchangeCodeAuth):
+    """Authenticates by exchange code.
+
+    You can get the code from `here
+    <https://www.epicgames.com/id/api/redirect?
+    clientId=3446cd72694c4a4485d81b77adbb2141&responseType=code>`_ by logging
+    in and copying the code from the redirectUrl's query parameters. If you
+    are already logged in and want to change accounts, simply log out at
+    https://www.epicgames.com, log in to the new account and then enter the
+    link above again to generate an authorization code.
+
+    .. note::
+
+        An authorization code only works for a single login within a short
+        timeframe (300 seconds). Therefore you need to get a new code for each
+        login. You can get a new code by refreshing the site.
+
+    Parameters
+    ----------
+    code: Union[:class:`str`, Callable, Awaitable]
+        The authorization code or a function/coroutine that when called returns
+        the authorization code.
+    device_id: Optional[:class:`str`]
+        A 32 char hex string representing your device.
+    ios_token: Optional[:class:`str`]
+        The ios token to use with authentication. You should generally
+        not need to set this manually.
+    launcher_token: Optional[:class:`str`]
+        The launcher token to use with authentication. You should generally
+        not need to set this manually.
+    fortnite_token: Optional[:class:`str`]
+        The fortnite token to use with authentication. You should generally
+        not need to set this manually.
+    """
+    def __init__(self, code: StrOrMaybeCoro,
+                 **kwargs: Any) -> None:
+        super().__init__(code, **kwargs)
+
+    async def ios_authenticate(self):
+        self.resolved_code = await self.resolve(self.code)
+
+        payload = {
+            'grant_type': 'authorization_code',
+            'code': self.resolved_code,
+        }
+
+        try:
+            data = await self.client.http.account_oauth_grant(
+                auth='basic {0}'.format(self.ios_token),
+                device_id=True,
+                data=payload
+            )
+        except HTTPException as e:
+            m = 'errors.com.epicgames.account.oauth.authorization_code_not_found'  # noqa
+            if e.message_code == m:
+                raise AuthException(
+                    'Invalid authorization code supplied',
+                    e
+                ) from e
+
+            raise
+
+        return data
+
+
 class DeviceAuth(Auth):
     """Authenticate with device auth details.
 
@@ -558,6 +629,9 @@ class DeviceAuth(Auth):
         The account's id.
     secret: :class:`str`
         The secret.
+    ios_token: Optional[:class:`str`]
+        The ios token to use with authentication. You should generally
+        not need to set this manually.
     launcher_token: Optional[:class:`str`]
         The launcher token to use with authentication. You should generally
         not need to set this manually.
@@ -678,9 +752,11 @@ class AdvancedAuth(Auth):
     attempts to authenticate with the next step.
     3. :class:`ExchangeCodeAuth` is tried if ``exchange_code`` is present
     or if ``prompt_exchange_code`` is ``True``.
+    4. :class:`AuthorizationCodeAuth` is tried if ``authorization_code`` is
+    present or if ``prompt_authorization_code`` is ``True``.
 
     If the authentication was not done by step 1, a device auth is
-    automatically generated and is available through
+    automatically generated and the details will be dispatched to
     :func:`event_device_auth_generate`. It is important to store
     these values somewhere since they can be used for easier logins.
 
@@ -697,6 +773,9 @@ class AdvancedAuth(Auth):
     exchange_code: Optional[Union[:class:`str`, Callable, Awaitable]]
         The exchange code or a function/coroutine that when called returns
         the exchange code.
+    authorization_code: Optional[Union[:class:`str`, Callable, Awaitable]]
+        The authorization code or a function/coroutine that when called returns
+        the authorization code.
     device_id: Optional[:class:`str`]
         The device id to use for the login.
     account_id: Optional[:class:`str`]
@@ -707,15 +786,37 @@ class AdvancedAuth(Auth):
         If this is set to ``True`` and no exchange code is passed,
         you will be prompted to enter the exchange code in the console
         if needed.
-    prompt_exchange_code_if_invalid: :class:`bool`
-        Whether or not to prompt exchange code if the device auth details
+
+        .. note::
+
+            Both ``prompt_exchange_code`` and ``prompt_authorization_code``
+            cannot be True at the same time.
+    prompt_authorization_code: :class:`bool`
+        If this is set to ``True`` and no authorization code is passed,
+        you will be prompted to enter the authorization code in the console
+        if needed.
+
+        .. note::
+
+            Both ``prompt_exchange_code`` and ``prompt_authorization_code``
+            cannot be True at the same time.
+    prompt_code_if_invalid: :class:`bool`
+        Whether or not to prompt a code if the device auth details
         was invalid. If this is False then the regular :exc:`AuthException` is
         raised instead.
-        **NOTE:** This only works if ``prompt_exchange_code`` is ``True``.
-    prompt_exchange_code_if_throttled: :class:`bool`
+
+        .. note::
+
+            This only works if ``prompt_exchange_code`` or
+            ``prompt_authorization_code`` is ``True``.
+    prompt_code_if_throttled: :class:`bool`
         If this is set to ``True`` and you receive a throttling response,
-        you will be prompted to enter the exchange code in the console.
-        **NOTE:** This only works if ``prompt_exchange_code`` is ``True``.
+        you will be prompted to enter a code in the console.
+
+        .. note::
+
+            This only works if ``prompt_exchange_code`` or
+            ``prompt_authorization_code`` is ``True``.
     delete_existing_device_auths: :class:`bool`
         Whether or not to delete all existing device auths when a new
         is created.
@@ -733,12 +834,14 @@ class AdvancedAuth(Auth):
                  password: Optional[str] = None,
                  two_factor_code: Optional[int] = None,
                  exchange_code: Optional[StrOrMaybeCoro] = None,
+                 authorization_code: Optional[StrOrMaybeCoro] = None,
                  device_id: Optional[str] = None,
                  account_id: Optional[str] = None,
                  secret: Optional[str] = None,
                  prompt_exchange_code: bool = False,
-                 prompt_exchange_code_if_invalid: bool = False,
-                 prompt_exchange_code_if_throttled: bool = False,
+                 prompt_authorization_code: bool = False,
+                 prompt_code_if_invalid: bool = False,
+                 prompt_code_if_throttled: bool = False,
                  delete_existing_device_auths: bool = False,
                  **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -747,14 +850,22 @@ class AdvancedAuth(Auth):
         self.password = password
         self.two_factor_code = two_factor_code
         self.exchange_code = exchange_code
+        self.authorization_code = authorization_code
         self.device_id = device_id
         self.account_id = account_id
         self.secret = secret
 
         self.delete_existing_device_auths = delete_existing_device_auths
         self.prompt_exchange_code = prompt_exchange_code
-        self.prompt_exchange_code_if_invalid = prompt_exchange_code_if_invalid
-        self.prompt_exchange_code_if_throttled = prompt_exchange_code_if_throttled  # noqa
+        self.prompt_authorization_code = prompt_authorization_code
+
+        if self.prompt_exchange_code and self.prompt_authorization_code:
+            raise ValueError('Both prompt_exchange_code and '
+                             'prompt_authorization_code cannot be True at '
+                             'the same time.')
+
+        self.prompt_code_if_invalid = prompt_code_if_invalid
+        self.prompt_code_if_throttled = prompt_code_if_throttled
         self.kwargs = kwargs
 
     @property
@@ -767,8 +878,23 @@ class AdvancedAuth(Auth):
     def exchange_code_ready(self) -> bool:
         return self.exchange_code is not None
 
+    def authorization_code_ready(self) -> bool:
+        return self.authorization_code is not None
+
+    def code_ready(self) -> bool:
+        return self.exchange_code_ready() or self.authorization_code_ready()
+
     def device_auth_ready(self) -> bool:
         return self.device_id and self.account_id and self.secret
+
+    def prompt_enabled(self) -> bool:
+        return True in (self.prompt_exchange_code, self.prompt_authorization_code)  # noqa
+
+    def get_prompt_type_name(self) -> str:
+        if self.prompt_exchange_code:
+            return 'exchange'
+        elif self.prompt_authorization_code:
+            return 'authorization'
 
     async def run_email_and_password_authenticate(self) -> dict:
         auth = EmailAndPasswordAuth(
@@ -783,7 +909,16 @@ class AdvancedAuth(Auth):
 
     async def run_exchange_code_authenticate(self) -> dict:
         auth = ExchangeCodeAuth(
-            exchange_code=self.exchange_code,
+            code=self.exchange_code,
+            **self.kwargs
+        )
+        auth.initialize(self.client)
+
+        return await auth.ios_authenticate()
+
+    async def run_authorization_code_authenticate(self) -> dict:
+        auth = AuthorizationCodeAuth(
+            code=self.authorization_code,
             **self.kwargs
         )
         auth.initialize(self.client)
@@ -813,15 +948,14 @@ class AdvancedAuth(Auth):
 
     async def ios_authenticate(self) -> dict:
         data = None
-        exchange_message = ''
+        prompt_message = ''
 
         if self.device_auth_ready():
             try:
                 return await self.run_device_authenticate()
             except AuthException as exc:
                 original = exc.original
-                if (not self.prompt_exchange_code
-                        or not self.prompt_exchange_code_if_invalid):
+                if not self.prompt_enabled() or not self.prompt_code_if_invalid:  # noqa
                     raise
 
                 if isinstance(original, HTTPException):
@@ -829,7 +963,7 @@ class AdvancedAuth(Auth):
                     if original.message_code != m:
                         raise
 
-                exchange_message = 'Invalid device auth details passed. '
+                prompt_message = 'Invalid device auth details passed. '
 
         elif self.email_and_password_ready():
             try:
@@ -838,8 +972,7 @@ class AdvancedAuth(Auth):
                 m = {
                     'errors.com.epicgames.accountportal.captcha_invalid': 'Captcha was enforced. '  # noqa
                 }
-                if (self.prompt_exchange_code
-                        and self.prompt_exchange_code_if_throttled):
+                if self.prompt_enabled() and self.prompt_code_if_throttled:
                     m['errors.com.epicgames.common.throttled'] = 'Account was throttled. '  # noqa
 
                 if e.message_code not in m:
@@ -847,32 +980,47 @@ class AdvancedAuth(Auth):
 
                 short = m.get(e.message_code)
                 if (short is not None
-                        and not self.exchange_code_ready()
-                        and not self.prompt_exchange_code):
+                        and not self.code_ready()
+                        and not self.prompt_enabled()):
                     raise AuthException(
-                        'This account requires exchange code.',
+                        'This account requires an exchange or authorization '
+                        'code.',
                         e
                     ) from e
 
-                exchange_message = short
+                prompt_message = short
 
         if data is None:
-            if self.prompt_exchange_code:
+            prompted = False
+            code = None
+            if not self.code_ready() and self.prompt_enabled():
+                prompted = True
+                code_type = self.get_prompt_type_name()
                 if self.email is not None:
-                    text = '{0}Please enter a valid exchange code ' \
-                           'for {1}\n'.format(exchange_message, self.email)
+                    text = '{0}Please enter a valid {1} code ' \
+                           'for {2}\n'.format(
+                                prompt_message,
+                                code_type,
+                                self.email
+                            )
                 else:
-                    text = '{0}Please enter an exchange code.\n'.format(
-                        exchange_message
+                    text = '{0}Please enter a valid {1} code.\n'.format(
+                        prompt_message,
+                        code_type
                     )
 
                 async with _prompt_lock:
-                    self.exchange_code = await ainput(
+                    code = await ainput(
                         text,
                         loop=self.client.loop
                     )
 
-            data = await self.run_exchange_code_authenticate()
+            if (prompted and self.prompt_exchange_code) or self.exchange_code_ready():  # noqa
+                self.exchange_code = code or self.exchange_code
+                data = await self.run_exchange_code_authenticate()
+            else:
+                self.authorization_code = code or self.authorization_code
+                data = await self.run_authorization_code_authenticate()
 
         self._update_ios_data(data)
 
