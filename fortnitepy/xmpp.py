@@ -624,19 +624,21 @@ class XMPPClient:
                 if version != member._assignment_version:
                     member._assignment_version = version
 
-                    new_positions = {
-                        member.id: req['targetAbsoluteIdx'],
-                        req['swapTargetMemberId']: req['startingAbsoluteIdx']
-                    }
-                    if party.me.leader:
-                        await party.refresh_squad_assignments(
-                            new_positions=new_positions
-                        )
+                    swap_member_id = req['swapTargetMemberId']
+                    if swap_member_id != 'INVALID':
+                        new_positions = {
+                            member.id: req['targetAbsoluteIdx'],
+                            swap_member_id: req['startingAbsoluteIdx']
+                        }
+                        if party.me.leader:
+                            await party.refresh_squad_assignments(
+                                new_positions=new_positions
+                            )
 
-                    self.client.dispatch_event(
-                        'party_member_team_swap',
-                        *[party.members[k] for k in new_positions]
-                    )
+                        self.client.dispatch_event(
+                            'party_member_team_swap',
+                            *[party.members[k] for k in new_positions]
+                        )
 
         self.client.dispatch_event('party_member_update', member)
 
