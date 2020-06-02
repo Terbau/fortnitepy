@@ -61,7 +61,7 @@ class MyClient(fortnitepy.Client):
             )
         )
         self.instances = {}
-        
+
     async def event_sub_device_auth_generate(self, details, email):
         store_device_auth_details(email, details)
 
@@ -93,8 +93,10 @@ class MyClient(fortnitepy.Client):
                     delete_existing_device_auths=True,
                     **device_auths.get(email, {})
                 ),
-                default_party_member_config=(
-                    functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
+                default_party_member_config=fortnitepy.DefaultPartyMemberConfig(
+                    meta=(
+                        functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
+                    )
                 )
             )
 
@@ -104,10 +106,10 @@ class MyClient(fortnitepy.Client):
             client.add_event_handler('party_member_join', self.event_sub_party_member_join)
 
             clients.append(client)
-        
+
         try:
             await fortnitepy.start_multiple(
-                clients, 
+                clients,
                 ready_callback=self.event_sub_ready,
                 all_ready_callback=lambda: print('All sub clients ready')
             )
@@ -121,6 +123,6 @@ class MyClient(fortnitepy.Client):
 
     async def event_friend_request(self, request):
         await request.accept()
-    
+
 client = MyClient()
 client.run()
