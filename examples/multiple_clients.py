@@ -71,8 +71,10 @@ for email, password in credentials.items():
 
     client = fortnitepy.Client(
         auth=authentication,
-        default_party_member_config=(
-            functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
+        default_party_member_config=fortnitepy.DefaultPartyMemberConfig(
+            meta=(
+                functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
+            )
         )
     )
 
