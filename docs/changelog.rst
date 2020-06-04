@@ -6,6 +6,26 @@ Changelog
 Detailed version changes.
 
 
+v2.0.6
+------
+
+Various bug fixes
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused :class:`EmailAndPasswordAuth` to not work in some cases.
+- Fixed errors not being raised correctly in newer versions when using :func:`start_multiple()` or :func:`run_multiple()`.
+- Unnecessary errors are not longer raised when closing the client before it has started.
+- Fixed an issue that caused :func:`event_party_member_in_match_change()` to not work.
+
+Other
+~~~~~
+
+- Added documentation to :meth:`ClientPartyMember.set_in_match()` and :meth:`ClientPartyMember.clear_in_match()`.
+- Edited docstrings in all examples to be up to date with recent changes.
+
+
 v2.0.5
 ------
 
