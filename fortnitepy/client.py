@@ -679,7 +679,9 @@ class Client:
             self.http.create_connection()
             self._closed = False
 
-        await self._login()
+        ret = await self._login()
+        if ret is False:
+            return
 
         self._set_ready()
         if dispatch_ready:
@@ -749,7 +751,9 @@ class Client:
 
     async def _login(self) -> None:
         log.debug('Running authenticating')
-        await self.auth._authenticate()
+        ret = await self.auth._authenticate()
+        if ret is False:
+            return False
 
         tasks = [
             self.http.account_get_by_user_id(self.auth.account_id),
@@ -795,6 +799,9 @@ class Client:
             pass
 
         async def killer(token):
+            if token is None:
+                return
+
             try:
                 await self.http.account_sessions_kill_token(token)
             except HTTPException:
@@ -805,9 +812,9 @@ class Client:
                 pass
 
         tasks = (
-            killer(self.auth.ios_access_token),
-            killer(self.auth.launcher_access_token),
-            killer(self.auth.access_token),
+            killer(getattr(self.auth, 'ios_access_token', None)),
+            killer(getattr(self.auth, 'launcher_access_token', None)),
+            killer(getattr(self.auth, 'access_token', None)),
         )
         await asyncio.gather(*tasks)
 
