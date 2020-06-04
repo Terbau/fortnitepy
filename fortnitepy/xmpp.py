@@ -551,15 +551,21 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
+        def _getattr(member, key):
+            value = getattr(member, key)
+            if callable(value):
+                value = value()
+            return value
+
         check = {'playlist_info': 'playlist', 'squad_fill': None,
                  'privacy': None}
-        pre_values = {k: getattr(party, k) for k in check.keys()}
+        pre_values = {k: _getattr(party, k) for k in check.keys()}
 
         party._update(body)
         self.client.dispatch_event('party_update', party)
 
         for key, pre_value in pre_values.items():
-            value = getattr(party, key)
+            value = _getattr(party, key)
             if pre_value != value:
                 self.client.dispatch_event(
                     'party_{0}_change'.format(check[key] or key),
@@ -603,15 +609,20 @@ class XMPPClient:
                     self.client.party = p
                 return
 
+        def _getattr(member, key):
+            value = getattr(member, key)
+            if callable(value):
+                value = value()
+            return value
+
         check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
                  'pet', 'pickaxe', 'contrail', 'emote', 'emoji', 'banner',
                  'battlepass_info', 'in_match', 'match_players_left')
-        pre_values = {k: getattr(member, k) for k in check}
+        pre_values = {k: _getattr(member, k) for k in check}
 
         check_variants = ('outfit_variants', 'backpack_variants',
                           'pickaxe_variants', 'contrail_variants')
-        pre_variants_values = {k: getattr(member, k) for k in check_variants}
-
+        pre_variants_values = {k: _getattr(member, k) for k in check_variants}
         member.update(body)
 
         if party._default_config.team_change_allowed or not party.me.leader:
@@ -642,15 +653,19 @@ class XMPPClient:
 
         self.client.dispatch_event('party_member_update', member)
 
+        def _dispatch(key, member, pre_value, value):
+            self.client.dispatch_event(
+                'party_member_{0}_change'.format(key),
+                member,
+                pre_value,
+                value
+            )
+
         for key, pre_value in pre_values.items():
-            value = getattr(member, key)
+            value = _getattr(member, key)
+
             if pre_value != value:
-                self.client.dispatch_event(
-                    'party_member_{0}_change'.format(key),
-                    member,
-                    pre_value,
-                    value
-                )
+                _dispatch(key, member, pre_value, value)
 
         def compare_variants(a, b):
             def construct_set(v):
@@ -658,14 +673,9 @@ class XMPPClient:
             return construct_set(a) == construct_set(b)
 
         for key, pre_value in pre_variants_values.items():
-            value = getattr(member, key)
+            value = _getattr(member, key)
             if not compare_variants(pre_value, value):
-                self.client.dispatch_event(
-                    'party_member_{0}_change'.format(key),
-                    member,
-                    pre_value,
-                    value
-                )
+                _dispatch(key, member, pre_value, value)
 
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_REQUIRE_CONFIRMATION')  # noqa
     async def event_party_member_require_confirmation(self,
