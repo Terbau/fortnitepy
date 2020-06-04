@@ -1,12 +1,12 @@
 """This example showcases how to use fortnitepy within a subclass. If captcha
-is enforced for the accounts, you will only have to enter the exchange code
+is enforced for the accounts, you will only have to enter the authorization code
 the first time you run this script.
 
 NOTE: This example uses AdvancedAuth and stores the details in a file.
 It is important that this file is moved whenever the script itself is moved
 because it relies on the stored details. However, if the file is nowhere to
 be found, it will simply use email and password or prompt you to enter a
-new exchange code to generate a new file.
+new authorization code to generate a new file.
 """
 
 import fortnitepy
