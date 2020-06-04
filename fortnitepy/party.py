@@ -2310,6 +2310,29 @@ class ClientPartyMember(PartyMemberBase, Patchable):
 
     async def set_in_match(self, *, players_left: int = 100,
                            started_at: datetime.timedelta = None) -> None:
+        """|coro|
+
+        Sets the clients party member in a visible match state.
+
+        .. note::
+
+            This is only visual in the party and is not a method for
+            joining a match.
+
+        Parameters
+        ----------
+        players_left: :class:`int`
+            How many players that should be displayed left in your game.
+            Defaults to 100.
+        started_at: :class:`datetime.datetime`
+            The match start time in UTC. A timer is visually displayed showing
+            how long the match has lasted. Defaults to the current time (utcnow).
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
         if not 0 <= players_left <= 255:
             raise ValueError('players_left must be an integer between 0 '
                              'and 255')
@@ -2332,6 +2355,15 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             return await self.patch(updated=prop)
 
     async def clear_in_match(self) -> None:
+        """|coro|
+
+        Clears the clients "in match" state.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
         prop = self.meta.set_match_state(
             location='PreLobby',
             has_preloaded=False,

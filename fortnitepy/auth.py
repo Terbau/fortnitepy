@@ -80,7 +80,7 @@ class Auth:
             data = await self.authenticate()
             self._update_data(data)
         except asyncio.CancelledError:
-            pass
+            return False
 
     async def get_eula_version(self) -> int:
         data = await self.client.http.eulatracking_get_data()
@@ -413,6 +413,7 @@ class EmailAndPasswordAuth(Auth):
 
         await self.client.http.epicgames_redirect(token)
 
+        token = await self.fetch_xsrf_token()
         log.info('Fetching exchange code.')
         data = await self.client.http.epicgames_get_exchange_data(token)
 
