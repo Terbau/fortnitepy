@@ -413,6 +413,7 @@ class EmailAndPasswordAuth(Auth):
 
         await self.client.http.epicgames_redirect(token)
 
+        token = await self.fetch_xsrf_token()
         log.info('Fetching exchange code.')
         data = await self.client.http.epicgames_get_exchange_data(token)
 
