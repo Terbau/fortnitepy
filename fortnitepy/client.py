@@ -130,7 +130,12 @@ async def _start_client(client: 'Client', *,
             identifier = client.auth.identifier
 
             if shutdown_on_error:
-                raise type(e)('{0} - {1}'.format(identifier, e)) from e
+                if e.args:
+                    e.args = ('{0} - {1}'.format(identifier, e.args[0]),)
+                else:
+                    e.args = (identifier,)
+
+                raise e
             else:
                 message = ('An exception occured while running client '
                            '{0}'.format(identifier))
