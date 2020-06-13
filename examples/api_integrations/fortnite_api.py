@@ -6,7 +6,6 @@ import json
 import os
 
 FORTNITE_API_BASE = 'https://fortnite-api.com'
-API_KEY = '' # get your api key from https://fortnite-api.com/
 email = 'email@email.com'
 password = 'password1'
 filename = 'device_auths.json'
@@ -52,7 +51,6 @@ class MyClient(fortnitepy.Client):
     async def fetch_cosmetic(self, type_, name):
         async with self.session.get(
             FORTNITE_API_BASE + '/cosmetics/br/search',
-            headers={'x-api-key': API_KEY},
             params={'type': type_, 'name': name}
         ) as r:
             if r.status == 404:
