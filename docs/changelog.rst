@@ -6,6 +6,34 @@ Changelog
 Detailed version changes.
 
 
+v2.0.7
+------
+
+Fixes bugs introduced in fortnite v13.00 + fixes other bugs and adds some other changes.
+
+Changes
+~~~~~~~
+
+- :meth:`Client.add_friend()` and other methods to add/accept friends now raises more specific exceptions.
+- A RuntimeError with more info is now raised if a running ProactorEventLoop is found when importing fortnitepy.
+
+Added
+~~~~~
+
+- :exc:`DuplicateFriendship`
+- :exc:`FriendshipRequestAlreadySent`
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused no party meta related stuff to work after fortnite v13.00 (Invisible players fix).
+- Fixed an issue where presence initialization failed because of a missing property.
+- Removed ``party`` from :class:`ClientUser`.
+- Fixed an issue where the xmpp stream would timeout in some cases. (Fixes `issue #67 <https://github.com/Terbau/fortnitepy/issues/67>`_)
+- :class:`SentPartyInvitation` has now been added to the docs.
+- :func:`event_command_error()`, :func:`event_command()` and :func:`event_command_completion()` are now properly named in the documentation.
+
+
 v2.0.6
 ------
 
