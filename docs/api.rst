@@ -866,9 +866,15 @@ ClientParty
 	:inherited-members:
 
 ReceivedPartyInvitation
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: ReceivedPartyInvitation()
+	:members:
+
+SentPartyInvitation
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: SentPartyInvitation()
 	:members:
 
 PartyJoinConfirmation
