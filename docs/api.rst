@@ -972,3 +972,6 @@ Exceptions
 
 .. autoexception:: NotFound
 
+.. autoexception:: DuplicateFriendship
+
+.. autoexception:: FriendshipRequestAlreadySent
