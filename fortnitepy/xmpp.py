@@ -835,6 +835,8 @@ class XMPPClient:
     async def _run(self, future: asyncio.Future) -> None:
         async with self.xmpp_client.connected() as stream:
             self.stream = stream
+            stream.soft_timeout = datetime.timedelta(minutes=5)
+            stream.round_trip_time = datetime.timedelta(minutes=5)
             future.set_result(None)
             while True:
                 await asyncio.sleep(1)
