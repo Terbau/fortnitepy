@@ -866,9 +866,15 @@ ClientParty
 	:inherited-members:
 
 ReceivedPartyInvitation
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: ReceivedPartyInvitation()
+	:members:
+
+SentPartyInvitation
+~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: SentPartyInvitation()
 	:members:
 
 PartyJoinConfirmation
@@ -972,3 +978,6 @@ Exceptions
 
 .. autoexception:: NotFound
 
+.. autoexception:: DuplicateFriendship
+
+.. autoexception:: FriendshipRequestAlreadySent

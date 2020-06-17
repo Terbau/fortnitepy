@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '2.0.6'
+__version__ = '2.0.7'
 
 import asyncio
 from sys import platform, version_info
@@ -38,7 +38,8 @@ from .friend import Friend, PendingFriend
 from .message import FriendMessage, PartyMessage
 from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, PartyMember,
                     ClientPartyMember, JustChattingClientPartyMember, Party, 
-                    ClientParty, ReceivedPartyInvitation, PartyJoinConfirmation)
+                    ClientParty, ReceivedPartyInvitation, SentPartyInvitation,
+                    PartyJoinConfirmation)
 from .presence import Presence, PresenceGameplayStats, PresenceParty
 from .user import (ClientUser, User, BlockedUser, ExternalAuth,
                    ProfileSearchEntryUser, SacSearchEntryUser)
@@ -51,5 +52,13 @@ from .playlist import Playlist
 from .kairos import Avatar
 
 # fix for python 3.8
+loop = asyncio._get_running_loop()
+if loop is not None:
+    if isinstance(asyncio.get_event_loop_policy(), asyncio.WindowsProactorEventLoopPolicy):
+        raise RuntimeError(
+            'Incompatible event loop running. Read more here: '
+            'https://fortnitepy.readthedocs.io/en/latest/faq.html#python-3-8-why-does-other-asynchronous-libraries-suddenly-break-when-using-fortnitepy'
+        )
+
 if platform == 'win32' and version_info >= (3, 8):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

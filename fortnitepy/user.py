@@ -34,7 +34,6 @@ from .typedefs import DatetimeOrTimestamp
 if TYPE_CHECKING:
     from .client import Client
     from .stats import StatsV2
-    from .party import ClientParty
 
 log = logging.getLogger(__name__)
 
@@ -339,11 +338,6 @@ class ClientUser(UserBase):
     @property
     def full_name(self) -> str:
         return '{} {}'.format(self.name, self.last_name)
-
-    @property
-    def party(self) -> 'ClientParty':
-        """:class:`ClientParty`: The users party."""
-        return self._party
 
     @property
     def jid(self) -> JID:

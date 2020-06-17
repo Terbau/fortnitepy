@@ -36,7 +36,8 @@ from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
 
 from .errors import (PartyError, HTTPException, PurchaseException,
-                     NotFound, Forbidden)
+                     NotFound, Forbidden, DuplicateFriendship,
+                     FriendshipRequestAlreadySent)
 from .xmpp import XMPPClient
 from .http import HTTPClient
 from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
@@ -1718,10 +1719,43 @@ class Client:
 
         Raises
         ------
+        NotFound
+            The specified user does not exist.
+        DuplicateFriendship
+            The client is already friends with this user.
+        FriendshipRequestAlreadySent
+            The client has already sent a friendship request that has not been
+            handled yet by the user.
+        Forbidden
+            The client is not allowed to send friendship requests to the user
+            because of the users settings.
         HTTPException
             An error occured while requesting to add this friend.
         """
-        await self.http.friends_add_or_accept(user_id)
+        try:
+            await self.http.friends_add_or_accept(user_id)
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.friends.account_not_found'
+            if exc.message_code == m:
+                raise NotFound('The specified account does not exist.')
+
+            m = 'errors.com.epicgames.friends.duplicate_friendship'
+            if exc.message_code == m:
+                raise DuplicateFriendship('This friendship already exists.')
+
+            m = 'errors.com.epicgames.friends.friend_request_already_sent'
+            if exc.message_code == m:
+                raise FriendshipRequestAlreadySent(
+                    'A friendship request already exists for this user.'
+                )
+
+            m = ('errors.com.epicgames.friends.'
+                 'cannot_friend_due_to_target_settings')
+            if exc.message_code == m:
+                raise Forbidden('You cannot send friendship requests to '
+                                'this user.')
+
+            raise
 
     async def accept_friend(self, user_id: str) -> Friend:
         """|coro|
@@ -1740,6 +1774,16 @@ class Client:
 
         Raises
         ------
+        NotFound
+            The specified user does not exist.
+        DuplicateFriendship
+            The client is already friends with this user.
+        FriendshipRequestAlreadySent
+            The client has already sent a friendship request that has not been
+            handled yet by the user.
+        Forbidden
+            The client is not allowed to send friendship requests to the user
+            because of the users settings.
         HTTPException
             An error occured while requesting to accept this friend.
 
@@ -1748,7 +1792,7 @@ class Client:
         :class:`Friend`
             Object of the friend you just added.
         """
-        await self.http.friends_add_or_accept(user_id)
+        await self.add_friend(user_id)
         friend = await self.wait_for('friend_add',
                                      check=lambda f: f.id == user_id)
         return friend

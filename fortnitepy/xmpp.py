@@ -627,7 +627,7 @@ class XMPPClient:
 
         if party._default_config.team_change_allowed or not party.me.leader:
             req_j = body['member_state_updated'].get(
-                'MemberSquadAssignmentRequest_j'
+                'Default:MemberSquadAssignmentRequest_j'
             )
             if req_j is not None:
                 req = json.loads(req_j)['MemberSquadAssignmentRequest']
@@ -835,6 +835,8 @@ class XMPPClient:
     async def _run(self, future: asyncio.Future) -> None:
         async with self.xmpp_client.connected() as stream:
             self.stream = stream
+            stream.soft_timeout = datetime.timedelta(minutes=5)
+            stream.round_trip_time = datetime.timedelta(minutes=5)
             future.set_result(None)
             while True:
                 await asyncio.sleep(1)

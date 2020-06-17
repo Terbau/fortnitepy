@@ -95,6 +95,20 @@ class NoMoreItems(FortniteException):
     pass
 
 
+class DuplicateFriendship(FortniteException):
+    """This exception is raised whenever the client attempts to add a user as
+    friend when the friendship already exists."""
+    pass
+
+
+class FriendshipRequestAlreadySent(FortniteException):
+    """This exception is raised whenever the client attempts to send a friend
+    request to a user that has already received a friend request from the
+    client.
+    """
+    pass
+
+
 class ValidationFailure(FortniteException):
     """Represents a validation failure returned.
 
