@@ -426,38 +426,38 @@ class PartyMemberMeta(MetaBase):
 
         self.def_character = get_random_default_character()
         self.schema = {
-            'Location_s': 'PreLobby',
-            'CampaignHero_j': json.dumps({
+            'Default:Location_s': 'PreLobby',
+            'Default:CampaignHero_j': json.dumps({
                 'CampaignHero': {
                     'heroItemInstanceId': '',
                     'heroType': ("FortHeroType'/Game/Athena/Heroes/{0}.{0}'"
                                  "".format(self.def_character)),
                 },
             }),
-            'MatchmakingLevel_U': '0',
-            'ZoneInstanceId_s': '',
-            'HomeBaseVersion_U': '1',
-            'HasPreloadedAthena_b': 'false',
-            'FrontendEmote_j': json.dumps({
+            'Default:MatchmakingLevel_U': '0',
+            'Default:ZoneInstanceId_s': '',
+            'Default:HomeBaseVersion_U': '1',
+            'Default:HasPreloadedAthena_b': 'false',
+            'Default:FrontendEmote_j': json.dumps({
                 'FrontendEmote': {
                     'emoteItemDef': 'None',
                     'emoteItemDefEncryptionKey': '',
                     'emoteSection': -1,
                 },
             }),
-            'NumAthenaPlayersLeft_U': '0',
-            'UtcTimeStartedMatchAthena_s': '0001-01-01T00:00:00.000Z',
-            'GameReadiness_s': 'NotReady',
-            'HiddenMatchmakingDelayMax_U': '0',
-            'ReadyInputType_s': 'Count',
-            'CurrentInputType_s': 'MouseAndKeyboard',
-            'AssistedChallengeInfo_j': json.dumps({
+            'Default:NumAthenaPlayersLeft_U': '0',
+            'Default:UtcTimeStartedMatchAthena_s': '0001-01-01T00:00:00.000Z',
+            'Default:GameReadiness_s': 'NotReady',
+            'Default:HiddenMatchmakingDelayMax_U': '0',
+            'Default:ReadyInputType_s': 'Count',
+            'Default:CurrentInputType_s': 'MouseAndKeyboard',
+            'Default:AssistedChallengeInfo_j': json.dumps({
                 'AssistedChallengeInfo': {
                     'questItemDef': 'None',
                     'objectivesCompleted': 0,
                 },
             }),
-            'MemberSquadAssignmentRequest_j': json.dumps({
+            'Default:MemberSquadAssignmentRequest_j': json.dumps({
                 'MemberSquadAssignmentRequest': {
                     'startingAbsoluteIdx': -1,
                     'targetAbsoluteIdx': -1,
@@ -465,7 +465,7 @@ class PartyMemberMeta(MetaBase):
                     'version': 0,
                 },
             }),
-            'AthenaCosmeticLoadout_j': json.dumps({
+            'Default:AthenaCosmeticLoadout_j': json.dumps({
                 'AthenaCosmeticLoadout': {
                     'characterDef': ("AthenaCharacterItemDefinition'/Game/"
                                      "Athena/Items/Cosmetics/Characters/"
@@ -483,14 +483,14 @@ class PartyMemberMeta(MetaBase):
                     'variants': [],
                 },
             }),
-            'AthenaBannerInfo_j': json.dumps({
+            'Default:AthenaBannerInfo_j': json.dumps({
                 'AthenaBannerInfo': {
                     'bannerIconId': 'standardbanner15',
                     'bannerColorId': 'defaultcolor15',
                     'seasonLevel': 1,
                 },
             }),
-            'BattlePassInfo_j': json.dumps({
+            'Default:BattlePassInfo_j': json.dumps({
                 'BattlePassInfo': {
                     'bHasPurchasedPass': False,
                     'passLevel': 1,
@@ -498,19 +498,19 @@ class PartyMemberMeta(MetaBase):
                     'friendBoostXp': 0,
                 },
             }),
-            'Platform_j': json.dumps({
+            'Default:Platform_j': json.dumps({
                 'Platform': {
                     'platformStr': self.member.client.platform.value,
                 },
             }),
-            'PlatformUniqueId_s': 'INVALID',
-            'PlatformSessionId_s': '',
-            'CrossplayPreference_s': 'OptedIn',
-            'VoiceChatEnabled_b': 'true',
-            'VoiceConnectionId_s': '',
-            'SpectateAPartyMemberAvailable_b': "false",
-            'FeatDefinition_s': 'None',
-            'VoiceChatStatus_s': 'Disabled',
+            'Default:PlatformUniqueId_s': 'INVALID',
+            'Default:PlatformSessionId_s': '',
+            'Default:CrossplayPreference_s': 'OptedIn',
+            'Default:VoiceChatEnabled_b': 'true',
+            'Default:VoiceConnectionId_s': '',
+            'Default:SpectateAPartyMemberAvailable_b': "false",
+            'Default:FeatDefinition_s': 'None',
+            'Default:VoiceChatStatus_s': 'Disabled',
         }
 
         if meta is not None:
@@ -528,40 +528,40 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def ready(self) -> bool:
-        return self.get_prop('GameReadiness_s')
+        return self.get_prop('Default:GameReadiness_s')
 
     @property
     def input(self) -> str:
-        return self.get_prop('CurrentInputType_s')
+        return self.get_prop('Default:CurrentInputType_s')
 
     @property
     def assisted_challenge(self) -> str:
-        base = self.get_prop('AssistedChallengeInfo_j')
+        base = self.get_prop('Default:AssistedChallengeInfo_j')
         return base['AssistedChallengeInfo']['questItemDef']
 
     @property
     def outfit(self) -> str:
-        base = self.get_prop('AthenaCosmeticLoadout_j')
+        base = self.get_prop('Default:AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['characterDef']
 
     @property
     def backpack(self) -> str:
-        base = self.get_prop('AthenaCosmeticLoadout_j')
+        base = self.get_prop('Default:AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['backpackDef']
 
     @property
     def pickaxe(self) -> str:
-        base = self.get_prop('AthenaCosmeticLoadout_j')
+        base = self.get_prop('Default:AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['pickaxeDef']
 
     @property
     def contrail(self) -> str:
-        base = self.get_prop('AthenaCosmeticLoadout_j')
+        base = self.get_prop('Default:AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['contrailDef']
 
     @property
     def variants(self) -> List[Dict[str, str]]:
-        base = self.get_prop('AthenaCosmeticLoadout_j')
+        base = self.get_prop('Default:AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['variants']
 
     @property
@@ -582,17 +582,17 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def scratchpad(self) -> list:
-        base = self.get_prop('AthenaCosmeticLoadout_j')
+        base = self.get_prop('Default:AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['scratchpad']
 
     @property
     def emote(self) -> str:
-        base = self.get_prop('FrontendEmote_j')
+        base = self.get_prop('Default:FrontendEmote_j')
         return base['FrontendEmote']['emoteItemDef']
 
     @property
     def banner(self) -> Tuple[str, str, int]:
-        base = self.get_prop('AthenaBannerInfo_j')
+        base = self.get_prop('Default:AthenaBannerInfo_j')
         banner_info = base['AthenaBannerInfo']
 
         return (banner_info['bannerIconId'],
@@ -601,7 +601,7 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def battlepass_info(self) -> Tuple[bool, int, int, int]:
-        base = self.get_prop('BattlePassInfo_j')
+        base = self.get_prop('Default:BattlePassInfo_j')
         bp_info = base['BattlePassInfo']
 
         return (bp_info['bHasPurchasedPass'],
@@ -611,32 +611,32 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def platform(self) -> str:
-        base = self.get_prop('Platform_j')
+        base = self.get_prop('Default:Platform_j')
         return base['Platform']['platformStr']
 
     @property
     def location(self) -> str:
-        return self.get_prop('Location_s')
+        return self.get_prop('Default:Location_s')
 
     @property
     def has_preloaded(self) -> bool:
-        return self.get_prop('HasPreloadedAthena_b')
+        return self.get_prop('Default:HasPreloadedAthena_b')
 
     @property
     def spectate_party_member_available(self) -> bool:
-        return self.get_prop('SpectateAPartyMemberAvailable_b')
+        return self.get_prop('Default:SpectateAPartyMemberAvailable_b')
 
     @property
     def players_left(self) -> int:
-        return self.get_prop('NumAthenaPlayersLeft_U')
+        return self.get_prop('Default:NumAthenaPlayersLeft_U')
 
     @property
     def match_started_at(self) -> str:
-        return self.get_prop('UtcTimeStartedMatchAthena_s')
+        return self.get_prop('Default:UtcTimeStartedMatchAthena_s')
 
     @property
     def member_squad_assignment_request(self) -> str:
-        prop = self.get_prop('MemberSquadAssignmentRequest_j')
+        prop = self.get_prop('Default:MemberSquadAssignmentRequest_j')
         return prop['MemberSquadAssignmentRequest']
 
     def maybesub(self, def_):
@@ -653,16 +653,17 @@ class PartyMemberMeta(MetaBase):
             'version': version,
         }
         final = {'MemberSquadAssignmentRequest': data}
-        key = 'MemberSquadAssignmentRequest_j'
+        key = 'Default:MemberSquadAssignmentRequest_j'
         return {key: self.set_prop(key, final)}
 
     def set_readiness(self, val: str) -> Dict[str, Any]:
-        return {'GameReadiness_s': self.set_prop('GameReadiness_s', val)}
+        key = 'Default:GameReadiness_s'
+        return {key: self.set_prop(key, val)}
 
     def set_emote(self, emote: Optional[str] = None, *,
                   emote_ekey: Optional[str] = None,
                   section: Optional[int] = None) -> Dict[str, Any]:
-        data = (self.get_prop('FrontendEmote_j'))['FrontendEmote']
+        data = (self.get_prop('Default:FrontendEmote_j'))['FrontendEmote']
 
         if emote is not None:
             data['emoteItemDef'] = self.maybesub(emote)
@@ -672,12 +673,13 @@ class PartyMemberMeta(MetaBase):
             data['emoteSection'] = section
 
         final = {'FrontendEmote': data}
-        return {'FrontendEmote_j': self.set_prop('FrontendEmote_j', final)}
+        key = 'Default:FrontendEmote_j'
+        return {key: self.set_prop(key, final)}
 
     def set_assisted_challenge(self, quest: Optional[str] = None, *,
                                completed: Optional[int] = None
                                ) -> Dict[str, Any]:
-        prop = self.get_prop('AssistedChallengeInfo_j')
+        prop = self.get_prop('Default:AssistedChallengeInfo_j')
         data = prop['AssistedChallenge_j']
 
         if quest is not None:
@@ -686,13 +688,14 @@ class PartyMemberMeta(MetaBase):
             data['objectivesCompleted'] = completed
 
         final = {'AssistedChallengeInfo': data}
-        new_prop = self.set_prop('AssistedChallengeInfo_j', final)
-        return {'AssistedChallengeInfo_j': new_prop}
+        key = 'Default:AssistedChallengeInfo_j'
+        return {key: self.set_prop(key, final)}
 
     def set_banner(self, banner_icon: Optional[str] = None, *,
                    banner_color: Optional[str] = None,
                    season_level: Optional[int] = None) -> Dict[str, Any]:
-        data = (self.get_prop('AthenaBannerInfo_j'))['AthenaBannerInfo']
+        key = 'Default:AthenaBannerInfo_j'
+        data = (self.get_prop(key))['AthenaBannerInfo']
 
         if banner_icon is not None:
             data['bannerIconId'] = banner_icon
@@ -702,15 +705,14 @@ class PartyMemberMeta(MetaBase):
             data['seasonLevel'] = season_level
 
         final = {'AthenaBannerInfo': data}
-        new_prop = self.set_prop('AthenaBannerInfo_j', final)
-        return {'AthenaBannerInfo_j': new_prop}
+        return {key: self.set_prop(key, final)}
 
     def set_battlepass_info(self, has_purchased: Optional[bool] = None,
                             level: Optional[int] = None,
                             self_boost_xp: Optional[int] = None,
                             friend_boost_xp: Optional[int] = None
                             ) -> Dict[str, Any]:
-        data = (self.get_prop('BattlePassInfo_j'))['BattlePassInfo']
+        data = (self.get_prop('Default:BattlePassInfo_j'))['BattlePassInfo']
 
         if has_purchased is not None:
             data['bHasPurchasedPass'] = has_purchased
@@ -722,7 +724,8 @@ class PartyMemberMeta(MetaBase):
             data['friendBoostXp'] = friend_boost_xp
 
         final = {'BattlePassInfo': data}
-        return {'BattlePassInfo_j': self.set_prop('BattlePassInfo_j', final)}
+        key = 'Default:BattlePassInfo_j'
+        return {key: self.set_prop(key, final)}
 
     def set_cosmetic_loadout(self, *,
                              character: Optional[str] = None,
@@ -736,7 +739,7 @@ class PartyMemberMeta(MetaBase):
                              scratchpad: Optional[list] = None,
                              variants: Optional[List[Dict[str, str]]] = None
                              ) -> Dict[str, Any]:
-        prop = self.get_prop('AthenaCosmeticLoadout_j')
+        prop = self.get_prop('Default:AthenaCosmeticLoadout_j')
         data = prop['AthenaCosmeticLoadout']
 
         if character is not None:
@@ -761,8 +764,8 @@ class PartyMemberMeta(MetaBase):
             data['variants'] = variants
 
         final = {'AthenaCosmeticLoadout': data}
-        new_prop = self.set_prop('AthenaCosmeticLoadout_j', final)
-        return {'AthenaCosmeticLoadout_j': new_prop}
+        key = 'Default:AthenaCosmeticLoadout_j'
+        return {key: self.set_prop(key, final)}
 
     def set_match_state(self, *,
                         location: str = None,
@@ -774,19 +777,19 @@ class PartyMemberMeta(MetaBase):
         result = {}
 
         if location is not None:
-            key = 'Location_s'
+            key = 'Default:Location_s'
             result[key] = self.set_prop(key, location)
         if has_preloaded is not None:
-            key = 'HasPreloadedAthena_b'
+            key = 'Default:HasPreloadedAthena_b'
             result[key] = self.set_prop(key, has_preloaded)
         if spectate_party_member_available is not None:
-            key = 'SpectateAPartyMemberAvailable_b'
+            key = 'Default:SpectateAPartyMemberAvailable_b'
             result[key] = self.set_prop(key, spectate_party_member_available)
         if players_left is not None:
-            key = 'NumAthenaPlayersLeft_U'
+            key = 'Default:NumAthenaPlayersLeft_U'
             result[key] = self.set_prop(key, players_left)
         if started_at is not None:
-            key = 'UtcTimeStartedMatchAthena_s'
+            key = 'Default:UtcTimeStartedMatchAthena_s'
             timestamp = self.member.client.to_iso(started_at)
             result[key] = self.set_prop(key, timestamp)
 
@@ -810,22 +813,22 @@ class PartyMeta(MetaBase):
         }
 
         self.schema = {
-            'PrimaryGameSessionId_s': '',
-            'PartyState_s': 'BattleRoyaleView',
-            'LobbyConnectionStarted_b': 'false',
-            'MatchmakingResult_s': 'NoResults',
-            'MatchmakingState_s': 'NotMatchmaking',
-            'SessionIsCriticalMission_b': 'false',
-            'ZoneTileIndex_U': '-1',
-            'ZoneInstanceId_s': '',
-            'SpectateAPartyMemberAvailable_b': 'false',
-            'TheaterId_s': '',
-            'TileStates_j': json.dumps({
+            'Default:PrimaryGameSessionId_s': '',
+            'Default:PartyState_s': 'BattleRoyaleView',
+            'Default:LobbyConnectionStarted_b': 'false',
+            'Default:MatchmakingResult_s': 'NoResults',
+            'Default:MatchmakingState_s': 'NotMatchmaking',
+            'Default:SessionIsCriticalMission_b': 'false',
+            'Default:ZoneTileIndex_U': '-1',
+            'Default:ZoneInstanceId_s': '',
+            'Default:SpectateAPartyMemberAvailable_b': 'false',
+            'Default:TheaterId_s': '',
+            'Default:TileStates_j': json.dumps({
                 'TileStates': [],
             }),
-            'MatchmakingInfoString_s': '',
-            'CustomMatchKey_s': '',
-            'PlaylistData_j': json.dumps({
+            'Default:MatchmakingInfoString_s': '',
+            'Default:CustomMatchKey_s': '',
+            'Default:PlaylistData_j': json.dumps({
                 'PlaylistData': {
                     'playlistName': 'Playlist_DefaultDuo',
                     'tournamentId': '',
@@ -833,21 +836,21 @@ class PartyMeta(MetaBase):
                     'regionId': 'EU',
                 },
             }),
-            'AthenaSquadFill_b': 'true',
-            'AllowJoinInProgress_b': 'false',
-            'LFGTime_s': '0001-01-01T00:00:00.000Z',
-            'PartyIsJoinedInProgress_b': 'false',
-            'GameSessionKey_s': '',
-            'RawSquadAssignments_j': json.dumps({
+            'Default:AthenaSquadFill_b': 'true',
+            'Default:AllowJoinInProgress_b': 'false',
+            'Default:LFGTime_s': '0001-01-01T00:00:00.000Z',
+            'Default:PartyIsJoinedInProgress_b': 'false',
+            'Default:GameSessionKey_s': '',
+            'Default:RawSquadAssignments_j': json.dumps({
                 'RawSquadAssignments': []
             }),
-            'PrivacySettings_j': json.dumps({
+            'Default:PrivacySettings_j': json.dumps({
                 'PrivacySettings': privacy_settings,
             }),
-            'PlatformSessions_j': json.dumps({
+            'Default:PlatformSessions_j': json.dumps({
                 'PlatformSessions': [],
             }),
-            'PartyMatchmakingInfo_j': json.dumps({
+            'Default:PartyMatchmakingInfo_j': json.dumps({
                 'PartyMatchmakingInfo': {
                     'buildId': -1,
                     'hotfixVersion': -1,
@@ -874,7 +877,7 @@ class PartyMeta(MetaBase):
 
     @property
     def playlist_info(self) -> Tuple[str]:
-        base = self.get_prop('PlaylistData_j')
+        base = self.get_prop('Default:PlaylistData_j')
         info = base['PlaylistData']
 
         return (info['playlistName'],
@@ -884,11 +887,12 @@ class PartyMeta(MetaBase):
 
     @property
     def squad_fill(self) -> bool:
-        return self.get_prop('AthenaSquadFill_b')
+        return self.get_prop('Default:AthenaSquadFill_b')
 
     @property
     def privacy(self) -> Optional[PartyPrivacy]:
-        curr_priv = (self.get_prop('PrivacySettings_j'))['PrivacySettings']
+        raw = self.get_prop('Default:PrivacySettings_j')
+        curr_priv = raw['PrivacySettings']
 
         for privacy in PartyPrivacy:
             if curr_priv['partyType'] != privacy.value['partyType']:
@@ -909,18 +913,19 @@ class PartyMeta(MetaBase):
 
     @property
     def squad_assignments(self) -> List[dict]:
-        return self.get_prop('RawSquadAssignments_j')['RawSquadAssignments']
+        raw = self.get_prop('Default:RawSquadAssignments_j')
+        return raw['RawSquadAssignments']
 
     def set_squad_assignments(self, data: List[dict]) -> Dict[str, Any]:
         final = {'RawSquadAssignments': data}
-        key = 'RawSquadAssignments_j'
+        key = 'Default:RawSquadAssignments_j'
         return {key: self.set_prop(key, final)}
 
     def set_playlist(self, playlist: Optional[str] = None, *,
                      tournament: Optional[str] = None,
                      event_window: Optional[str] = None,
                      region: Optional[Region] = None) -> Dict[str, Any]:
-        data = (self.get_prop('PlaylistData_j'))['PlaylistData']
+        data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
 
         if playlist is not None:
             data['playlistName'] = playlist
@@ -932,20 +937,22 @@ class PartyMeta(MetaBase):
             data['regionId'] = region
 
         final = {'PlaylistData': data}
-        return {'PlaylistData_j': self.set_prop('PlaylistData_j', final)}
+        key = 'Default:PlaylistData_j'
+        return {key: self.set_prop(key, final)}
 
     def set_custom_key(self, key: str) -> Dict[str, Any]:
-        return {'CustomMatchKey_s': self.set_prop('CustomMatchKey_s', key)}
+        _key = 'Default:CustomMatchKey_s'
+        return {_key: self.set_prop(_key, key)}
 
     def set_fill(self, val: str) -> Dict[str, Any]:
-        prop = self.set_prop('AthenaSquadFill_b', (str(val)).lower())
-        return {'AthenaSquadFill_b': prop}
+        key = 'Default:AthenaSquadFill_b'
+        return {key: self.set_prop(key, (str(val)).lower())}
 
     def set_privacy(self, privacy: dict) -> Tuple[dict, list]:
         updated = {}
         deleted = []
 
-        p = self.get_prop('PrivacySettings_j')
+        p = self.get_prop('Default:PrivacySettings_j')
         if p:
             _priv = privacy
             new_privacy = {
@@ -955,7 +962,8 @@ class PartyMeta(MetaBase):
                 'partyInviteRestriction': _priv['inviteRestriction'],
             }
 
-            updated['PrivacySettings_j'] = self.set_prop('PrivacySettings_j', {
+            key = 'Default:PrivacySettings_j'
+            updated[key] = self.set_prop(key, {
                 'PrivacySettings': new_privacy
             })
 
@@ -1760,7 +1768,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 asset = ("AthenaCharacterItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/Characters/{0}.{0}'".format(asset))
         else:
-            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['characterDef']
 
         variants = [x for x in self.meta.variants
@@ -1837,7 +1845,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 asset = ("AthenaBackpackItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/Backpacks/{0}.{0}'".format(asset))
         else:
-            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
 
         variants = [x for x in self.meta.variants
@@ -1911,7 +1919,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 asset = ("AthenaPetItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/PetCarriers/{0}.{0}'".format(asset))
         else:
-            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
 
         variants = [x for x in self.meta.variants
@@ -1971,7 +1979,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 asset = ("AthenaPickaxeItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/Pickaxes/{0}.{0}'".format(asset))
         else:
-            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['pickaxeDef']
 
         variants = [x for x in self.meta.variants
@@ -2019,7 +2027,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 asset = ("AthenaContrailItemDefinition'/Game/Athena/Items/"
                          "Cosmetics/Contrails/{0}.{0}'".format(asset))
         else:
-            prop = self.meta.get_prop('AthenaCosmeticLoadout_j')
+            prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['contrailDef']
 
         variants = [x for x in self.meta.variants
@@ -2285,7 +2293,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 quest = ("FortQuestItemDefinition'/Game/Athena/Items/"
                          "Quests/DailyQuests/Quests/{0}.{0}'".format(quest))
         else:
-            prop = self.meta.get_prop('AssistedChallengeInfo_j')
+            prop = self.meta.get_prop('Default:AssistedChallengeInfo_j')
             quest = prop['AssistedChallengeInfo']['questItemDef']
 
         prop = self.meta.set_assisted_challenge(
@@ -2332,7 +2340,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         ------
         HTTPException
             An error occured while requesting.
-        """
+        """  # noqa
         if not 0 <= players_left <= 255:
             raise ValueError('players_left must be an integer between 0 '
                              'and 255')
@@ -2524,7 +2532,7 @@ class PartyBase:
         self.meta.update(data['party_state_updated'], raw=True)
         self.meta.remove(data['party_state_removed'])
 
-        privacy = self.meta.get_prop('PrivacySettings_j')
+        privacy = self.meta.get_prop('Default:PrivacySettings_j')
         c = privacy['PrivacySettings']
         found = False
         for d in PartyPrivacy:
@@ -2740,7 +2748,7 @@ class ClientParty(PartyBase, Patchable):
         self.meta.update(data['party_state_updated'], raw=True)
         self.meta.remove(data['party_state_removed'])
 
-        privacy = self.meta.get_prop('PrivacySettings_j')
+        privacy = self.meta.get_prop('Default:PrivacySettings_j')
         c = privacy['PrivacySettings']
         found = False
         for d in PartyPrivacy:
