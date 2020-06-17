@@ -52,5 +52,13 @@ from .playlist import Playlist
 from .kairos import Avatar
 
 # fix for python 3.8
+loop = asyncio._get_running_loop()
+if loop is not None:
+    if isinstance(asyncio.get_event_loop_policy(), asyncio.WindowsProactorEventLoopPolicy):
+        raise RuntimeError(
+            'Incompatible event loop running. Read more here: '
+            'https://fortnitepy.readthedocs.io/en/latest/faq.html#python-3-8-why-does-other-asynchronous-libraries-suddenly-break-when-using-fortnitepy'
+        )
+
 if platform == 'win32' and version_info >= (3, 8):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
