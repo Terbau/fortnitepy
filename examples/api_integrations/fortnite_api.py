@@ -6,7 +6,6 @@ import json
 import os
 
 FORTNITE_API_BASE = 'https://fortnite-api.com'
-API_KEY = '' # get your api key from https://fortnite-api.com/
 email = 'email@email.com'
 password = 'password1'
 filename = 'device_auths.json'
@@ -31,7 +30,7 @@ class MyClient(fortnitepy.Client):
             auth=fortnitepy.AdvancedAuth(
                 email=email,
                 password=password,
-                prompt_exchange_code=True,
+                prompt_authorization_code=True,
                 delete_existing_device_auths=True,
                 **device_auth_details
             )
@@ -52,7 +51,6 @@ class MyClient(fortnitepy.Client):
     async def fetch_cosmetic(self, type_, name):
         async with self.session.get(
             FORTNITE_API_BASE + '/cosmetics/br/search',
-            headers={'x-api-key': API_KEY},
             params={'type': type_, 'name': name}
         ) as r:
             if r.status == 404:
@@ -92,7 +90,7 @@ class MyClient(fortnitepy.Client):
                 return await message.reply('Could not find the requested outfit.')
 
             outfit_data = data['data']
-            await self.user.party.me.set_outfit(
+            await self.party.me.set_outfit(
                 asset=outfit_data['id'],
                 variants=self.build_random_variants('outfit', outfit_data.get('variants', []))
             )
@@ -104,7 +102,7 @@ class MyClient(fortnitepy.Client):
                 return await message.reply('Could not find the requested emote.')
 
             emote_data = data['data']
-            await self.user.party.me.set_emote(
+            await self.party.me.set_emote(
                 asset=emote_data['id'],
                 run_for=10
             )

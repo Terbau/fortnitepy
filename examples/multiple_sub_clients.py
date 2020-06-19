@@ -1,12 +1,12 @@
 """This example makes use of one main account and multiple sub-accounts.
 If captcha is enforced for the accounts, you will only have to enter the
-exchange code the first time you run this script.
+authorization code the first time you run this script.
 
 NOTE: This example uses AdvancedAuth and stores the details in a file.
 It is important that this file is moved whenever the script itself is moved
 because it relies on the stored details. However, if the file is nowhere to
 be found, it will simply use email and password or prompt you to enter a
-new exchange code to generate a new file.
+new authorization code to generate a new file.
 """
 
 import fortnitepy
@@ -55,13 +55,13 @@ class MyClient(fortnitepy.Client):
             auth=fortnitepy.AdvancedAuth(
                 email=email,
                 password=password,
-                prompt_exchange_code=True,
+                authorization=True,
                 delete_existing_device_auths=True,
                 **device_auths.get(email, {})
             )
         )
         self.instances = {}
-        
+
     async def event_sub_device_auth_generate(self, details, email):
         store_device_auth_details(email, details)
 
@@ -89,12 +89,14 @@ class MyClient(fortnitepy.Client):
                 auth=fortnitepy.AdvancedAuth(
                     email=email,
                     password=password,
-                    prompt_exchange_code=True,
+                    prompt_authorization_code=True,
                     delete_existing_device_auths=True,
                     **device_auths.get(email, {})
                 ),
-                default_party_member_config=(
-                    functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
+                default_party_member_config=fortnitepy.DefaultPartyMemberConfig(
+                    meta=(
+                        functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
+                    )
                 )
             )
 
@@ -104,23 +106,23 @@ class MyClient(fortnitepy.Client):
             client.add_event_handler('party_member_join', self.event_sub_party_member_join)
 
             clients.append(client)
-        
+
         try:
             await fortnitepy.start_multiple(
-                clients, 
+                clients,
                 ready_callback=self.event_sub_ready,
                 all_ready_callback=lambda: print('All sub clients ready')
             )
         except fortnitepy.AuthException:
             print('An error occured while starting sub clients. Closing gracefully.')
-            await self.logout()
+            await self.close()
 
-    async def event_logout(self):
+    async def event_close(self):
         await fortnitepy.close_multiple(list(self.instances.values()))
         print('Successfully logged out of all sub accounts.')
 
     async def event_friend_request(self, request):
         await request.accept()
-    
+
 client = MyClient()
 client.run()

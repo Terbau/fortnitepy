@@ -1,37 +1,20 @@
- # fortnitepy
+"""This example showcases how to use fortnitepy. If captcha is enforced for
+the account, you will only have to enter the authorization code the first time
+you run this script.
 
-[![Supported py versions](https://img.shields.io/pypi/pyversions/fortnitepy.svg)](https://pypi.org/project/fortnitepy/)
-[![Current pypi version](https://img.shields.io/pypi/v/fortnitepy.svg)](https://pypi.org/project/fortnitepy/)
+NOTE: This example uses AdvancedAuth and stores the details in a file.
+It is important that this file is moved whenever the script itself is moved
+because it relies on the stored details. However, if the file is nowhere to
+be found, it will simply use email and password or prompt you to enter a
+new authorization code to generate a new file.
+"""
 
-Asynchronous library for interacting with Fortnite and EpicGames' API and XMPP services.
-
-**Note:** This library is still under developement so breaking changes might happen at any time.
-
-**Some key features:**
-- Full support for Friends.
-- Support for XMPP events including friend and party messages + many more.
-- Support for Parties.
-- Support for Battle Royale stats.
-
-# Documentation
-https://fortnitepy.readthedocs.io/en/latest/
-
-# Installing
-```
-# windows
-py -3 -m pip install -U fortnitepy
-
-# linux
-python3 -m pip install -U fortnitepy
-```
-
-# Basic usage
-```py
 import fortnitepy
 import json
 import os
 
 from fortnitepy.ext import commands
+
 
 email = 'email@email.com'
 password = 'password1'
@@ -49,6 +32,7 @@ def store_device_auth_details(email, details):
 
     with open(filename, 'w') as fp:
         json.dump(existing, fp)
+
 
 device_auth_details = get_device_auth_details().get(email, {})
 bot = commands.Bot(
@@ -83,12 +67,3 @@ async def hello(ctx):
     await ctx.send('Hello!')
 
 bot.run()
-```
-
-# Credit
-Thanks to [Kysune](https://github.com/SzymonLisowiec), [iXyles](https://github.com/iXyles), [Vrekt](https://github.com/Vrekt) and [amrsatrio](https://github.com/Amrsatrio) for ideas and/or work that this library is built upon.
-
-Also thanks to [discord.py](https://github.com/Rapptz/discord.py) for much inspiration code-wise.
-
-# Need help?
-If you need more help feel free to join this [discord server](https://discord.gg/rnk869s).

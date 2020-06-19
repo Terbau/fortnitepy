@@ -25,15 +25,15 @@ SOFTWARE.
 """
 
 import logging
-import datetime
 
 from aioxmpp import JID
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional
+from .enums import ProfileSearchPlatform, ProfileSearchMatchType
+from .typedefs import DatetimeOrTimestamp
 
 if TYPE_CHECKING:
     from .client import Client
     from .stats import StatsV2
-    from .party import ClientParty
 
 log = logging.getLogger(__name__)
 
@@ -87,10 +87,19 @@ class ExternalAuth:
                 'external_display_name={0.external_display_name!r} '
                 'external_id={0.external_id!r}>'.format(self))
 
+    def get_raw(self):
+        return {
+            'type': self.type,
+            'accountId': self.id,
+            'externalAuthId': self.external_id,
+            'externalDisplayName': self.external_display_name,
+            **self.extra_info
+        }
+
 
 class UserBase:
     __slots__ = ('client', '_epicgames_display_name', '_external_display_name',
-                 '_id', '_external_auths', '_raw_external_auths')
+                 '_id', '_external_auths')
 
     def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
         self.client = client
@@ -145,10 +154,8 @@ class UserBase:
         return JID.fromstr('{0.id}@{0.client.service_host}'.format(self))
 
     async def fetch_br_stats(self, *,
-                             start_time: Optional[Union[int,
-                                                  datetime.datetime]] = None,
-                             end_time: Optional[Union[int,
-                                                datetime.datetime]] = None
+                             start_time: Optional[DatetimeOrTimestamp] = None,
+                             end_time: Optional[DatetimeOrTimestamp] = None
                              ) -> 'StatsV2':
         """|coro|
 
@@ -156,13 +163,13 @@ class UserBase:
 
         Parameters
         ----------
-        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the time period to get stats from.
-            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`]]
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
             The UTC end time of the time period to get stats from.
-            *Must be seconds since epoch or :class:`datetime.datetime`*
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
 
         Raises
@@ -179,15 +186,36 @@ class UserBase:
         -------
         :class:`StatsV2`
             An object representing the stats for this user.
-        """
-        return await self.client.fetch_br_stats(self.id,
-                                                start_time=start_time,
-                                                end_time=end_time)
+        """  # noqa
+        return await self.client.fetch_br_stats(
+            self.id,
+            start_time=start_time,
+            end_time=end_time
+        )
 
-    async def fetch_battlepass_level(self) -> float:
+    async def fetch_battlepass_level(self, *,
+                                     start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                     end_time: Optional[DatetimeOrTimestamp] = None  # noqa
+                                     ) -> float:
         """|coro|
 
         Fetches this users battlepass level.
+
+        Parameters
+        ----------
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
+            The UTC start time of the window to get the battlepass level from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
+            The UTC end time of the window to get the battlepass level from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+
+        .. note::
+
+            If neither start_time nor end_time is ``None`` (default), then
+            the battlepass level from the current season is fetched.
 
         Raises
         ------
@@ -199,8 +227,12 @@ class UserBase:
         :class:`float`
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
-        """
-        return await self.client.fetch_battlepass_level(self.id)
+        """  # noqa
+        return await self.client.fetch_battlepass_level(
+            self.id,
+            start_time=start_time,
+            end_time=end_time
+        )
 
     def _update(self, data: dict) -> None:
         self._epicgames_display_name = data.get('displayName',
@@ -231,7 +263,6 @@ class UserBase:
             break
 
         self._external_auths = ext_list
-        self._raw_external_auths = external_auths
 
     def _update_epicgames_display_name(self, display_name: str) -> None:
         self._epicgames_display_name = display_name
@@ -240,7 +271,7 @@ class UserBase:
         return {
             'displayName': self.display_name,
             'id': self.id,
-            'externalAuths': self._raw_external_auths
+            'externalAuths': [ext.get_raw() for ext in self._external_auths]
         }
 
 
@@ -294,7 +325,6 @@ class ClientUser(UserBase):
 
     def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
         super().__init__(client, data)
-        self._party = None
         self._update(data)
 
     def __repr__(self) -> str:
@@ -308,11 +338,6 @@ class ClientUser(UserBase):
     @property
     def full_name(self) -> str:
         return '{} {}'.format(self.name, self.last_name)
-
-    @property
-    def party(self) -> 'ClientParty':
-        """:class:`ClientParty`: The users party."""
-        return self._party
 
     @property
     def jid(self) -> JID:
@@ -344,12 +369,6 @@ class ClientUser(UserBase):
         self.minor_verified = data['minorVerified']
         self.minor_expected = data['minorExpected']
         self.minor_status = data['minorStatus']
-
-    def set_party(self, party: 'ClientParty') -> None:
-        self._party = party
-
-    def remove_party(self) -> None:
-        self._party = None
 
 
 class User(UserBase):
@@ -396,3 +415,64 @@ class BlockedUser(UserBase):
         Unblocks this friend.
         """
         await self.client.unblock_user(self.id)
+
+
+class ProfileSearchEntryUser(User):
+    """Represents a user entry in a profile search.
+
+    Parameters
+    ----------
+    matches: List[Tuple[:class:`str`, :class:`ProfileSearchPlatform`]]
+        | A list of tuples containing the display name the user matched
+        and the platform the display name is from.
+        | Example: ``[('Tfue', ProfileSearchPlatform.EPIC_GAMES)]``
+    match_type: :class:`ProfileSearchMatchType`
+        The type of match this user matched by.
+    mutual_friend_count: :class:`int`
+        The amount of **epic** mutual friends the client has with the user.
+    """
+    def __init__(self, client: 'Client',
+                 profile_data: dict,
+                 search_data: dict) -> None:
+        super().__init__(client, profile_data)
+
+        self.matches = [(d['value'], ProfileSearchPlatform(d['platform']))
+                        for d in search_data['matches']]
+        self.match_type = ProfileSearchMatchType(search_data['matchType'])
+        self.mutual_friend_count = search_data['epicMutuals']
+
+    def __str__(self) -> str:
+        return self.matches[0][0]
+
+    def __repr__(self) -> str:
+        return ('<ProfileSearchEntryUser id={0.id!r} '
+                'display_name={0.display_name!r} '
+                'epicgames_account={0.epicgames_account!r}>'.format(self))
+
+
+class SacSearchEntryUser(User):
+    """Represents a user entry in a support a creator code search.
+
+    Parameters
+    ----------
+    slug: :class:`str`
+        The slug (creator code) that matched.
+    active: :class:`bool`
+        Wether or not the creator code is active or not.
+    verified: :class:`bool`
+        Wether or not the creator code is verified or not.
+    """
+    def __init__(self, client: 'Client',
+                 profile_data: dict,
+                 search_data: dict) -> None:
+        super().__init__(client, profile_data)
+
+        self.slug = search_data['slug']
+        self.active = search_data['status'] == 'ACTIVE'
+        self.verified = search_data['verified']
+
+    def __repr__(self) -> str:
+        return ('<SacSearchEntryUser slug={0.slug!r} '
+                'id={0.id!r} '
+                'display_name={0.display_name!r} '
+                'epicgames_account={0.epicgames_account!r}>'.format(self))

@@ -1,12 +1,12 @@
 """This example makes use of multiple accounts. If captcha is enforced for
-the accounts, you will only have to enter the exchange code the first time
+the accounts, you will only have to enter the authorization code the first time
 you run this script.
 
 NOTE: This example uses AdvancedAuth and stores the details in a file.
 It is important that this file is moved whenever the script itself is moved
 because it relies on the stored details. However, if the file is nowhere to
 be found, it will simply use email and password or prompt you to enter a
-new exchange code to generate a new file.
+new authorization code to generate a new file.
 """
 
 import fortnitepy
@@ -64,15 +64,17 @@ for email, password in credentials.items():
     authentication = fortnitepy.AdvancedAuth(
         email=email,
         password=password,
-        prompt_exchange_code=True,
+        prompt_authorization_code=True,
         delete_existing_device_auths=True,
         **device_auths.get(email, {})
     )
 
     client = fortnitepy.Client(
         auth=authentication,
-        default_party_member_config=(
-            functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
+        default_party_member_config=fortnitepy.DefaultPartyMemberConfig(
+            meta=(
+                functools.partial(fortnitepy.ClientPartyMember.set_outfit, 'CID_175_Athena_Commando_M_Celestial'), # galaxy skin
+            )
         )
     )
 

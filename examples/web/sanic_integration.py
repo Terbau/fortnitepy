@@ -1,21 +1,26 @@
-"""This example showcases how to use fortnitepy. If captcha is enforced for
-the account, you will only have to enter the exchange code the first time
-you run this script.
+"""This example showcases how to use fortnitepy with the asynchronous
+web framework sanic. If captcha is enforced for the accounts, you will
+only have to enter the authorization code the first time you run this script.
 
 NOTE: This example uses AdvancedAuth and stores the details in a file.
 It is important that this file is moved whenever the script itself is moved
 because it relies on the stored details. However, if the file is nowhere to
 be found, it will simply use email and password or prompt you to enter a
-new exchange code to generate a new file.
+new authorization code to generate a new file.
 """
 
 import fortnitepy
 import json
 import os
+import sanic
+
+from fortnitepy.ext import commands
+
 
 email = 'email@email.com'
 password = 'password1'
 filename = 'device_auths.json'
+description = 'My awesome fortnite bot / sanic app!'
 
 def get_device_auth_details():
     if os.path.isfile(filename):
@@ -32,35 +37,60 @@ def store_device_auth_details(email, details):
 
 
 device_auth_details = get_device_auth_details().get(email, {})
-client = fortnitepy.Client(
+bot = commands.Bot(
+    command_prefix='!',
     auth=fortnitepy.AdvancedAuth(
         email=email,
         password=password,
-        prompt_exchange_code=True,
+        prompt_authorization_code=True,
         delete_existing_device_auths=True,
         **device_auth_details
     )
 )
 
-@client.event
+sanic_app = sanic.Sanic(__name__)
+server = None
+
+
+@bot.event
 async def event_device_auth_generate(details, email):
     store_device_auth_details(email, details)
 
-@client.event
+@sanic_app.route('/friends', methods=['GET'])
+async def get_friends_handler(request):
+    friends = [friend.id for friend in bot.friends.values()]
+    return sanic.response.json(friends)
+
+@bot.event
 async def event_ready():
+    global server
+
     print('----------------')
-    print('Client ready as')
-    print(client.user.display_name)
-    print(client.user.id)
+    print('Bot ready as')
+    print(bot.user.display_name)
+    print(bot.user.id)
     print('----------------')
 
-@client.event
+    coro = sanic_app.create_server(
+        host='0.0.0.0',
+        port=8000,
+        return_asyncio_server=True,
+    )
+    server = await coro
+
+@bot.event
+async def event_close():
+    global server
+
+    if server is not None:
+        await server.close()
+
+@bot.event
 async def event_friend_request(request):
     await request.accept()
 
-@client.event
-async def event_friend_message(message):
-    print('Received message from {0.author.display_name} | Content: "{0.content}"'.format(message))
-    await message.reply('Thanks for your message!')
+@bot.command()
+async def hello(ctx):
+    await ctx.send('Hello!')
 
-client.run()
+bot.run()

@@ -38,9 +38,6 @@ if TYPE_CHECKING:
     from .client import Client
     from .party import ClientParty
 
-# Type defs
-Datetime = datetime.datetime
-
 
 class FriendBase(UserBase):
 
@@ -111,7 +108,7 @@ class FriendBase(UserBase):
         return self._direction == 'OUTGOING'
 
     @property
-    def created_at(self) -> Datetime:
+    def created_at(self) -> datetime.datetime:
         """:class:`datetime.datetime`: The UTC time of when the friendship was
         created.
         """
@@ -157,7 +154,7 @@ class Friend(FriendBase):
         super()._update(data)
         self._favorite = data.get('favorite')
 
-    def _update_last_logout(self, dt: Datetime) -> None:
+    def _update_last_logout(self, dt: datetime.datetime) -> None:
         self._last_logout = dt
 
     def _update_summary(self, data: dict) -> None:
@@ -212,7 +209,7 @@ class Friend(FriendBase):
         return self.client.get_presence(self.id)
 
     @property
-    def last_logout(self) -> Optional[Datetime]:
+    def last_logout(self) -> Optional[datetime.datetime]:
         """:class:`datetime.datetime`: The UTC time of the last time this
         friend logged off.
         ``None`` if this friend has never logged into fortnite or because
@@ -227,7 +224,7 @@ class Friend(FriendBase):
         """:class:`Platform`: The platform the friend is currently online on.
         ``None`` if the friend is offline.
         """
-        pres = self.client.get_presence(self.id)
+        pres = self.last_presence
         if pres is not None:
             return pres.platform
 
@@ -249,7 +246,7 @@ class Friend(FriendBase):
         :class:`bool`
             ``True`` if the friend is currently online else ``False``.
         """
-        pres = self.client.get_presence(self.id)
+        pres = self.last_presence
         if pres is None:
             return False
         return pres.available
@@ -279,25 +276,30 @@ class Friend(FriendBase):
 
         return self.last_logout
 
-    async def fetch_mutual_friends_count(self) -> int:
+    async def fetch_mutual_friends(self) -> List['Friend']:
         """|coro|
 
-        Gets how many mutual friends the client and this friend have in common.
-
-        Returns
-        -------
-        :class:`int`
-            The number of friends you have common.
+        Fetches a list of friends you and this friend have in common.
 
         Raises
         ------
         HTTPException
             An error occured while requesting.
+
+        Returns
+        -------
+        List[:class:`Friend`]
+            A list of friends you and this friend have in common.
         """
-        data = await self.client.http.friends_get_summary()
-        for friend in data['friends']:
-            if friend['accountId'] == self.id:
-                return friend['mutual']
+        res = await self.client.http.friends_get_mutual(self.id)
+
+        mutuals = []
+        for user_id in res:
+            friend = self.client.get_friend(user_id)
+            if friend is not None:
+                mutuals.append(friend)
+
+        return mutuals
 
     async def set_nickname(self, nickname: str) -> None:
         """|coro|
@@ -455,8 +457,13 @@ class Friend(FriendBase):
             The party is full.
         HTTPException
             Something went wrong when trying to invite this friend.
+
+        Returns
+        -------
+        :class:`SentPartyInvitation`
+            Object representing the sent party invitation.
         """
-        await self.client.user.party.invite(self.id)
+        return await self.client.party.invite(self.id)
 
 
 class PendingFriend(FriendBase):
@@ -472,7 +479,7 @@ class PendingFriend(FriendBase):
                 'epicgames_account={0.epicgames_account!r}>'.format(self))
 
     @property
-    def created_at(self) -> Datetime:
+    def created_at(self) -> datetime.datetime:
         """:class:`datetime.datetime`: The UTC time of when the request was
         created
         """
