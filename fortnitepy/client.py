@@ -817,12 +817,13 @@ class Client:
                 # catch 401.
                 pass
 
-        tasks = (
-            killer(getattr(self.auth, 'ios_access_token', None)),
-            killer(getattr(self.auth, 'launcher_access_token', None)),
-            killer(getattr(self.auth, 'access_token', None)),
-        )
-        await asyncio.gather(*tasks)
+        if not self._restarting:
+            tasks = (
+                killer(getattr(self.auth, 'ios_access_token', None)),
+                killer(getattr(self.auth, 'launcher_access_token', None)),
+                killer(getattr(self.auth, 'access_token', None)),
+            )
+            await asyncio.gather(*tasks)
 
         self._friends.clear()
         self._pending_friends.clear()
