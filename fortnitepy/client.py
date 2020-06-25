@@ -2436,7 +2436,11 @@ class Client:
 
     async def _create_party(self,
                             config: Optional[dict] = None) -> ClientParty:
-        async with self._join_party_lock:
+        aquiring = not self.auth._refresh_lock.locked()
+        try:
+            if aquiring:
+                await self._join_party_lock.acquire()
+
             if isinstance(config, dict):
                 cf = {**self.default_party_config.config, **config}
             else:
@@ -2483,6 +2487,10 @@ class Client:
             await asyncio.gather(*tasks)
 
             return party
+
+        finally:
+            if aquiring:
+                self._join_party_lock.release()
 
     def is_creating_party(self) -> bool:
         return self._join_party_lock.locked()
