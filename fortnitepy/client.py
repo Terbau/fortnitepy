@@ -817,12 +817,13 @@ class Client:
                 # catch 401.
                 pass
 
-        tasks = (
-            killer(getattr(self.auth, 'ios_access_token', None)),
-            killer(getattr(self.auth, 'launcher_access_token', None)),
-            killer(getattr(self.auth, 'access_token', None)),
-        )
-        await asyncio.gather(*tasks)
+        if not self._restarting:
+            tasks = (
+                killer(getattr(self.auth, 'ios_access_token', None)),
+                killer(getattr(self.auth, 'launcher_access_token', None)),
+                killer(getattr(self.auth, 'access_token', None)),
+            )
+            await asyncio.gather(*tasks)
 
         self._friends.clear()
         self._pending_friends.clear()
@@ -1420,8 +1421,9 @@ class Client:
         for user_id, data in raw_presences.items():
             friend = self.get_friend(user_id)
             if friend is not None:
+                value = data[0].get('last_online')
                 friend._update_last_logout(
-                    self.from_iso(data[0]['last_online'])
+                    value
                 )
 
         for data in raw_summary['blocklist']:
@@ -2436,7 +2438,11 @@ class Client:
 
     async def _create_party(self,
                             config: Optional[dict] = None) -> ClientParty:
-        async with self._join_party_lock:
+        aquiring = not self.auth._refresh_lock.locked()
+        try:
+            if aquiring:
+                await self._join_party_lock.acquire()
+
             if isinstance(config, dict):
                 cf = {**self.default_party_config.config, **config}
             else:
@@ -2483,6 +2489,10 @@ class Client:
             await asyncio.gather(*tasks)
 
             return party
+
+        finally:
+            if aquiring:
+                self._join_party_lock.release()
 
     def is_creating_party(self) -> bool:
         return self._join_party_lock.locked()

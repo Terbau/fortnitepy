@@ -6,6 +6,22 @@ Changelog
 Detailed version changes.
 
 
+v2.1.0
+------
+
+This update fixes the new xmpp authentication issue + some other bugs.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed xmpp authentication by running xmpp over a custom xmpp over websocket connector.
+- You can now use ``ProactorEventLoop`` with fortnitepy.
+- Fixed an issue where a bot would not be able to start in some scenarios because of a friend missing the ``last_online`` property.
+- Fixed an issue where a party was not created after refreshing the session. This was the cause of ``error code -93`` after refreshes.
+- Fixed an issue that caused :meth:`Client.restart()` to not work.
+- Silenced an error in processing of :func:`party_team_member_swap`.
+
+
 v2.0.7
 ------
 

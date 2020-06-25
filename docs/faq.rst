@@ -9,17 +9,6 @@ Frequently Asked Questions (FAQ)
 General
 -------
 
-[Python 3.8] Why does other asynchronous libraries suddenly break when using fortnitepy?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The default event loop that asyncio uses on windows was changed in python 3.8. Fortnitepy relies
-on a library that still needs the old loop to work. Most libraries does not care what loop is used
-and therefore fortnitepy changes the event loop when first imported. If other libraries break
-its most likely at the point of importing fortnitepy.
-
-The fix is to either set the event loop policy yourself when on windows to :class:`asyncio.SelectorEventLoopPolicy`,
-or to import fortnitepy at the top of your entrypoint file.
-
 How can I get a users K/D or Win Percentage?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
