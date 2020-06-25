@@ -785,10 +785,13 @@ class XMPPClient:
                                 new_positions=new_positions
                             )
 
-                        self.client.dispatch_event(
-                            'party_member_team_swap',
-                            *[party.members[k] for k in new_positions]
-                        )
+                        try:
+                            self.client.dispatch_event(
+                                'party_member_team_swap',
+                                *[party.members[k] for k in new_positions]
+                            )
+                        except KeyError:
+                            pass
 
         self.client.dispatch_event('party_member_update', member)
 
