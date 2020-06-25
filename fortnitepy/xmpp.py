@@ -179,7 +179,7 @@ class WebsocketTransport:
         return self.connection.transport.get_extra_info(*args, **kwargs)
 
 
-class WSXMLStreamWriter(aioxmpp.xml.XMLStreamWriter):
+class WebsocketXMLStreamWriter(aioxmpp.xml.XMLStreamWriter):
     def close(self):
         if self._closed:
             return
@@ -195,7 +195,7 @@ class WSXMLStreamWriter(aioxmpp.xml.XMLStreamWriter):
         del self._writer
 
 
-class WSXMLStream(aioxmpp.protocol.XMLStream):
+class WebsocketXMLStream(aioxmpp.protocol.XMLStream):
     def _reset_state(self):
         self._kill_state()
 
@@ -214,7 +214,7 @@ class WSXMLStream(aioxmpp.protocol.XMLStream):
         else:
             dest = self._transport
 
-        self._writer = WSXMLStreamWriter(
+        self._writer = WebsocketXMLStreamWriter(
             dest,
             self._to,
             nsmap={None: "jabber:client"},
@@ -234,7 +234,7 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
                       negotiation_timeout, base_logger=None):
         features_future = asyncio.Future(loop=loop)
 
-        stream = WSXMLStream(
+        stream = WebsocketXMLStream(
             to=domain,
             features_future=features_future,
             base_logger=base_logger,

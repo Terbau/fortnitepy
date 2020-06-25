@@ -1423,7 +1423,7 @@ class Client:
             if friend is not None:
                 value = data[0].get('last_online')
                 friend._update_last_logout(
-                    value
+                    self.from_iso(value) if value is not None else None
                 )
 
         for data in raw_summary['blocklist']:
