@@ -32,6 +32,7 @@ import datetime
 import uuid
 import itertools
 import unicodedata
+import websockets
 
 from collections import defaultdict
 from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any
@@ -108,6 +109,144 @@ class EventDispatcher:
 
 
 dispatcher = EventDispatcher()
+
+
+class WebsocketTransport:
+    def __init__(self, stream):
+        self.stream = stream
+        self.connection = None
+        self.loop = asyncio.get_event_loop()
+
+        self._buffer = b''
+
+        self._reader_task = None
+        self._close_event = asyncio.Event()
+
+    async def create_connection(self, *args, **kwargs):
+        self.connection = con = await websockets.connect(
+            *args, **kwargs
+        )
+        self.loop.create_task(self.reader())
+        self.stream.connection_made(self)
+        return con
+
+    async def reader(self):
+        try:
+            async for data in self.connection:
+                self.stream.data_received(data)
+        except websockets.ConnectionClosedError:
+            pass
+
+    async def send(self, data):
+        await self.connection.send(data)
+
+    def write(self, data):
+        self._buffer += data
+
+    def flush(self):
+        if self._buffer:
+            self.loop.create_task(self.send(self._buffer))
+
+        self._buffer = b''
+
+    def can_write_eof(self):
+        return False
+
+    def write_eof(self):
+        raise NotImplementedError("Cannot write_eof() on ws transport")
+
+    def _stop_reader(self):
+        if self._reader_task is not None and not self._reader_task.cancelled():
+            self._reader_task.cancel()
+
+    def close(self):
+        if not self.connection:
+            raise RuntimeError('Cannot close a non-existing connection.')
+
+        task = self.loop.create_task(self.connection.close())
+        task.add_done_callback(lambda *args: self._close_event.set())
+
+        self._stop_reader()
+
+    def abort(self):
+        self.connection.transport.abort()
+        self._stop_reader()
+
+    async def wait_closed(self):
+        await self._close_event
+
+    def get_extra_info(self, *args, **kwargs):
+        return self.connection.transport.get_extra_info(*args, **kwargs)
+
+
+class WSXMLStreamWriter(aioxmpp.xml.XMLStreamWriter):
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        self._writer.endElementNS(
+            (aioxmpp.utils.namespaces.xmlstream, "stream"),
+            None
+        )
+        for prefix in self._nsmap_to_use:
+            self._writer.endPrefixMapping(prefix)
+        self._writer.endDocument()
+        self._writer.flush()
+        del self._writer
+
+
+class WSXMLStream(aioxmpp.protocol.XMLStream):
+    def _reset_state(self):
+        self._kill_state()
+
+        self._processor = aioxmpp.xml.XMPPXMLProcessor()
+        self._processor.stanza_parser = self.stanza_parser
+        self._processor.on_stream_header = self._rx_stream_header
+        self._processor.on_stream_footer = self._rx_stream_footer
+        self._processor.on_exception = self._rx_exception
+        self._parser = aioxmpp.xml.make_parser()
+        self._parser.setContentHandler(self._processor)
+        self._debug_wrapper = None
+
+        if self._logger.getEffectiveLevel() <= logging.DEBUG:
+            dest = aioxmpp.protocol.DebugWrapper(self._transport, self._logger)
+            self._debug_wrapper = dest
+        else:
+            dest = self._transport
+
+        self._writer = WSXMLStreamWriter(
+            dest,
+            self._to,
+            nsmap={None: "jabber:client"},
+            sorted_attributes=self._sorted_attributes)
+
+
+class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
+    @property
+    def tls_supported(self):
+        return False
+
+    @property
+    def dane_supported(self):
+        return False
+
+    async def connect(self, loop, metadata, domain, host, port,
+                      negotiation_timeout, base_logger=None):
+        features_future = asyncio.Future(loop=loop)
+
+        stream = WSXMLStream(
+            to=domain,
+            features_future=features_future,
+            base_logger=base_logger,
+        )
+
+        transport = WebsocketTransport(stream)
+        await transport.create_connection(
+            'wss://{0}'.format(host),
+            subprotocols=('xmpp',),
+        )
+
+        return transport, stream, await features_future
 
 
 class XMPPClient:
@@ -861,7 +1000,7 @@ class XMPPClient:
             override_peer=[(
                 self.client.service_domain,
                 self.client.service_port,
-                aioxmpp.connector.STARTTLSConnector()
+                XMPPOverWebsocketConnector()
             )],
             loop=self.client.loop
         )
