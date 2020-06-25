@@ -6,6 +6,12 @@ Changelog
 Detailed version changes.
 
 
+v2.1.1
+------
+
+Fixes an issue where :attr:`Friend.last_logout` would sometimes be a string after v2.1.0.
+
+
 v2.1.0
 ------
 
