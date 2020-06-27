@@ -244,6 +244,7 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
         await transport.create_connection(
             'wss://{0}'.format(host),
             subprotocols=('xmpp',),
+            ping_interval=None
         )
 
         return transport, stream, await features_future
