@@ -45,6 +45,10 @@ div.related {
 	width: auto;
 }
 
+div.body h1, div.body h2, div.body h3 {
+  border-bottom: 1px solid #ddd;
+}
+
 div.sphinxsidebar {
 	float: left;
 	font-size: 14px;
@@ -155,6 +159,10 @@ tt.descname, code.descname {
   font-size: 1.1em;
 }
 
+a span.pre {
+  color: #3d9cc2 !important;
+}
+
 tt.xref, a tt, code.xref, a code {
   font-weight: normal;
 }
@@ -168,7 +176,7 @@ a.toc-backref {
 }
 
 a {
-  color: #125261;
+  color: #3d9cc2;
   text-decoration: none;
 }
 

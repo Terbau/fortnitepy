@@ -45,6 +45,7 @@ extensions = [
 
 
 autodoc_member_order = 'bysource'
+autodoc_typehints = 'none'
 
 # Links used for cross-referencing stuff in other documentation
 intersphinx_mapping = {
