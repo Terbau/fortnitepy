@@ -32,7 +32,7 @@ import datetime
 import uuid
 import itertools
 import unicodedata
-import aiohttp
+import websockets
 
 from collections import defaultdict
 from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any
@@ -123,8 +123,7 @@ class WebsocketTransport:
         self._close_event = asyncio.Event()
 
     async def create_connection(self, *args, **kwargs):
-        self.session = aiohttp.ClientSession()
-        self.connection = con = await self.session.ws_connect(
+        self.connection = con = await websockets.connect(
             *args, **kwargs
         )
         self.loop.create_task(self.reader())
@@ -132,19 +131,14 @@ class WebsocketTransport:
         return con
 
     async def reader(self):
-        while True:
-            msg = await self.connection.receive()
-
-            if msg.type == aiohttp.WSMsgType.text:
-                self.stream.data_received(msg.data)
-            if msg.type == aiohttp.WSMsgType.closed:
-                break
-            if msg.type == aiohttp.WSMsgType.error:
-                print('Error')
-                break
+        try:
+            async for data in self.connection:
+                self.stream.data_received(data)
+        except websockets.ConnectionClosedError:
+            pass
 
     async def send(self, data):
-        await self.connection.send_bytes(data)
+        await self.connection.send(data)
 
     def write(self, data):
         self._buffer += data
@@ -175,14 +169,14 @@ class WebsocketTransport:
         self._stop_reader()
 
     def abort(self):
-        self.connection._response.connection.transport.abort()
+        self.connection.transport.abort()
         self._stop_reader()
 
     async def wait_closed(self):
         await self._close_event
 
     def get_extra_info(self, *args, **kwargs):
-        return self.connection.get_extra_info(*args, **kwargs)
+        return self.connection.transport.get_extra_info(*args, **kwargs)
 
 
 class WebsocketXMLStreamWriter(aioxmpp.xml.XMLStreamWriter):
@@ -249,7 +243,8 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
         transport = WebsocketTransport(stream)
         await transport.create_connection(
             'wss://{0}'.format(host),
-            protocols=('xmpp',),
+            subprotocols=('xmpp',),
+            ping_interval=None
         )
 
         return transport, stream, await features_future
