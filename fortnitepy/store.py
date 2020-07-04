@@ -215,6 +215,34 @@ class DailyStoreItem(StoreItemBase):
                 'price={0.price!r}>'.format(self))
 
 
+class SpecialFeaturedStoreItem(StoreItemBase):
+    """Special featured store item."""
+    def __init__(self, data: dict) -> None:
+        super().__init__(data)
+        self._panel = int((data['categories'][0].split(' '))[1])
+
+    def __repr__(self) -> str:
+        return ('<SpecialFeaturedStoreItem dev_name={0.dev_name!r} '
+                'asset={0.asset!r} price={0.price!r}>'.format(self))
+
+    @property
+    def panel(self) -> int:
+        """:class:`int`: The panel the item is listed in from left
+        to right.
+        """
+        return self._panel
+
+
+class SpecialDailyStoreItem(StoreItemBase):
+    """Special daily store item."""
+    def __init__(self, data: dict) -> None:
+        super().__init__(data)
+
+    def __repr__(self) -> str:
+        return ('<SpecialDailyStoreItem dev_name={0.dev_name!r} '
+                'asset={0.asset!r} price={0.price!r}>'.format(self))
+
+
 class Store:
     """Object representing store data from Fortnite Battle Royale.
 
@@ -231,6 +259,9 @@ class Store:
 
         self._featured_items = self._create_featured_items(data)
         self._daily_items = self._create_daily_items(data)
+        self._special_featured_items = \
+            self._create_special_featured_items(data)
+        self._special_daily_items = self._create_special_daily_items(data)
 
     def __repr__(self) -> str:
         return ('<Store created_at={0.created_at!r} '
@@ -249,6 +280,20 @@ class Store:
         daily items in the item shop.
         """
         return self._daily_items
+
+    @property
+    def special_featured_items(self) -> List[SpecialFeaturedStoreItem]:
+        """List[:class:`SpecialFeaturedStoreItem`]: A list containing data about
+        special featured items in the item shop.
+        """
+        return self._special_featured_items
+
+    @property
+    def special_daily_items(self) -> List[SpecialDailyStoreItem]:
+        """List[:class:`SpecialDailyStoreItem`]: A list containing data about
+        special daily items in the item shop.
+        """
+        return self._special_daily_items
 
     @property
     def daily_purchase_hours(self) -> int:
@@ -295,4 +340,24 @@ class Store:
         res = []
         for item in storefront['catalogEntries']:
             res.append(DailyStoreItem(item))
+        return res
+
+    def _create_special_featured_items(self,
+                                       data: dict
+                                       ) -> List[SpecialFeaturedStoreItem]:
+        storefront = self._find_storefront(data, 'BRSpecialFeatured')
+
+        res = []
+        for item in storefront['catalogEntries']:
+            res.append(SpecialFeaturedStoreItem(item))
+        return res
+
+    def _create_special_daily_items(self,
+                                    data: dict
+                                    ) -> List[SpecialDailyStoreItem]:
+        storefront = self._find_storefront(data, 'BRSpecialDaily')
+
+        res = []
+        for item in storefront['catalogEntries']:
+            res.append(SpecialDailyStoreItem(item))
         return res
