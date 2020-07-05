@@ -122,12 +122,13 @@ div.sphinxsidebar input {
 	border-left: 5px solid #dbdbdb;
 }
 
+/* Avoid clunky auto grids */
 dl.field-list {
   display: block !important;
 }
 
 dd {
-  margin-top: 8px !important;
+  margin-top: 9px !important;
   margin-bottom: 10px !important;
   margin-left: 30px !important;
 }
