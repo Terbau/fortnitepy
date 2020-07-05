@@ -160,7 +160,7 @@ tt.descname, code.descname {
 }
 
 a span.pre {
-  color: #3d9cc2 !important;
+  color: #3188aa !important;
 }
 
 tt.xref, a tt, code.xref, a code {
@@ -176,7 +176,7 @@ a.toc-backref {
 }
 
 a {
-  color: #3d9cc2;
+  color: #3188aa;
   text-decoration: none;
 }
 
@@ -190,7 +190,7 @@ a.xref.pre {
 }
 
 a:hover {
-  color: #0b3a44;
+  color: #165a69;
   text-decoration: underline;
 }
 
