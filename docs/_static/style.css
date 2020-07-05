@@ -46,6 +46,7 @@ div.related {
 }
 
 div.body h1, div.body h2, div.body h3 {
+  padding-bottom: 3px;
   border-bottom: 1px solid #ddd;
 }
 
@@ -121,6 +122,16 @@ div.sphinxsidebar input {
 	border-left: 5px solid #dbdbdb;
 }
 
+dl.field-list {
+  display: block !important;
+}
+
+dd {
+  margin-top: 8px;
+  margin-bottom: 10px;
+  margin-left: 30px;
+}
+
 dl.function > dt,
 dl.attribute > dt,
 dl.classmethod > dt,
@@ -191,7 +202,7 @@ a.xref.pre {
 
 a:hover {
   color: #165a69;
-  text-decoration: underline;
+  text-decoration: underline !important;
 }
 
 @media screen and (max-width: 870px) {
