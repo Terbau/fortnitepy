@@ -127,9 +127,9 @@ dl.field-list {
 }
 
 dd {
-  margin-top: 8px;
-  margin-bottom: 10px;
-  margin-left: 30px;
+  margin-top: 8px !important;
+  margin-bottom: 10px !important;
+  margin-left: 30px !important;
 }
 
 dl.function > dt,
