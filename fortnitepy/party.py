@@ -3430,6 +3430,13 @@ class PartyJoinConfirmation:
 
         Confirms this user.
 
+        .. note::
+
+            This call does not guarantee that the player will end up in the
+            clients party. Please always listen to
+            :func:`event_party_member_join()` to ensure that the player in fact
+            joined.
+
         Raises
         ------
         HTTPException
@@ -3438,8 +3445,17 @@ class PartyJoinConfirmation:
         if self.client.is_creating_party():
             return
 
-        await self.client.http.party_member_confirm(self.party.id,
-                                                    self.user.id)
+        try:
+            await self.client.http.party_member_confirm(
+                self.party.id,
+                self.user.id,
+            )
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.social.party.applicant_not_found'
+            if exc.message_code == m:
+                return
+
+            raise
 
     async def reject(self) -> None:
         """|coro|
@@ -3454,4 +3470,14 @@ class PartyJoinConfirmation:
         if self.client.is_creating_party():
             return
 
-        await self.client.http.party_member_reject(self.party.id, self.user.id)
+        try:
+            await self.client.http.party_member_reject(
+                self.party.id,
+                self.user.id,
+            )
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.social.party.applicant_not_found'
+            if exc.message_code == m:
+                return
+
+            raise
