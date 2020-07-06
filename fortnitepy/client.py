@@ -1421,7 +1421,11 @@ class Client:
         for user_id, data in raw_presences.items():
             friend = self.get_friend(user_id)
             if friend is not None:
-                value = data[0].get('last_online')
+                try:
+                    value = data[0]['last_online']
+                except (IndexError, KeyError):
+                    value = None
+
                 friend._update_last_logout(
                     self.from_iso(value) if value is not None else None
                 )
