@@ -30,7 +30,6 @@ import sys
 import signal
 import logging
 
-from bs4 import BeautifulSoup
 from OpenSSL.SSL import SysCallError
 from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
@@ -714,49 +713,6 @@ class Client:
                 await self._start_runner_task
             except asyncio.CancelledError:
                 pass
-
-    async def account_owns_fortnite(self) -> None:
-        entitlements = await self.http.entitlement_get_all()
-
-        for ent in entitlements:
-            if (ent['entitlementName'] == 'Fortnite_Free'
-                    and ent['active'] is True):
-                return True
-        return False
-
-    # deprecated as of lately
-    async def quick_purchase_fortnite(self) -> None:
-        data = await self.http.orderprocessor_quickpurchase()
-        status = data.get('quickPurchaseStatus', False)
-
-        if status == 'SUCCESS':
-            pass
-
-        elif status == 'CHECKOUT':
-            data = await self.http.launcher_website_purchase(
-                'fn',
-                '09176f4ff7564bbbb499bbe20bd6348f'
-            )
-            soup = BeautifulSoup(data, 'html.parser')
-
-            token = soup.find(id='purchaseToken')['value']
-            data = await self.http.payment_website_order_preview(
-                token,
-                'fn',
-                '09176f4ff7564bbbb499bbe20bd6348f'
-            )
-            if 'syncToken' not in data:
-                pass
-
-            await self.http.payment_website_confirm_order(token, data)
-
-        else:
-            raise PurchaseException(
-                'Could not purchase Fortnite. Reason: '
-                'Unknown status {0}'.format(status)
-            )
-
-        log.debug('Purchase of Fortnite successfully processed.')
 
     async def _login(self) -> None:
         log.debug('Running authenticating')
