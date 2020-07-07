@@ -90,6 +90,20 @@ class DefaultPartyConfig:
     cls: Type[:class:`ClientParty`]
         | The default party object to use for the client's party. Here you can
         specify all class objects that inherits from :class:`ClientParty`.
+    meta: List[:class:`functools.partial`]
+        A list of coroutines in the form of partials. This config will be
+        automatically equipped by the party when a new party is created by the
+        client.
+
+        .. code-block:: python3
+
+            from fortnitepy import ClientParty
+            from functools import partial
+
+            [
+                partial(ClientParty.set_custom_key, 'myawesomekey'),
+                partial(ClientParty.set_playlist, 'Playlist_PlaygroundV2', region=fortnitepy.Region.EUROPE)
+            ]
 
     Attributes
     ----------
@@ -99,7 +113,7 @@ class DefaultPartyConfig:
         leader of the party.
     cls: Type[:class:`ClientParty`]
         The default party object used to represent the client's party.
-    """
+    """  # noqa
     def __init__(self, **kwargs: Any) -> None:
         self.cls = kwargs.pop('cls', ClientParty)
         self._client = None
@@ -2909,27 +2923,26 @@ class ClientParty(PartyBase, Patchable):
                             ) -> None:
         """|coro|
 
-        Edits multiple meta parts at once and keeps the changes for when the
-        bot joins other parties.
+        Edits multiple meta parts at once and keeps the changes for when new
+        parties are created.
 
-        This example sets the clients outfit to galaxy and banner to the epic
-        banner with level 100. When the client joins another party, the outfit
-        and banner will automatically be equipped.: ::
+        This example sets the custom key to ``myawesomekey`` and the playlist to Creative
+        in the Europe region.: ::
 
             from functools import partial
 
-            async def edit_and_keep_client_member():
-                member = client.party.me
-                await member.edit_and_keep(
-                    partial(member.set_outfit, 'CID_175_Athena_Commando_M_Celestial'),
-                    partial(member.set_banner, icon="OtherBanner28", season_level=100)
+            async def edit_and_keep_party():
+                party = client.party
+                await party.edit_and_keep(
+                    partial(party.set_custom_key, 'myawesomekey'),
+                    partial(party.set_playlist, 'Playlist_PlaygroundV2', region=fortnitepy.Region.EUROPE)
                 )
 
         Parameters
         ----------
         *coros: :class:`functools.partial`
             A list of coroutines that should be included in the edit. Unlike
-            :meth:`ClientPartyMember.edit()`, this method only takes
+            :meth:`ClientParty.edit()`, this method only takes
             coroutines in the form of a :class:`functools.partial`.
 
         Raises
@@ -3154,8 +3167,8 @@ class ClientParty(PartyBase, Patchable):
 
             await party.set_playlist(
                 playlist='Playlist_ShowdownAlt_Trios',
-                tournament='epicgames_Arena_S10_Trios',
-                event_window='Arena_S10_Division1_Trios',
+                tournament='epicgames_Arena_S13_Trios',
+                event_window='Arena_S13_Division1_Trios',
                 region=fortnitepy.Region.EUROPE
             )
 
