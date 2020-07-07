@@ -89,7 +89,9 @@ class PresenceParty:
     you should always check if the party is private: ::
 
         @client.event
-        async def event_friend_presence(presence):
+        async def event_friend_presence(before, after):
+            # after is the newly received presence
+            presence = after
 
             # check if presence is from the account 'Terbau'
             # NOTE: you should always use id over display_name

@@ -323,15 +323,17 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param request: Request object.
 	:type request: Union[:class:`IncomingPendingFriend`, :class:`OutgoingPendingFriend`]
 
-.. function:: event_friend_presence(presence)
+.. function:: event_friend_presence(before, after)
 
-	This event is valled when the client receives a presence from a friend.
+	This event is called when the client receives a presence from a friend.
 	Presence is received when a user logs into fortnite, closes fortnite or
 	when an user does an action when logged in e.g. joins into a game or joins
 	a party.
 
-	:param presence: Presence object.
-	:type presence:	:class:`Presence`
+	:param before: The previously received presence object. Can be ``None`` usually because the friend was previously offline or because the client just started and therefore no presence had been already stored in the presence cache.
+	:type before: Optional[:class:`Presence`]
+	:param after: The new presence object.
+	:type after: :class:`Presence`
 
 .. function:: event_party_invite(invitation)
 

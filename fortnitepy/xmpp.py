@@ -968,13 +968,15 @@ class XMPPClient:
             except (KeyError, AttributeError):
                 pass
 
+        before_pres = friend.last_presence
+
         if not is_available and friend.is_online():
             friend._update_last_logout(datetime.datetime.utcnow())
             self.client._presences.remove(user_id, None)
         else:
             self.client._presences.set(user_id, _pres)
 
-        self.client.dispatch_event('friend_presence', _pres)
+        self.client.dispatch_event('friend_presence', before_pres, _pres)
 
     def setup_callbacks(self,
                         messages: bool = True,
@@ -1240,10 +1242,11 @@ class XMPPClient:
 
     async def get_presence(self, jid: aioxmpp.JID) -> Presence:
         self.client.loop.create_task(self.send_presence_probe(jid))
-        return await self.client.wait_for(
+        _, after = await self.client.wait_for(
             'friend_presence',
-            check=lambda p: p.friend.id == jid.localpart
+            check=lambda b, a: a.friend.id == jid.localpart
         )
+        return after
 
     async def send_presence_probe(self, to: aioxmpp.JID) -> None:
         presence = aioxmpp.Presence(
