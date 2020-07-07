@@ -6,6 +6,12 @@ Changelog
 Detailed version changes.
 
 
+v2.2.1
+------
+
+Fixes an issue that caused some accounts with lots of friends to crash on startup.
+
+
 v2.2.0
 ------
 
