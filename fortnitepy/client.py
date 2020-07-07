@@ -33,9 +33,8 @@ import logging
 from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
 
-from .errors import (PartyError, HTTPException, PurchaseException,
-                     NotFound, Forbidden, DuplicateFriendship,
-                     FriendshipRequestAlreadySent)
+from .errors import (PartyError, HTTPException, NotFound, Forbidden,
+                     DuplicateFriendship, FriendshipRequestAlreadySent)
 from .xmpp import XMPPClient
 from .http import HTTPClient
 from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
