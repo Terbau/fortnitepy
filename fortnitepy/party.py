@@ -995,6 +995,10 @@ class PartyMeta(MetaBase):
 
         return updated, deleted
 
+    def set_voicechat_implementation(self, value):
+        key = 'VoiceChat:implementation_s'
+        return {key: self.set_prop(key, value)}
+
 
 class PartyMemberBase(User):
     def __init__(self, client: 'Client',
