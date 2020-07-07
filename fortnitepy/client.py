@@ -31,7 +31,6 @@ import signal
 import logging
 
 from bs4 import BeautifulSoup
-from OpenSSL.SSL import SysCallError
 from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
 
