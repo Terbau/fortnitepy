@@ -225,7 +225,7 @@ class Cog(metaclass=CogMeta):
         }
 
     @classmethod
-    def _get_overridden_method(cls, method: MaybeCoro):
+    def _get_overridden_method(cls, method: MaybeCoro) -> MaybeCoro:
         """Return None if the method is not overridden. Otherwise returns the
         overridden method.
         """

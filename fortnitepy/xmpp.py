@@ -35,7 +35,7 @@ import unicodedata
 import aiohttp
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any
+from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any, Tuple
 
 from .errors import XMPPError, PartyError, HTTPException
 from .message import FriendMessage, PartyMessage
@@ -112,7 +112,9 @@ dispatcher = EventDispatcher()
 
 
 class WebsocketTransport:
-    def __init__(self, loop, stream, logger):
+    def __init__(self, loop: asyncio.AbstractEventLoop,
+                 stream: 'WebsocketXMLStream',
+                 logger: logging.Logger) -> None:
         self.loop = loop
         self.stream = stream
         self.logger = logger
@@ -122,7 +124,8 @@ class WebsocketTransport:
         self._reader_task = None
         self._close_event = asyncio.Event()
 
-    async def create_connection(self, *args, **kwargs):
+    async def create_connection(self, *args,
+                                **kwargs) -> aiohttp.ClientWebSocketResponse:
         self.session = aiohttp.ClientSession()
         self.connection = con = await self.session.ws_connect(
             *args, **kwargs
@@ -132,7 +135,7 @@ class WebsocketTransport:
         self.logger.debug('Websocket connection established.')
         return con
 
-    async def reader(self):
+    async def reader(self) -> None:
         self.logger.debug('Websocket reader is now running.')
 
         while True:
@@ -145,32 +148,32 @@ class WebsocketTransport:
             if msg.type == aiohttp.WSMsgType.error:
                 break
 
-    async def send(self, data):
+    async def send(self, data: bytes) -> None:
         await self.connection.send_bytes(data)
 
-    def write(self, data):
+    def write(self, data: bytes) -> None:
         self._buffer += data
 
-    def flush(self):
+    def flush(self) -> None:
         if self._buffer:
             asyncio.ensure_future(self.send(self._buffer), loop=self.loop)
 
         self._buffer = b''
 
-    def can_write_eof(self):
+    def can_write_eof(self) -> bool:
         return False
 
-    def write_eof(self):
+    def write_eof(self) -> None:
         raise NotImplementedError("Cannot write_eof() on ws transport")
 
-    def _stop_reader(self):
+    def _stop_reader(self) -> None:
         if self._reader_task is not None and not self._reader_task.cancelled():
             self._reader_task.cancel()
 
-    def close_callback(self, *args):
+    def close_callback(self, *args) -> None:
         self._close_event.set()
 
-    def on_close(self, *args):
+    def on_close(self, *args) -> None:
         # We do this to make sure connection_lost() doesnt re-call
         # _writer.abort().
         self.stream._writer = None
@@ -184,7 +187,7 @@ class WebsocketTransport:
         else:
             task.add_done_callback(self.close_callback)
 
-    def close(self):
+    def close(self) -> None:
         if not self.connection:
             raise RuntimeError('Cannot close a non-existing connection.')
 
@@ -193,15 +196,15 @@ class WebsocketTransport:
 
         self._stop_reader()
 
-    async def wait_closed(self):
+    async def wait_closed(self) -> None:
         await self._close_event
 
-    def get_extra_info(self, *args, **kwargs):
+    def get_extra_info(self, *args, **kwargs) -> Any:
         return self.connection.get_extra_info(*args, **kwargs)
 
 
 class WebsocketXMLStreamWriter(aioxmpp.xml.XMLStreamWriter):
-    def close(self):
+    def close(self) -> None:
         if self._closed:
             return
         self._closed = True
@@ -217,7 +220,7 @@ class WebsocketXMLStreamWriter(aioxmpp.xml.XMLStreamWriter):
 
 
 class WebsocketXMLStream(aioxmpp.protocol.XMLStream):
-    def _reset_state(self):
+    def _reset_state(self) -> None:
         self._kill_state()
 
         self._processor = aioxmpp.xml.XMPPXMLProcessor()
@@ -244,15 +247,23 @@ class WebsocketXMLStream(aioxmpp.protocol.XMLStream):
 
 class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
     @property
-    def tls_supported(self):
+    def tls_supported(self) -> bool:
         return False
 
     @property
-    def dane_supported(self):
+    def dane_supported(self) -> bool:
         return False
 
-    async def connect(self, loop, metadata, domain, host, port,
-                      negotiation_timeout, base_logger=None):
+    async def connect(self, loop: asyncio.AbstractEventLoop,
+                      metadata: aioxmpp.security_layer.SecurityLayer,
+                      domain: str,
+                      host: str,
+                      port: int,
+                      negotiation_timeout: Union[int, float],
+                      base_logger: Optional[logging.Logger] = None
+                      ) -> Tuple[WebsocketTransport,
+                                 WebsocketXMLStream,
+                                 aioxmpp.nonza.StreamFeatures]:
         features_future = asyncio.Future(loop=loop)
 
         stream = WebsocketXMLStream(

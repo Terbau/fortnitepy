@@ -87,7 +87,7 @@ class ExternalAuth:
                 'external_display_name={0.external_display_name!r} '
                 'external_id={0.external_id!r}>'.format(self))
 
-    def get_raw(self):
+    def get_raw(self) -> dict:
         return {
             'type': self.type,
             'accountId': self.id,

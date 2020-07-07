@@ -921,7 +921,8 @@ class Client:
         """
         await self._ready.wait()
 
-    def construct_party(self, data, *, cls=None):
+    def construct_party(self, data: dict, *,
+                        cls: Optional[ClientParty] = None) -> ClientParty:
         clazz = cls or self.default_party_config.cls
         return clazz(self, data)
 

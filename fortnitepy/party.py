@@ -138,7 +138,7 @@ class DefaultPartyConfig:
         default_config = {**default, **self._config}
         self._config = {**default_config, **config, **to_update}
 
-    def _update_privacy(self, args):
+    def _update_privacy(self, args: list) -> None:
         for arg in args:
             if isinstance(arg, PartyPrivacy):
                 self.update({'privacy': arg})
@@ -404,14 +404,14 @@ class MetaBase:
         for prop, value in schema.items():
             self.set_prop(prop, value, raw=raw)
 
-    def remove(self, schema: Union[List[str], Dict[str, Any]]):
+    def remove(self, schema: Union[List[str], Dict[str, Any]]) -> None:
         for prop in schema:
             try:
                 del self.schema[prop]
             except KeyError:
                 pass
 
-    def get_schema(self, max=None):
+    def get_schema(self, max: Optional[int] = None) -> dict:
         return dict(list(self.schema.items())[:max])
 
 
@@ -639,7 +639,7 @@ class PartyMemberMeta(MetaBase):
         prop = self.get_prop('Default:MemberSquadAssignmentRequest_j')
         return prop['MemberSquadAssignmentRequest']
 
-    def maybesub(self, def_):
+    def maybesub(self, def_: Any) -> Any:
         return def_ if def_ else 'None'
 
     def set_member_squad_assignment_request(self, current_pos: int,
@@ -995,7 +995,7 @@ class PartyMeta(MetaBase):
 
         return updated, deleted
 
-    def set_voicechat_implementation(self, value):
+    def set_voicechat_implementation(self, value: str) -> Dict[str, str]:
         key = 'VoiceChat:implementation_s'
         return {key: self.set_prop(key, value)}
 
@@ -1536,7 +1536,7 @@ class PartyMember(PartyMemberBase):
         """
         await self.party.chatban_member(self.id, reason=reason)
 
-    async def swap_position(self):
+    async def swap_position(self) -> None:
         """|coro|
 
         Swaps the clients team position with this member.
@@ -1676,7 +1676,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """  # noqa
         await super().edit_and_keep(*coros)
 
-    def do_on_member_join_patch(self):
+    def do_on_member_join_patch(self) -> None:
         asyncio.ensure_future(self.patch(), loop=self.client.loop)
 
     async def leave(self) -> 'ClientParty':
@@ -1877,7 +1877,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
-    async def clear_backpack(self):
+    async def clear_backpack(self) -> None:
         """|coro|
 
         Clears the currently set backpack.
@@ -1937,7 +1937,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
-    async def clear_pet(self):
+    async def clear_pet(self) -> None:
         """|coro|
 
         Clears the currently set pet.
@@ -2045,7 +2045,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
-    async def clear_contrail(self):
+    async def clear_contrail(self) -> None:
         """|coro|
 
         Clears the currently set contrail.
@@ -2414,11 +2414,11 @@ class JustChattingClientPartyMember(ClientPartyMember):
 
         self._edited = False
 
-    async def patch(self, *args, **kwargs):
+    async def patch(self, *args, **kwargs) -> None:
         self._edited = True
         return await super().patch(*args, **kwargs)
 
-    def do_on_member_join_patch(self):
+    def do_on_member_join_patch(self) -> None:
         if self._edited:
             return super().do_on_member_join_patch()
 
@@ -3057,7 +3057,7 @@ class ClientParty(PartyBase, Patchable):
 
         return await self._invite(friend)
 
-    async def fetch_invites(self):
+    async def fetch_invites(self) -> List['SentPartyInvitation']:
         """|coro|
 
         Fetches all active invitations sent from the party.
@@ -3354,7 +3354,7 @@ class SentPartyInvitation:
         return ('<SentPartyInvitation party={0.party!r} sender={0.sender!r} '
                 'created_at={0.created_at!r}>'.format(self))
 
-    async def cancel(self):
+    async def cancel(self) -> None:
         """|coro|
 
         Cancels the invite. The user will see an error message saying something
@@ -3378,7 +3378,7 @@ class SentPartyInvitation:
             self.receiver.id
         )
 
-    async def resend(self):
+    async def resend(self) -> None:
         """|coro|
 
         Resends an invite with a new notification popping up for the receiving

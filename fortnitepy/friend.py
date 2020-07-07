@@ -244,7 +244,7 @@ class Friend(FriendBase):
             return False
         return pres.available
 
-    async def fetch_last_logout(self):
+    async def fetch_last_logout(self) -> Optional[datetime.datetime]:
         """|coro|
 
         Fetches the last time this friend logged out.
