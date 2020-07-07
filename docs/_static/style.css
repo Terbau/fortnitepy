@@ -172,7 +172,7 @@ tt.descname, code.descname {
 }
 
 a span.pre {
-  color: #3188aa !important;
+  color: #2591c4 !important;
 }
 
 tt.xref, a tt, code.xref, a code {
@@ -188,7 +188,7 @@ a.toc-backref {
 }
 
 a {
-  color: #3188aa;
+  color: #2591c4;
   text-decoration: none;
 }
 
