@@ -690,7 +690,7 @@ class HTTPClient:
     #           User Search           #
     ###################################
 
-    async def user_search_by_prefix(self, prefix, platform):
+    async def user_search_by_prefix(self, prefix: str, platform: str) -> list:
         params = {
             'prefix': prefix,
             'platform': platform
@@ -1108,7 +1108,7 @@ class HTTPClient:
     # NOTE: Depracated since fortnite v11.30. Use param sendPing=True with
     #       send_invite
     # NOTE: Now used for sending invites from private parties
-    async def party_send_ping(self, user_id):
+    async def party_send_ping(self, user_id: str) -> Any:
         r = PartyService(
             '/party/api/v1/Fortnite/user/{user_id}/pings/{client_id}',
             user_id=user_id,

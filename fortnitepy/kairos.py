@@ -31,15 +31,15 @@ from .enums import DefaultCharactersChapter1, KairosBackgroundColorPreset
 ListOrPreset = Optional[Union[List[str], KairosBackgroundColorPreset]]
 
 
-def get_random_chapter1_default_cid():
+def get_random_chapter1_default_cid() -> str:
     return (random.choice(list(DefaultCharactersChapter1))).name
 
 
-def get_random_color_preset():
+def get_random_color_preset() -> List[str]:
     return (random.choice(list(KairosBackgroundColorPreset))).value
 
 
-def get_random_default_avatar():
+def get_random_default_avatar() -> 'Avatar':
     return Avatar(
         asset=get_random_chapter1_default_cid(),
         background_colors=get_random_color_preset()

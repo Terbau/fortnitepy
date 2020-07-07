@@ -229,8 +229,22 @@ class Store:
         self._refresh_interval_hours = data['refreshIntervalHrs']
         self._expires_at = self.client.from_iso(data['expiration'])
 
-        self._featured_items = self._create_featured_items(data)
-        self._daily_items = self._create_daily_items(data)
+        self._featured_items = self._create_featured_items(
+            'BRWeeklyStorefront',
+            data
+        )
+        self._daily_items = self._create_daily_items(
+            'BRDailyStorefront',
+            data
+        )
+        self._special_featured_items = self._create_featured_items(
+            'BRSpecialFeatured',
+            data
+        )
+        self._special_daily_items = self._create_daily_items(
+            'BRSpecialDaily',
+            data,
+        )
 
     def __repr__(self) -> str:
         return ('<Store created_at={0.created_at!r} '
@@ -249,6 +263,20 @@ class Store:
         daily items in the item shop.
         """
         return self._daily_items
+
+    @property
+    def special_featured_items(self) -> List[FeaturedStoreItem]:
+        """List[:class:`FeaturedStoreItem`]: A list containing data about
+        special featured items in the item shop.
+        """
+        return self._special_featured_items
+
+    @property
+    def special_daily_items(self) -> List[DailyStoreItem]:
+        """List[:class:`DailyStoreItem`]: A list containing data about
+        special daily items in the item shop.
+        """
+        return self._special_daily_items
 
     @property
     def daily_purchase_hours(self) -> int:
@@ -281,16 +309,18 @@ class Store:
             if storefront['name'] == key:
                 return storefront
 
-    def _create_featured_items(self, data: dict) -> List[FeaturedStoreItem]:
-        storefront = self._find_storefront(data, 'BRWeeklyStorefront')
+    def _create_featured_items(self, storefront: str,
+                               data: dict) -> List[FeaturedStoreItem]:
+        storefront = self._find_storefront(data, storefront)
 
         res = []
         for item in storefront['catalogEntries']:
             res.append(FeaturedStoreItem(item))
         return res
 
-    def _create_daily_items(self, data: dict) -> List[DailyStoreItem]:
-        storefront = self._find_storefront(data, 'BRDailyStorefront')
+    def _create_daily_items(self, storefront: str,
+                            data: dict) -> List[DailyStoreItem]:
+        storefront = self._find_storefront(data, storefront)
 
         res = []
         for item in storefront['catalogEntries']:

@@ -45,12 +45,13 @@ extensions = [
 
 
 autodoc_member_order = 'bysource'
+autodoc_typehints = 'none'
 
 # Links used for cross-referencing stuff in other documentation
 intersphinx_mapping = {
   'py': ('https://docs.python.org/3', None),
-  'aio': ('https://aiohttp.readthedocs.io/en/stable/', None),
-  'req': ('http://docs.python-requests.org/en/latest/', 'requests.inv'),
+  'aiohttp': ('https://aiohttp.readthedocs.io/en/stable/', None),
+  'requests': ('http://docs.python-requests.org/en/latest/', 'requests.inv'),
   'aioxmpp': ('https://docs.zombofant.net/aioxmpp/devel/', None)
 }
 

@@ -76,7 +76,7 @@ class PresenceGameplayStats:
 
         self.fell_to_death = True if data.get('bFellToDeath') else False
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ('<PresenceGameplayStats friend={0.friend!r} '
                 'players_alive={0.players_alive} num_kills={0.num_kills} '
                 'playlist={0.playlist!r}>'.format(self))
@@ -89,7 +89,9 @@ class PresenceParty:
     you should always check if the party is private: ::
 
         @client.event
-        async def event_friend_presence(presence):
+        async def event_friend_presence(before, after):
+            # after is the newly received presence
+            presence = after
 
             # check if presence is from the account 'Terbau'
             # NOTE: you should always use id over display_name
@@ -379,6 +381,6 @@ class Presence:
         else:
             self.party = PresenceParty(self.client, self.raw_properties[key])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ('<Presence friend={0.friend!r} available={0.available} '
                 'received_at={0.received_at!r}>'.format(self))

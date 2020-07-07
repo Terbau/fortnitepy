@@ -152,7 +152,7 @@ class _Greedy:
     def __init__(self, *, converter: Optional[Converter] = None) -> None:
         self.converter = converter
 
-    def __getitem__(self, params):
+    def __getitem__(self, params: Any) -> Any:
         if not isinstance(params, tuple):
             params = (params,)
         if len(params) != 1:

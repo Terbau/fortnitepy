@@ -1011,7 +1011,7 @@ class FortniteHelpCommand(HelpCommand):
             pages_amount
         )
 
-    def get_bot_footer(self, page_num: int, pages_amount: str):
+    def get_bot_footer(self, page_num: int, pages_amount: str) -> str:
         """Gets the text to appear in the footer when
         :meth:`send_bot_help()` is called.
 

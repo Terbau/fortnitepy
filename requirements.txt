@@ -1,5 +1,3 @@
 aiohttp>=3.3
 aioxmpp>=0.10.4
 aioconsole>=0.1.15
-beautifulsoup4>=4.8.0
-websockets

@@ -6,6 +6,46 @@ Changelog
 Detailed version changes.
 
 
+v2.2.0
+------
+
+Changed
+~~~~~~~
+
+- (**Breaking**) Split `PendingFriend` into two separate objects :class:`IncomingPendingFriend` and :class:`OutgoingPendingFriend` depending on the direction of the request. Keep in mind that :attr:`Client.pending_friends` can include instances of both classes.
+- (**Breaking**) :func:`event_friend_presence()` now takes two arguments ``before`` and ``after``.
+- (**Breaking**) ``PendingFriendBase.inbound`` has been renamed to ``PendingFriendBase.incoming``.
+- Made some small visual improvements to the documentation.
+
+Added
+~~~~~
+
+- Added :attr:`SeasonEndTimestamp.SEASON_12` and :attr:`SeasonStartTimestamp.SEASON_13`.
+- You can now cancel outgoing friend requests with :meth:`OutgoingPendingFriend.cancel()`.
+- Added :attr:`Store.special_featured_items`.
+- Added :attr:`Store.special_daily_items`.
+- Added missing documentation to various attributes, methods and functions. The most relevant is the addition of ``meta`` keyword-arg to :class:`DefaultPartyConfig` which was already implemented but not documented.
+- Added missing type hinting to various methods.
+
+Removed
+~~~~~~~
+
+- Removed API KEY usage from the Fortnite-API example. Thanks (cup#9125).
+- Removed some piece of code which auto claimed the fortnite entitlement. This has not been actively used for some updates.
+- ``beautifulsoup4`` and ``websockets`` have been removed from requirements because they're no longer used.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed various bugs regarding the xmpp over websocket solution introduced in the last minor update. The library now uses aiohttp for websockets instead of the websockets library.
+- Fixed a rare issue regarding last_online that sometimes crashed the client on startup.
+- Fixed an issue that caused voice chat to not work for regular users in the clients party.
+- Fixed a rare error that was sometimes raised in :meth:`PartyJoinConfirmation.confirm()` and :meth:`PartyJoinConfirmation.reject()`
+- Silenced an error in processing of :func:`event_party_invite()`.
+
+
+
+
 v2.1.1
 ------
 

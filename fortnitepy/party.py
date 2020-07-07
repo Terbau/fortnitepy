@@ -90,6 +90,20 @@ class DefaultPartyConfig:
     cls: Type[:class:`ClientParty`]
         | The default party object to use for the client's party. Here you can
         specify all class objects that inherits from :class:`ClientParty`.
+    meta: List[:class:`functools.partial`]
+        A list of coroutines in the form of partials. This config will be
+        automatically equipped by the party when a new party is created by the
+        client.
+
+        .. code-block:: python3
+
+            from fortnitepy import ClientParty
+            from functools import partial
+
+            [
+                partial(ClientParty.set_custom_key, 'myawesomekey'),
+                partial(ClientParty.set_playlist, 'Playlist_PlaygroundV2', region=fortnitepy.Region.EUROPE)
+            ]
 
     Attributes
     ----------
@@ -99,7 +113,7 @@ class DefaultPartyConfig:
         leader of the party.
     cls: Type[:class:`ClientParty`]
         The default party object used to represent the client's party.
-    """
+    """  # noqa
     def __init__(self, **kwargs: Any) -> None:
         self.cls = kwargs.pop('cls', ClientParty)
         self._client = None
@@ -138,7 +152,7 @@ class DefaultPartyConfig:
         default_config = {**default, **self._config}
         self._config = {**default_config, **config, **to_update}
 
-    def _update_privacy(self, args):
+    def _update_privacy(self, args: list) -> None:
         for arg in args:
             if isinstance(arg, PartyPrivacy):
                 self.update({'privacy': arg})
@@ -404,14 +418,14 @@ class MetaBase:
         for prop, value in schema.items():
             self.set_prop(prop, value, raw=raw)
 
-    def remove(self, schema: Union[List[str], Dict[str, Any]]):
+    def remove(self, schema: Union[List[str], Dict[str, Any]]) -> None:
         for prop in schema:
             try:
                 del self.schema[prop]
             except KeyError:
                 pass
 
-    def get_schema(self, max=None):
+    def get_schema(self, max: Optional[int] = None) -> dict:
         return dict(list(self.schema.items())[:max])
 
 
@@ -639,7 +653,7 @@ class PartyMemberMeta(MetaBase):
         prop = self.get_prop('Default:MemberSquadAssignmentRequest_j')
         return prop['MemberSquadAssignmentRequest']
 
-    def maybesub(self, def_):
+    def maybesub(self, def_: Any) -> Any:
         return def_ if def_ else 'None'
 
     def set_member_squad_assignment_request(self, current_pos: int,
@@ -994,6 +1008,10 @@ class PartyMeta(MetaBase):
             self.deleted_cache.extend(deleted)
 
         return updated, deleted
+
+    def set_voicechat_implementation(self, value: str) -> Dict[str, str]:
+        key = 'VoiceChat:implementation_s'
+        return {key: self.set_prop(key, value)}
 
 
 class PartyMemberBase(User):
@@ -1532,7 +1550,7 @@ class PartyMember(PartyMemberBase):
         """
         await self.party.chatban_member(self.id, reason=reason)
 
-    async def swap_position(self):
+    async def swap_position(self) -> None:
         """|coro|
 
         Swaps the clients team position with this member.
@@ -1672,7 +1690,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """  # noqa
         await super().edit_and_keep(*coros)
 
-    def do_on_member_join_patch(self):
+    def do_on_member_join_patch(self) -> None:
         asyncio.ensure_future(self.patch(), loop=self.client.loop)
 
     async def leave(self) -> 'ClientParty':
@@ -1873,7 +1891,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
-    async def clear_backpack(self):
+    async def clear_backpack(self) -> None:
         """|coro|
 
         Clears the currently set backpack.
@@ -1933,7 +1951,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
-    async def clear_pet(self):
+    async def clear_pet(self) -> None:
         """|coro|
 
         Clears the currently set pet.
@@ -2041,7 +2059,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
-    async def clear_contrail(self):
+    async def clear_contrail(self) -> None:
         """|coro|
 
         Clears the currently set contrail.
@@ -2410,11 +2428,11 @@ class JustChattingClientPartyMember(ClientPartyMember):
 
         self._edited = False
 
-    async def patch(self, *args, **kwargs):
+    async def patch(self, *args, **kwargs) -> None:
         self._edited = True
         return await super().patch(*args, **kwargs)
 
-    def do_on_member_join_patch(self):
+    def do_on_member_join_patch(self) -> None:
         if self._edited:
             return super().do_on_member_join_patch()
 
@@ -2905,27 +2923,26 @@ class ClientParty(PartyBase, Patchable):
                             ) -> None:
         """|coro|
 
-        Edits multiple meta parts at once and keeps the changes for when the
-        bot joins other parties.
+        Edits multiple meta parts at once and keeps the changes for when new
+        parties are created.
 
-        This example sets the clients outfit to galaxy and banner to the epic
-        banner with level 100. When the client joins another party, the outfit
-        and banner will automatically be equipped.: ::
+        This example sets the custom key to ``myawesomekey`` and the playlist to Creative
+        in the Europe region.: ::
 
             from functools import partial
 
-            async def edit_and_keep_client_member():
-                member = client.party.me
-                await member.edit_and_keep(
-                    partial(member.set_outfit, 'CID_175_Athena_Commando_M_Celestial'),
-                    partial(member.set_banner, icon="OtherBanner28", season_level=100)
+            async def edit_and_keep_party():
+                party = client.party
+                await party.edit_and_keep(
+                    partial(party.set_custom_key, 'myawesomekey'),
+                    partial(party.set_playlist, 'Playlist_PlaygroundV2', region=fortnitepy.Region.EUROPE)
                 )
 
         Parameters
         ----------
         *coros: :class:`functools.partial`
             A list of coroutines that should be included in the edit. Unlike
-            :meth:`ClientPartyMember.edit()`, this method only takes
+            :meth:`ClientParty.edit()`, this method only takes
             coroutines in the form of a :class:`functools.partial`.
 
         Raises
@@ -3053,7 +3070,7 @@ class ClientParty(PartyBase, Patchable):
 
         return await self._invite(friend)
 
-    async def fetch_invites(self):
+    async def fetch_invites(self) -> List['SentPartyInvitation']:
         """|coro|
 
         Fetches all active invitations sent from the party.
@@ -3150,8 +3167,8 @@ class ClientParty(PartyBase, Patchable):
 
             await party.set_playlist(
                 playlist='Playlist_ShowdownAlt_Trios',
-                tournament='epicgames_Arena_S10_Trios',
-                event_window='Arena_S10_Division1_Trios',
+                tournament='epicgames_Arena_S13_Trios',
+                event_window='Arena_S13_Division1_Trios',
                 region=fortnitepy.Region.EUROPE
             )
 
@@ -3350,7 +3367,7 @@ class SentPartyInvitation:
         return ('<SentPartyInvitation party={0.party!r} sender={0.sender!r} '
                 'created_at={0.created_at!r}>'.format(self))
 
-    async def cancel(self):
+    async def cancel(self) -> None:
         """|coro|
 
         Cancels the invite. The user will see an error message saying something
@@ -3374,7 +3391,7 @@ class SentPartyInvitation:
             self.receiver.id
         )
 
-    async def resend(self):
+    async def resend(self) -> None:
         """|coro|
 
         Resends an invite with a new notification popping up for the receiving
@@ -3430,6 +3447,13 @@ class PartyJoinConfirmation:
 
         Confirms this user.
 
+        .. note::
+
+            This call does not guarantee that the player will end up in the
+            clients party. Please always listen to
+            :func:`event_party_member_join()` to ensure that the player in fact
+            joined.
+
         Raises
         ------
         HTTPException
@@ -3438,8 +3462,17 @@ class PartyJoinConfirmation:
         if self.client.is_creating_party():
             return
 
-        await self.client.http.party_member_confirm(self.party.id,
-                                                    self.user.id)
+        try:
+            await self.client.http.party_member_confirm(
+                self.party.id,
+                self.user.id,
+            )
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.social.party.applicant_not_found'
+            if exc.message_code == m:
+                return
+
+            raise
 
     async def reject(self) -> None:
         """|coro|
@@ -3454,4 +3487,14 @@ class PartyJoinConfirmation:
         if self.client.is_creating_party():
             return
 
-        await self.client.http.party_member_reject(self.party.id, self.user.id)
+        try:
+            await self.client.http.party_member_reject(
+                self.party.id,
+                self.user.id,
+            )
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.social.party.applicant_not_found'
+            if exc.message_code == m:
+                return
+
+            raise

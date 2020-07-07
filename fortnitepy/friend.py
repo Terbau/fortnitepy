@@ -87,14 +87,7 @@ class FriendBase(UserBase):
         return self._status
 
     @property
-    def direction(self) -> str:
-        """:class:`str`: The direction of the friendship. ``INBOUND`` if the friend
-        added :class:`ClientUser` else ``OUTGOING``.
-        """
-        return self._direction
-
-    @property
-    def inbound(self) -> bool:
+    def incoming(self) -> bool:
         """:class:`bool`: ``True`` if this friend was the one to send the
         friend request else ``False``.
         """
@@ -105,7 +98,7 @@ class FriendBase(UserBase):
         """:class:`bool`: ``True`` if the bot was the one to send the friend
         request else ``False``.
         """
-        return self._direction == 'OUTGOING'
+        return self._direction == 'OUTBOUND'
 
     @property
     def created_at(self) -> datetime.datetime:
@@ -129,9 +122,9 @@ class FriendBase(UserBase):
     def get_raw(self) -> dict:
         return {
             **(super().get_raw()),
-            'status': self.status,
-            'direction': self.direction,
-            'created': self.created_at
+            'status': self._status,
+            'direction': self._direction,
+            'created': self._created_at
         }
 
 
@@ -251,7 +244,7 @@ class Friend(FriendBase):
             return False
         return pres.available
 
-    async def fetch_last_logout(self):
+    async def fetch_last_logout(self) -> Optional[datetime.datetime]:
         """|coro|
 
         Fetches the last time this friend logged out.
@@ -466,17 +459,10 @@ class Friend(FriendBase):
         return await self.client.party.invite(self.id)
 
 
-class PendingFriend(FriendBase):
+class PendingFriendBase(FriendBase):
     """Represents a pending friend from Fortnite."""
 
     __slots__ = FriendBase.__slots__
-
-    def __init__(self, client: 'Client', data: dict) -> None:
-        super().__init__(client, data)
-
-    def __repr__(self) -> str:
-        return ('<PendingFriend id={0.id!r} display_name={0.display_name!r} '
-                'epicgames_account={0.epicgames_account!r}>'.format(self))
 
     @property
     def created_at(self) -> datetime.datetime:
@@ -484,6 +470,18 @@ class PendingFriend(FriendBase):
         created
         """
         return self._created_at
+
+
+class IncomingPendingFriend(PendingFriendBase):
+    """Represents an incoming pending friend. This means that the client
+    received the friend request."""
+
+    __slots__ = PendingFriendBase.__slots__
+
+    def __repr__(self) -> str:
+        return ('<IncomingPendingFriend id={0.id!r} '
+                'display_name={0.display_name!r} '
+                'epicgames_account={0.epicgames_account!r}>'.format(self))
 
     async def accept(self) -> Friend:
         """|coro|
@@ -512,5 +510,27 @@ class PendingFriend(FriendBase):
         ------
         HTTPException
             Something went wrong when trying to decline this request.
+        """
+        await self.client.remove_or_decline_friend(self.id)
+
+
+class OutgoingPendingFriend(PendingFriendBase):
+
+    __slots__ = PendingFriendBase.__slots__
+
+    def __repr__(self) -> str:
+        return ('<OutgoingPendingFriend id={0.id!r} '
+                'display_name={0.display_name!r} '
+                'epicgames_account={0.epicgames_account!r}>'.format(self))
+
+    async def cancel(self) -> None:
+        """|coro|
+
+        Cancel the friend request sent to this user.
+
+        Raises
+        ------
+        HTTPException
+            Something went wrong when trying to cancel this request.
         """
         await self.client.remove_or_decline_friend(self.id)

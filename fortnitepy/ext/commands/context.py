@@ -203,7 +203,7 @@ class Context:
     def get_destination(self) -> Union[ClientParty, Friend]:
         return self.party if self.party is not None else self.author
 
-    async def send(self, content):
+    async def send(self, content: str) -> None:
         """|coro|
 
         Sends a message to the context destination.
