@@ -1360,25 +1360,19 @@ class Client:
         profiles = {profile['id']: profile for profile in profiles}
 
         for friend in raw_friends:
+            try:
+                data = profiles[friend['accountId']]
+            except KeyError:
+                continue
+
             if friend['status'] == 'ACCEPTED':
-                try:
-                    data = profiles[friend['accountId']]
-                    self.store_friend({**friend, **data})
-                except KeyError:
-                    continue
+                self.store_friend({**friend, **data})
 
             elif friend['status'] == 'PENDING':
-                data = profiles[friend['accountId']]
                 if friend['direction'] == 'INBOUND':
-                    try:
-                        self.store_incoming_pending_friend({**friend, **data})
-                    except KeyError:
-                        continue
+                    self.store_incoming_pending_friend({**friend, **data})
                 else:
-                    try:
-                        self.store_outgoing_pending_friend({**friend, **data})
-                    except KeyError:
-                        continue
+                    self.store_outgoing_pending_friend({**friend, **data})
 
         for data in raw_summary['friends']:
             friend = self.get_friend(data['accountId'])
