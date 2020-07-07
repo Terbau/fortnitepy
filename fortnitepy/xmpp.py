@@ -368,12 +368,16 @@ class XMPPClient:
             else:
                 data = data.get_raw()
 
-            pf = self.client.store_pending_friend({
+            data = {
                 **data,
                 'direction': _payload['direction'],
                 'status': _status,
                 'created': body['timestamp']
-            })
+            }
+            if _payload['direction'] == 'INBOUND':
+                pf = self.client.store_incoming_pending_friend(data)
+            else:
+                pf = self.client.store_outgoing_pending_friend(data)
 
             self.client.dispatch_event('friend_request', pf)
 

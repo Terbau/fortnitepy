@@ -307,21 +307,21 @@ this decorator if you are in a subclass of :class:`Client`.
 	This event is called when the client receives a friend request.
 	
 	:param request: Request object.
-	:type request: :class:`PendingFriend`
+	:type request: Union[:class:`IncomingPendingFriend`, :class:`OutgoingPendingFriend`]
 
 .. function:: event_friend_request_decline(friend)
 
 	This event is called when a friend request is declined.
 
 	:param request: Request object.
-	:type request: :class:`PendingFriend`
+	:type request: Union[:class:`IncomingPendingFriend`, :class:`OutgoingPendingFriend`]
 
 .. function:: event_friend_request_abort(friend)
 
 	This event is called when a friend request is aborted. Aborted means that the friend request was deleted before the receiving user managed to accept it.
 
 	:param request: Request object.
-	:type request: :class:`PendingFriend`
+	:type request: Union[:class:`IncomingPendingFriend`, :class:`OutgoingPendingFriend`]
 
 .. function:: event_friend_presence(presence)
 
@@ -810,10 +810,17 @@ Friend
 	:members:
 	:inherited-members:
 
-PendingFriend
+IncomingPendingFriend
 ~~~~~~~~~~~~~
 
-.. autoclass:: PendingFriend()
+.. autoclass:: IncomingPendingFriend()
+	:members:
+	:inherited-members:
+
+OutgoingPendingFriend
+~~~~~~~~~~~~~
+
+.. autoclass:: OutgoingPendingFriend()
 	:members:
 	:inherited-members:
 
