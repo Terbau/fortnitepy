@@ -37,7 +37,7 @@ import aiohttp
 from collections import defaultdict
 from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any
 
-from .errors import XMPPError, PartyError
+from .errors import XMPPError, PartyError, HTTPException
 from .message import FriendMessage, PartyMessage
 from .party import Party, ReceivedPartyInvitation, PartyJoinConfirmation
 from .presence import Presence
@@ -401,12 +401,16 @@ class XMPPClient:
             else:
                 data = data.get_raw()
 
-            pf = self.client.store_pending_friend({
+            data = {
                 **data,
                 'direction': _payload['direction'],
                 'status': _status,
                 'created': body['timestamp']
-            })
+            }
+            if _payload['direction'] == 'INBOUND':
+                pf = self.client.store_incoming_pending_friend(data)
+            else:
+                pf = self.client.store_outgoing_pending_friend(data)
 
             self.client.dispatch_event('friend_request', pf)
 
@@ -467,6 +471,12 @@ class XMPPClient:
             data = (await self.client.http.party_lookup_ping(pinger))[0]
         except IndexError:
             return
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.social.party.ping_not_found'
+            if exc.message_code == m:
+                return
+
+            raise
 
         for inv in data['invites']:
             if inv['sent_by'] == pinger and inv['status'] == 'SENT':

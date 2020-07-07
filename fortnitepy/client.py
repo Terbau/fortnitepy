@@ -30,7 +30,6 @@ import sys
 import signal
 import logging
 
-from bs4 import BeautifulSoup
 from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
 
@@ -41,7 +40,7 @@ from .xmpp import XMPPClient
 from .http import HTTPClient
 from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
                    ProfileSearchEntryUser)
-from .friend import Friend, PendingFriend
+from .friend import Friend, IncomingPendingFriend, OutgoingPendingFriend
 from .enums import (Platform, Region, ProfileSearchPlatform,
                     SeasonStartTimestamp, SeasonEndTimestamp)
 from .cache import Cache
@@ -529,16 +528,19 @@ class Client:
         return self._friends._cache
 
     @property
-    def pending_friends(self) -> Dict[str, PendingFriend]:
-        """Dict[:class:`str`, :class:`PendingFriend`]: Mapping of currently
-        pending friends.
+    def pending_friends(self) -> Dict[str, Union[IncomingPendingFriend,
+                                                 OutgoingPendingFriend]]:
+        """Dict[:class:`str`, Union[:class:`IncomingPendingFriend`, 
+        :class:`OutgoingPendingFriend`]]]: Mapping of currently pending
+        friends.
 
         .. note::
 
-            Pending friends can be both inbound (pending friend sent the
+            Pending friends can be both incoming (pending friend sent the
             request to the bot) or outgoing (the bot sent the request to the
-            pending friend).
-        """
+            pending friend). You must check what kind of pending friend an
+            object is by TODO
+        """  # noqa
         return self._pending_friends._cache
 
     @property
@@ -703,49 +705,6 @@ class Client:
                 await self._start_runner_task
             except asyncio.CancelledError:
                 pass
-
-    async def account_owns_fortnite(self) -> None:
-        entitlements = await self.http.entitlement_get_all()
-
-        for ent in entitlements:
-            if (ent['entitlementName'] == 'Fortnite_Free'
-                    and ent['active'] is True):
-                return True
-        return False
-
-    # deprecated as of lately
-    async def quick_purchase_fortnite(self) -> None:
-        data = await self.http.orderprocessor_quickpurchase()
-        status = data.get('quickPurchaseStatus', False)
-
-        if status == 'SUCCESS':
-            pass
-
-        elif status == 'CHECKOUT':
-            data = await self.http.launcher_website_purchase(
-                'fn',
-                '09176f4ff7564bbbb499bbe20bd6348f'
-            )
-            soup = BeautifulSoup(data, 'html.parser')
-
-            token = soup.find(id='purchaseToken')['value']
-            data = await self.http.payment_website_order_preview(
-                token,
-                'fn',
-                '09176f4ff7564bbbb499bbe20bd6348f'
-            )
-            if 'syncToken' not in data:
-                pass
-
-            await self.http.payment_website_confirm_order(token, data)
-
-        else:
-            raise PurchaseException(
-                'Could not purchase Fortnite. Reason: '
-                'Unknown status {0}'.format(status)
-            )
-
-        log.debug('Purchase of Fortnite successfully processed.')
 
     async def _login(self) -> None:
         log.debug('Running authenticating')
@@ -1399,11 +1358,17 @@ class Client:
                     continue
 
             elif friend['status'] == 'PENDING':
-                try:
-                    data = profiles[friend['accountId']]
-                    self.store_pending_friend({**friend, **data})
-                except KeyError:
-                    continue
+                data = profiles[friend['accountId']]
+                if friend['direction'] == 'INBOUND':
+                    try:
+                        self.store_incoming_pending_friend({**friend, **data})
+                    except KeyError:
+                        continue
+                else:
+                    try:
+                        self.store_outgoing_pending_friend({**friend, **data})
+                    except KeyError:
+                        continue
 
         for data in raw_summary['friends']:
             friend = self.get_friend(data['accountId'])
@@ -1413,7 +1378,11 @@ class Client:
         for user_id, data in raw_presences.items():
             friend = self.get_friend(user_id)
             if friend is not None:
-                value = data[0].get('last_online')
+                try:
+                    value = data[0]['last_online']
+                except (IndexError, KeyError):
+                    value = None
+
                 friend._update_last_logout(
                     self.from_iso(value) if value is not None else None
                 )
@@ -1496,8 +1465,9 @@ class Client:
         """
         return self._friends.get(user_id)
 
-    def store_pending_friend(self, data: dict, *,
-                             try_cache: bool = True) -> PendingFriend:
+    def store_incoming_pending_friend(self, data: dict, *,
+                                      try_cache: bool = True
+                                      ) -> IncomingPendingFriend:
         try:
             user_id = data.get(
                 'accountId',
@@ -1508,11 +1478,31 @@ class Client:
         except KeyError:
             pass
 
-        pf = PendingFriend(self, data)
+        pf = IncomingPendingFriend(self, data)
         self._pending_friends.set(pf.id, pf)
         return pf
 
-    def get_pending_friend(self, user_id: str) -> Optional[PendingFriend]:
+    def store_outgoing_pending_friend(self, data: dict, *,
+                                      try_cache: bool = True
+                                      ) -> OutgoingPendingFriend:
+        try:
+            user_id = data.get(
+                'accountId',
+                data.get('id', data.get('account_id'))
+            )
+            if try_cache:
+                return self._pending_friends.get(user_id, silent=False)
+        except KeyError:
+            pass
+
+        pf = OutgoingPendingFriend(self, data)
+        self._pending_friends.set(pf.id, pf)
+        return pf
+
+    def get_pending_friend(self,
+                           user_id: str
+                           ) -> Optional[Union[IncomingPendingFriend,
+                                               OutgoingPendingFriend]]:
         """Tries to get a pending friend from the pending friend cache by the
         given user id.
 
@@ -1523,9 +1513,10 @@ class Client:
 
         Returns
         -------
-        Optional[:class:`PendingFriend`]
+        Optional[Union[:class:`IncomingPendingFriend`, 
+        :class:`OutgoingPendingFriend`]]
             The pending friend if found, else ``None``
-        """
+        """  # noqa
         return self._pending_friends.get(user_id)
 
     def store_blocked_user(self, data: dict, *,
