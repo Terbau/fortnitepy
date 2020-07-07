@@ -475,8 +475,13 @@ class Client:
 
     @staticmethod
     def from_iso(iso: str) -> datetime.datetime:
-        """:class:`str`: Converts an iso formatted string to a
+        """Converts an iso formatted string to a
         :class:`datetime.datetime` object
+
+        Parameters
+        ----------
+        iso: :class:`str`:
+            The iso formatted string to convert to a datetime object.
 
         Returns
         -------
@@ -492,8 +497,13 @@ class Client:
 
     @staticmethod
     def to_iso(dt: str) -> datetime.datetime:
-        """:class:`datetime.datetime`: Converts a :class:`datetime.datetime`
+        """Converts a :class:`datetime.datetime`
         object to an iso formatted string
+
+        Parameters
+        ----------
+        dt: :class:`datetime.datetime`
+            The datetime object to convert to an iso formatted string.
 
         Returns
         -------

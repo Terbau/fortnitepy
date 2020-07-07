@@ -45,6 +45,11 @@ div.related {
 	width: auto;
 }
 
+div.body h1, div.body h2, div.body h3 {
+  padding-bottom: 3px;
+  border-bottom: 1px solid #ddd;
+}
+
 div.sphinxsidebar {
 	float: left;
 	font-size: 14px;
@@ -117,6 +122,17 @@ div.sphinxsidebar input {
 	border-left: 5px solid #dbdbdb;
 }
 
+/* Avoid clunky auto grids */
+dl.field-list {
+  display: block !important;
+}
+
+dd {
+  margin-top: 5px !important;
+  margin-bottom: 10px !important;
+  margin-left: 30px !important;
+}
+
 dl.function > dt,
 dl.attribute > dt,
 dl.classmethod > dt,
@@ -155,6 +171,10 @@ tt.descname, code.descname {
   font-size: 1.1em;
 }
 
+a span.pre {
+  color: #2591c4 !important;
+}
+
 tt.xref, a tt, code.xref, a code {
   font-weight: normal;
 }
@@ -168,7 +188,7 @@ a.toc-backref {
 }
 
 a {
-  color: #125261;
+  color: #2591c4;
   text-decoration: none;
 }
 
@@ -182,8 +202,8 @@ a.xref.pre {
 }
 
 a:hover {
-  color: #0b3a44;
-  text-decoration: underline;
+  color: #165a69;
+  text-decoration: underline !important;
 }
 
 @media screen and (max-width: 870px) {
