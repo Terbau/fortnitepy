@@ -30,7 +30,6 @@ import sys
 import signal
 import logging
 
-from OpenSSL.SSL import SysCallError
 from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
 
@@ -565,12 +564,6 @@ class Client:
             self._join_confirmation = val
             self.default_party_config.update({'join_confirmation': val})
 
-    def exc_handler(self, loop: asyncio.AbstractEventLoop, ctx: dict) -> None:
-        exc = ctx.get('exception')
-        message = 'Fatal read error on STARTTLS transport'
-        if not (isinstance(exc, SysCallError) and ctx['message'] == message):
-            loop.default_exception_handler(ctx)
-
     def setup_internal(self) -> None:
         logger = logging.getLogger('aioxmpp')
         if logger.getEffectiveLevel() == 30:
@@ -682,7 +675,6 @@ class Client:
 
         self._check_party_confirmation()
 
-        self.loop.set_exception_handler(self.exc_handler)
         if self._closed:
             self.http.create_connection()
             self._closed = False

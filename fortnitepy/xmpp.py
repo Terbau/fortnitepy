@@ -32,7 +32,7 @@ import datetime
 import uuid
 import itertools
 import unicodedata
-import websockets
+import aiohttp
 
 from collections import defaultdict
 from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any
@@ -112,40 +112,48 @@ dispatcher = EventDispatcher()
 
 
 class WebsocketTransport:
-    def __init__(self, stream):
+    def __init__(self, loop, stream, logger):
+        self.loop = loop
         self.stream = stream
+        self.logger = logger
+
         self.connection = None
-        self.loop = asyncio.get_event_loop()
-
         self._buffer = b''
-
         self._reader_task = None
         self._close_event = asyncio.Event()
 
     async def create_connection(self, *args, **kwargs):
-        self.connection = con = await websockets.connect(
+        self.session = aiohttp.ClientSession()
+        self.connection = con = await self.session.ws_connect(
             *args, **kwargs
         )
         self.loop.create_task(self.reader())
         self.stream.connection_made(self)
+        self.logger.debug('Websocket connection established.')
         return con
 
     async def reader(self):
-        try:
-            async for data in self.connection:
-                self.stream.data_received(data)
-        except websockets.ConnectionClosedError:
-            pass
+        self.logger.debug('Websocket reader is now running.')
+
+        while True:
+            msg = await self.connection.receive()
+
+            if msg.type == aiohttp.WSMsgType.text:
+                self.stream.data_received(msg.data)
+            if msg.type == aiohttp.WSMsgType.closed:
+                break
+            if msg.type == aiohttp.WSMsgType.error:
+                break
 
     async def send(self, data):
-        await self.connection.send(data)
+        await self.connection.send_bytes(data)
 
     def write(self, data):
         self._buffer += data
 
     def flush(self):
         if self._buffer:
-            self.loop.create_task(self.send(self._buffer))
+            asyncio.ensure_future(self.send(self._buffer), loop=self.loop)
 
         self._buffer = b''
 
@@ -159,24 +167,37 @@ class WebsocketTransport:
         if self._reader_task is not None and not self._reader_task.cancelled():
             self._reader_task.cancel()
 
+    def close_callback(self, *args):
+        self._close_event.set()
+
+    def on_close(self, *args):
+        # We do this to make sure connection_lost() doesnt re-call
+        # _writer.abort().
+        self.stream._writer = None
+
+        self.stream.connection_lost(None)
+
+        try:
+            task = self.loop.create_task(self.session.close())
+        except AttributeError:
+            pass
+        else:
+            task.add_done_callback(self.close_callback)
+
     def close(self):
         if not self.connection:
             raise RuntimeError('Cannot close a non-existing connection.')
 
         task = self.loop.create_task(self.connection.close())
-        task.add_done_callback(lambda *args: self._close_event.set())
+        task.add_done_callback(self.on_close)
 
-        self._stop_reader()
-
-    def abort(self):
-        self.connection.transport.abort()
         self._stop_reader()
 
     async def wait_closed(self):
         await self._close_event
 
     def get_extra_info(self, *args, **kwargs):
-        return self.connection.transport.get_extra_info(*args, **kwargs)
+        return self.connection.get_extra_info(*args, **kwargs)
 
 
 class WebsocketXMLStreamWriter(aioxmpp.xml.XMLStreamWriter):
@@ -240,10 +261,22 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
             base_logger=base_logger,
         )
 
-        transport = WebsocketTransport(stream)
+        if base_logger is not None:
+            logger = base_logger.getChild(type(self).__name__)
+        else:
+            logger = logging.getLogger(".".join([
+                __name__, type(self).__qualname__,
+            ]))
+
+        transport = WebsocketTransport(
+            loop,
+            stream,
+            logger,
+        )
         await transport.create_connection(
-            'wss://{0}'.format(host),
-            subprotocols=('xmpp',),
+            'wss://{host}'.format(host=host),
+            protocols=('xmpp',),
+            timeout=10,
         )
 
         return transport, stream, await features_future
