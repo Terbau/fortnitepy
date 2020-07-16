@@ -8,7 +8,7 @@ API Reference
 Authentication
 --------------
 
-As of v1.4.0, you now have to specify which authentication method you want to 
+As of v1.4.0, you now have to specify which authentication method you want to
 use for login. The one used up until this version was :class:`EmailAndPasswordAuth`. However,
 after that authentication method recently has started to require captcha to login in quite a lot
 of cases, this is no longer the preferred method in the long run.
@@ -29,6 +29,8 @@ how you can set up this auth with file storage for the preferred login which is 
 
 .. autoclass:: AdvancedAuth
 
+.. autoclass:: TokenToTokenAuth
+
 
 Client
 ------
@@ -45,7 +47,7 @@ Utility functions provided by the package.
 .. autofunction:: run_multiple
 
 .. autofunction:: start_multiple
-	
+
 .. autofunction:: close_multiple
 
 
@@ -222,7 +224,7 @@ Enumerations
 Event Reference
 ---------------
 
-Events can be registered by the ``@client.event`` decorator. You do not need 
+Events can be registered by the ``@client.event`` decorator. You do not need
 this decorator if you are in a subclass of :class:`Client`.
 
 .. warning::
@@ -239,7 +241,7 @@ this decorator if you are in a subclass of :class:`Client`.
 
 .. function:: event_close()
 
-	This event is called when the client is beginning to log out. 
+	This event is called when the client is beginning to log out.
 
 	.. warning::
 
@@ -252,7 +254,7 @@ this decorator if you are in a subclass of :class:`Client`.
 .. function:: event_restart()
 
 	This event is called when the client has successfully restarted.
-	
+
 .. function:: event_device_auth_generate(details, email)
 
 	This event is called whenever new device authentication details are generated.
@@ -269,43 +271,43 @@ this decorator if you are in a subclass of :class:`Client`.
 .. function:: event_friend_message(message)
 
     This event is called when :class:`ClientUser` receives a private message.
-    
+
     :param message: Message object.
     :type message: :class:`FriendMessage`
 
 .. function:: event_party_message(message)
-	
+
 	This event is called when :class:`ClientUser`'s party receives a message.
-	
+
 	:param message: Message object.
 	:type message: :class:`PartyMessage`
 
 .. function:: event_friend_add(friend)
 
 	This event is called when a friend has been added.
-	
+
 	.. note::
-		
+
 		This event is called regardless of the direction. That means it will get called even if the client were to be the one to accept the user.
-	
+
 	:param friend: Friend that has been added.
 	:type friend: :class:`Friend`
 
 .. function:: event_friend_remove(friend)
 
 	This event is called when a friend has been removed from the friendlist.
-	
+
 	.. note::
-		
+
 		This event is called regardless of the direction. That means it will get called even if the client were to be the one to remove the friend.
-	
+
 	:param friend: Friend that was removed.
 	:type friend: :class:`Friend`
 
 .. function:: event_friend_request(request)
 
 	This event is called when the client receives a friend request.
-	
+
 	:param request: Request object.
 	:type request: Union[:class:`IncomingPendingFriend`, :class:`OutgoingPendingFriend`]
 
@@ -338,30 +340,30 @@ this decorator if you are in a subclass of :class:`Client`.
 .. function:: event_party_invite(invitation)
 
 	This event is called when a party invitation is received.
-	
+
 	:param invitation: Invitation object.
 	:type invitation: :class:`ReceivedPartyInvitation`
 
 .. function:: event_party_member_expire(member)
 
 	This event is called when a partymember expires.
-	
+
 	:param member: Expired member.
 	:type member: :class:`PartyMember`
-	
+
 .. function:: event_party_member_promote(old_leader, new_leader)
 
 	This event is called when a new partyleader has been promoted.
-	
+
 	:param old_leader: Member that was previously leader.
 	:type old_leader: :class:`PartyMember`
 	:param new_leader: Member that was promoted.
 	:type new_leader: :class:`PartyMember`
-	
+
 .. function:: event_party_member_kick(member)
 
 	This event is called when a member has been kicked from the party.
-	
+
 	:param member: The member that was kicked.
 	:type member: :class:`PartyMember`
 
@@ -396,7 +398,7 @@ this decorator if you are in a subclass of :class:`Client`.
 .. function:: event_party_member_leave(member)
 
 	This event is called when a member leaves the party.
-	
+
 	:param member: The member who left the party.
 	:type member: :class:`PartyMember`
 
@@ -406,8 +408,8 @@ this decorator if you are in a subclass of :class:`Client`.
 
 	.. warning::
 
-		This event is automatically handled by the client which automatically always accepts the user. If you have this event referenced in your code the client won't automatically handle it anymore and you must handle it youself. 
-	
+		This event is automatically handled by the client which automatically always accepts the user. If you have this event referenced in your code the client won't automatically handle it anymore and you must handle it youself.
+
 	:param confirmation: Confirmation object with accessible confirmation methods.
 	:type confirmation: :class:`PartyJoinConfirmation`
 
@@ -679,9 +681,9 @@ Stats Reference
 Gamemode names
 ~~~~~~~~~~~~~~
 
-Since stats received from Fortnite's services changes all the time by adding 
-new gamemodes and such, none of the gamemode names have been changed from the 
-original response gotten from the request. Therefore, if you want to access a 
+Since stats received from Fortnite's services changes all the time by adding
+new gamemodes and such, none of the gamemode names have been changed from the
+original response gotten from the request. Therefore, if you want to access a
 users solo stats, you must use the internal name for the solo gamemode:
 ``defaultsolo``.
 
