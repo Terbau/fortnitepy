@@ -459,28 +459,12 @@ class EmailAndPasswordAuth(Auth):
 
 
 class TokenToTokenAuth(Auth):
-    """Authenticates with an existing bearer token.
+    """Authenticates with an existing access token.
 
     Parameters
     ----------
     access_token: :class:`str`
-        The account's bearer token.
-    ios_token: Optional[:class:`str`]
-        The ios token to use with authentication. You should generally
-        not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
-        not need to set this manually.
-    fortnite_token: Optional[:class:`str`]
-        The fortnite token to use with authentication. You should generally
-        not need to set this manually.
-    """
-    """Authenticates by the passed launcher refresh token.
-
-    Parameters
-    ----------
-    refresh_token: :class:`str`
-        A valid launcher refresh token.
+        A valid launcher access token.
     """
     def __init__(self, access_token: str,
                  **kwargs: Any) -> None:
