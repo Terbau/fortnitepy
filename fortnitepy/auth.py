@@ -155,6 +155,19 @@ class Auth:
             data=payload
         )
 
+    async def grant_token_to_token(self, refresh_token: str,
+                                   auth_token: str) -> dict:
+        payload = {
+            'grant_type': 'token_to_token',
+            'refresh_token': refresh_token
+        }
+
+        return await self.client.http.account_oauth_grant(
+            auth='basic {0}'.format(auth_token),
+            device_id=True,
+            data=payload
+        )
+
     async def get_exchange_code(self, *, auth='IOS_ACCESS_TOKEN') -> str:
         data = await self.client.http.account_get_exchange_data(
             auth=auth
@@ -430,6 +443,65 @@ class EmailAndPasswordAuth(Auth):
 
         if self.client.kill_other_sessions:
             await self.kill_other_sessions()
+
+        code = await self.get_exchange_code()
+        data = await self.exchange_code_for_session(
+            self.launcher_token,
+            code
+        )
+        self._update_launcher_data(data)
+
+        code = await self.get_exchange_code()
+        return await self.exchange_code_for_session(
+            self.fortnite_token,
+            code
+        )
+
+
+class TokenToTokenAuth(Auth):
+    """Authenticates with an existing bearer token.
+
+    Parameters
+    ----------
+    access_token: :class:`str`
+        The account's bearer token.
+    ios_token: Optional[:class:`str`]
+        The ios token to use with authentication. You should generally
+        not need to set this manually.
+    launcher_token: Optional[:class:`str`]
+        The launcher token to use with authentication. You should generally
+        not need to set this manually.
+    fortnite_token: Optional[:class:`str`]
+        The fortnite token to use with authentication. You should generally
+        not need to set this manually.
+    """
+    """Authenticates by the passed launcher refresh token.
+
+    Parameters
+    ----------
+    refresh_token: :class:`str`
+        A valid launcher refresh token.
+    """
+    def __init__(self, access_token: str,
+                 **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self._access_token = access_token
+
+    @property
+    def identifier(self) -> str:
+        return self._access_token
+
+    async def ios_authenticate(self) -> dict:
+        data = await self.grant_token_to_token(
+            self._access_token,
+            self.ios_token
+        )
+        return data
+
+    async def authenticate(self) -> dict:
+        data = await self.ios_authenticate()
+        self._update_ios_data(data)
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
