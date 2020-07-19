@@ -353,17 +353,17 @@ def run_multiple(clients: List['Client'], *,
 
 
 class LockEvent(asyncio.Lock):
-    def __init__(self, loop=None):
+    def __init__(self, loop=None) -> None:
         super().__init__(loop=loop)
 
         self._event = asyncio.Event()
         self.wait = self._event.wait
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         self._event.clear()
         await super().acquire()
 
-    def release(self):
+    def release(self) -> None:
         self._event.set()
         super().release()
 

@@ -195,7 +195,7 @@ class Auth:
             auth='bearer {0}'.format(token)
         )
 
-    async def kill_other_sessions(self, auth='IOS_ACCESS_TOKEN'):
+    async def kill_other_sessions(self, auth='IOS_ACCESS_TOKEN') -> None:
         await self.client.http.account_sessions_kill(
             'OTHERS_ACCOUNT_CLIENT_SERVICE',
             auth=auth
@@ -608,7 +608,7 @@ class AuthorizationCodeAuth(ExchangeCodeAuth):
                  **kwargs: Any) -> None:
         super().__init__(code, **kwargs)
 
-    async def ios_authenticate(self):
+    async def ios_authenticate(self) -> dict:
         self.resolved_code = await self.resolve(self.code)
 
         payload = {

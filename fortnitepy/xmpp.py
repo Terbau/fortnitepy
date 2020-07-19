@@ -72,7 +72,7 @@ class EventDispatcher:
         self._presence_listeners = []
         self.interactions_enabled = False
 
-    def process_presence(self, client, *args):
+    def process_presence(self, client, *args) -> None:
         for coro in self._presence_listeners:
             if __name__ == coro.__module__:
                 asyncio.ensure_future(coro(client.xmpp, *args))
@@ -85,13 +85,13 @@ class EventDispatcher:
             return coro
         return decorator
 
-    def add_presence_handler(self, coro):
+    def add_presence_handler(self, coro: Awaitable) -> None:
         if coro not in self._presence_listeners:
             self._presence_listeners.append(coro)
 
-    def remove_presence_handler(self, func):
+    def remove_presence_handler(self, coro: Awaitable) -> None:
         self._presence_listeners = [
-            f for f in self._presence_listeners if f is not func
+            c for c in self._presence_listeners if c is not coro
         ]
 
     def process_event(self, client: 'Client', raw_body: dict) -> None:
@@ -138,7 +138,7 @@ dispatcher = EventDispatcher()
 
 
 class XMLProcessor:
-    def _process_presence(self, raw):
+    def _process_presence(self, raw: str) -> Optional[Union[tuple, bool]]:
         tree = ElementTree.fromstring(raw)
 
         type_ = tree.get('type')
@@ -173,7 +173,7 @@ class XMLProcessor:
 
         return ('presence', user_id, platform, type_, status, show)
 
-    def _process_message(self, raw):
+    def _process_message(self, raw: str) -> Optional[Union[tuple, bool]]:
         tree = ElementTree.fromstring(raw)
 
         type_ = tree.get('type')
@@ -196,7 +196,7 @@ class XMLProcessor:
 
         return ('message', body)
 
-    def process(self, raw):
+    def process(self, raw: str) -> Optional[Union[tuple, bool]]:
         # Yes, this is a hacky solution but it's better than
         # using the quite unnecessary slow aioxmpp one.
         if '<presence' in raw:
@@ -1059,7 +1059,11 @@ class XMPPClient:
             self.client.dispatch_event('party_invite_decline', friend)
 
     @dispatcher.presence()
-    async def process_presence(self, user_id, platform, type_, status, show):
+    async def process_presence(self, user_id: str,
+                               platform: str,
+                               type_: str,
+                               status: str,
+                               show: str) -> None:
         try:
             data = json.loads(status)
 

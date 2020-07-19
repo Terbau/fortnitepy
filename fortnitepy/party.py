@@ -272,7 +272,7 @@ class MaybeLock:
 
 
 class Patchable:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
     def update_meta_config(self, data: dict) -> None:
