@@ -319,8 +319,8 @@ class Patchable:
             finally:
                 self.meta.deleted_cache = []
 
-    async def _edit(self, *coros: List[Union[Awaitable, functools.partial]],
-                    from_default: bool = True) -> None:
+    async def _edit(self,
+                    *coros: List[Union[Awaitable, functools.partial]]) -> None:
         to_gather = {}
         for coro in reversed(coros):
             if isinstance(coro, functools.partial):
@@ -335,8 +335,24 @@ class Patchable:
             else:
                 to_gather[coro.__qualname__] = coro
 
+        before = self.meta.schema.copy()
+
         async with MaybeLock(self.edit_lock):
             await asyncio.gather(*list(to_gather.values()))
+
+        updated = {}
+        deleted = []
+        for prop, value in before.items():
+            try:
+                new_value = self.meta.schema[prop]
+            except KeyError:
+                deleted.append(prop)
+                continue
+
+            if value != new_value:
+                updated[prop] = new_value
+
+        return updated, deleted
 
     async def edit(self,
                    *coros: List[Union[Awaitable, functools.partial]]
@@ -347,9 +363,11 @@ class Patchable:
                 raise TypeError('All arguments must be coroutines or a '
                                 'partials of coroutines')
 
-        await self._edit(*coros)
-
-        return await self.patch()
+        updated, deleted = await self._edit(*coros)
+        return await self.patch(
+            updated=updated,
+            deleted=deleted
+        )
 
     async def edit_and_keep(self,
                             *coros: List[Union[Awaitable, functools.partial]]
@@ -370,9 +388,12 @@ class Patchable:
             new.append(coro)
 
         default = self.update_meta_config(new)
-        await self._edit(*default)
 
-        return await self.patch()
+        updated, deleted = await self._edit(*default)
+        return await self.patch(
+            updated=updated,
+            deleted=deleted
+        )
 
 
 class MetaBase:
@@ -409,6 +430,14 @@ class MetaBase:
             return 0 if _v is None else int(_v)
         else:
             return '' if _v is None else str(_v)
+
+    def delete_prop(self, prop: str) -> str:
+        try:
+            del self.schema[prop]
+        except KeyError:
+            pass
+
+        return prop
 
     def update(self, schema: Optional[dict] = None, *,
                raw: bool = False) -> None:
@@ -880,14 +909,7 @@ class PartyMeta(MetaBase):
         if meta is not None:
             self.update(meta, raw=True)
 
-        client = party.client
-        if isinstance(party, ClientParty):
-            fut = asyncio.ensure_future(
-                party._edit(*party._default_config.meta,
-                            from_default=True),
-                loop=client.loop
-            )
-            fut.add_done_callback(lambda *args: self.meta_ready_event.set())
+        self.meta_ready_event.set()
 
     @property
     def playlist_info(self) -> Tuple[str]:
@@ -997,12 +1019,16 @@ class PartyMeta(MetaBase):
         )
 
         if privacy['partyType'] not in ('Public', 'FriendsOnly'):
-            deleted.append('urn:epic:cfg:not-accepting-members')
+            deleted.append(
+                self.delete_prop('urn:epic:cfg:not-accepting-members')
+            )
 
         if privacy['partyType'] == 'Private':
             updated['urn:epic:cfg:not-accepting-members-reason_i'] = 7
         else:
-            deleted.append('urn:epic:cfg:not-accepting-members-reason_i')
+            deleted.append(
+                self.delete_prop('urn:epic:cfg:not-accepting-members-reason_i')
+            )
 
         if self.party.edit_lock.locked():
             self.deleted_cache.extend(deleted)

@@ -2473,13 +2473,19 @@ class Client:
             await party.meta.meta_ready_event.wait()
 
             updated, deleted = party.meta.set_privacy(config['privacy'])
+
+            edit_updated, edit_deleted = await party._edit(
+                *party._default_config.meta
+            )
+
             tasks.append(party.patch(
                 updated={
                     **updated,
+                    **edit_updated,
                     **party.construct_squad_assignments(),
                     **party.meta.set_voicechat_implementation('VivoxVoiceChat')
                 },
-                deleted=deleted
+                deleted=[*deleted, *edit_deleted]
             ))
             await asyncio.gather(*tasks)
 
