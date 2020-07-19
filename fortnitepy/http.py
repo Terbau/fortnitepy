@@ -240,12 +240,13 @@ class HTTPClient:
 
     async def close(self) -> None:
         self._jar.clear()
-        if self.__session and not self.__session.closed:
+        if self.__session:
             await self.__session.close()
 
     def create_connection(self) -> None:
         self.__session = aiohttp.ClientSession(
             connector=self.connector,
+            connector_owner=self.connector is None,
             loop=self.client.loop,
             cookie_jar=self._jar
         )

@@ -211,11 +211,13 @@ class WebsocketTransport:
     def __init__(self, loop: asyncio.AbstractEventLoop,
                  stream: 'WebsocketXMLStream',
                  client: 'Client',
-                 logger: logging.Logger) -> None:
+                 logger: logging.Logger,
+                 ws_connector: Optional[aiohttp.BaseConnector] = None) -> None:
         self.loop = loop
         self.stream = stream
         self.client = client
         self.logger = logger
+        self.ws_connector = ws_connector
 
         self.xml_processor = XMLProcessor()
 
@@ -227,7 +229,12 @@ class WebsocketTransport:
 
     async def create_connection(self, *args,
                                 **kwargs) -> aiohttp.ClientWebSocketResponse:
-        self.session = aiohttp.ClientSession()
+        self.logger.debug('Setting up new websocket connection.')
+
+        self.session = aiohttp.ClientSession(
+            connector=self.ws_connector,
+            connector_owner=self.ws_connector is None,
+        )
         self.connection = con = await self.session.ws_connect(
             *args, **kwargs
         )
@@ -384,8 +391,9 @@ class WebsocketXMLStream(aioxmpp.protocol.XMLStream):
 
 
 class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
-    def __init__(self, client):
+    def __init__(self, client, ws_connector=None):
         self.client = client
+        self.ws_connector = ws_connector
 
     @property
     def tls_supported(self) -> bool:
@@ -425,6 +433,7 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
             stream,
             self.client,
             logger,
+            ws_connector=self.ws_connector
         )
         await transport.create_connection(
             'wss://{host}'.format(host=host),
@@ -436,8 +445,9 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
 
 
 class XMPPClient:
-    def __init__(self, client: 'Client') -> None:
+    def __init__(self, client: 'Client', ws_connector=None) -> None:
         self.client = client
+        self.ws_connector = ws_connector
 
         self.xmpp_client = None
         self.stream = None
@@ -1161,7 +1171,10 @@ class XMPPClient:
             override_peer=[(
                 self.client.service_domain,
                 self.client.service_port,
-                XMPPOverWebsocketConnector(self.client)
+                XMPPOverWebsocketConnector(
+                    self.client,
+                    ws_connector=self.ws_connector
+                )
             )],
             loop=self.client.loop
         )

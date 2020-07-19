@@ -378,6 +378,11 @@ class Client:
         :ref:`here <authentication>`.
     loop: Optional[:class:`asyncio.AbstractEventLoop`]
         The event loop to use for asynchronous operations.
+    connector: :class:`aiohttp.BaseConnector`
+        The connector to use for connection pooling.
+    ws_connector: :class:`aiohttp.BaseConnector`
+        The connector to use for websocket connection pooling. This could be
+        the same as the above connector.
     status: :class:`str`
         The status you want the client to send with its presence to friends.
         Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
@@ -449,7 +454,7 @@ class Client:
         self.auth.initialize(self)
         self.http = HTTPClient(self, connector=kwargs.get('connector'))
         self.http.add_header('Accept-Language', 'en-EN')
-        self.xmpp = None
+        self.xmpp = XMPPClient(self, ws_connector=kwargs.get('ws_connector'))
         self.party = None
 
         self._listeners = {}
@@ -741,7 +746,6 @@ class Client:
 
         await state_fut
 
-        self.xmpp = XMPPClient(self)
         await self.xmpp.run()
         log.debug('Connected to XMPP')
 
