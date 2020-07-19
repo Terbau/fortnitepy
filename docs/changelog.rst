@@ -6,6 +6,43 @@ Changelog
 Detailed version changes.
 
 
+v2.3.0
+------
+
+Huge performance improvements and lots of bug fixes.
+
+Changed
+~~~~~~~
+
+- Internal parsing of xmpp stanzas like presences and messages are now processed by a custom processor which bypasses aioxmpp's slow processing whenever possible. This is more noticable on accounts with lots of online friends. Internal tests are showing performance speeds to be more than three times faster than before.
+
+Added
+~~~~~
+
+- Added missing docs for ``connector`` keyword argument in :class:`Client.`
+- Added keyword argument ``ws_connector`` to :class:`Client`.
+- Added ``__slots__`` to :class:`Avatar`.
+
+Removed
+~~~~~~~
+
+- Removed two undocumented attributes related to presences to reduce memory footprint:
+    - ``Presence.raw_properties``
+    - ``PresenceParty.raw``
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed lots of issues regarding the xmpp over websocket solution. The most noticable one is that xmpp will auto reconnect on errors and unexpected closings.
+- Fixed invalid refresh token sometimes crashing the bot while refreshing the session. NOTE: This only works when using :class:`DeviceAuth` or :class:`AdvancedAuth`.
+- Fixed an issue where stored meta changes from :attr:`DefaultPartyConfig.meta` wasn't always applied correctly when creating a new party.
+- Fixed an issue where some meta props wasn't always updated when using :meth:`ClientParty.edit()` or :meth:`ClientPartyMember.edit()`.
+- :class:`aiohttp.BaseConnector`'s passed to :class:`Client` will no longer be closed when the client is closed.
+- Fixed :attr:`PartyMember.external_auths` always being empty when the member was a part of :class:`ClientParty`.
+- Fixed an issue that caused the client to sometimes leave the party some seconds after joining due to an event not being fired.
+- The client will no longer send out its presence two times on startup. Sowwy epic :(
+
+
 v2.2.1
 ------
 

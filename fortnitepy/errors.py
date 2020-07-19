@@ -46,7 +46,7 @@ class AuthException(FortniteException):
         The original exception raised. The original error always inherits from
         :exc:`FortniteException`.
     """
-    def __init__(self, message, original):
+    def __init__(self, message: str, original: Exception) -> None:
         super().__init__(message)
         self.original = original
 
@@ -120,7 +120,7 @@ class ValidationFailure(FortniteException):
         The message variables received.
     """
 
-    def __init__(self, data: dict):
+    def __init__(self, data: dict) -> None:
         self.field_name = data['fieldName']
         self.invalid_value = data['invalidValue']
         self.message = data['errorMessage']

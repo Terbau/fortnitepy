@@ -272,7 +272,7 @@ class MaybeLock:
 
 
 class Patchable:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
     def update_meta_config(self, data: dict) -> None:
@@ -319,8 +319,8 @@ class Patchable:
             finally:
                 self.meta.deleted_cache = []
 
-    async def _edit(self, *coros: List[Union[Awaitable, functools.partial]],
-                    from_default: bool = True) -> None:
+    async def _edit(self,
+                    *coros: List[Union[Awaitable, functools.partial]]) -> None:
         to_gather = {}
         for coro in reversed(coros):
             if isinstance(coro, functools.partial):
@@ -335,8 +335,24 @@ class Patchable:
             else:
                 to_gather[coro.__qualname__] = coro
 
+        before = self.meta.schema.copy()
+
         async with MaybeLock(self.edit_lock):
             await asyncio.gather(*list(to_gather.values()))
+
+        updated = {}
+        deleted = []
+        for prop, value in before.items():
+            try:
+                new_value = self.meta.schema[prop]
+            except KeyError:
+                deleted.append(prop)
+                continue
+
+            if value != new_value:
+                updated[prop] = new_value
+
+        return updated, deleted
 
     async def edit(self,
                    *coros: List[Union[Awaitable, functools.partial]]
@@ -347,9 +363,11 @@ class Patchable:
                 raise TypeError('All arguments must be coroutines or a '
                                 'partials of coroutines')
 
-        await self._edit(*coros)
-
-        return await self.patch()
+        updated, deleted = await self._edit(*coros)
+        return await self.patch(
+            updated=updated,
+            deleted=deleted
+        )
 
     async def edit_and_keep(self,
                             *coros: List[Union[Awaitable, functools.partial]]
@@ -370,9 +388,12 @@ class Patchable:
             new.append(coro)
 
         default = self.update_meta_config(new)
-        await self._edit(*default)
 
-        return await self.patch()
+        updated, deleted = await self._edit(*default)
+        return await self.patch(
+            updated=updated,
+            deleted=deleted
+        )
 
 
 class MetaBase:
@@ -409,6 +430,14 @@ class MetaBase:
             return 0 if _v is None else int(_v)
         else:
             return '' if _v is None else str(_v)
+
+    def delete_prop(self, prop: str) -> str:
+        try:
+            del self.schema[prop]
+        except KeyError:
+            pass
+
+        return prop
 
     def update(self, schema: Optional[dict] = None, *,
                raw: bool = False) -> None:
@@ -534,8 +563,7 @@ class PartyMemberMeta(MetaBase):
         if member.id == client.user.id and isinstance(member,
                                                       ClientPartyMember):
             fut = asyncio.ensure_future(
-                member._edit(*member._default_config.meta,
-                             from_default=True),
+                member._edit(*member._default_config.meta),
                 loop=client.loop
             )
             fut.add_done_callback(lambda *args: self.meta_ready_event.set())
@@ -880,14 +908,7 @@ class PartyMeta(MetaBase):
         if meta is not None:
             self.update(meta, raw=True)
 
-        client = party.client
-        if isinstance(party, ClientParty):
-            fut = asyncio.ensure_future(
-                party._edit(*party._default_config.meta,
-                            from_default=True),
-                loop=client.loop
-            )
-            fut.add_done_callback(lambda *args: self.meta_ready_event.set())
+        self.meta_ready_event.set()
 
     @property
     def playlist_info(self) -> Tuple[str]:
@@ -997,12 +1018,16 @@ class PartyMeta(MetaBase):
         )
 
         if privacy['partyType'] not in ('Public', 'FriendsOnly'):
-            deleted.append('urn:epic:cfg:not-accepting-members')
+            deleted.append(
+                self.delete_prop('urn:epic:cfg:not-accepting-members')
+            )
 
         if privacy['partyType'] == 'Private':
             updated['urn:epic:cfg:not-accepting-members-reason_i'] = 7
         else:
-            deleted.append('urn:epic:cfg:not-accepting-members-reason_i')
+            deleted.append(
+                self.delete_prop('urn:epic:cfg:not-accepting-members-reason_i')
+            )
 
         if self.party.edit_lock.locked():
             self.deleted_cache.extend(deleted)
@@ -1691,7 +1716,15 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         await super().edit_and_keep(*coros)
 
     def do_on_member_join_patch(self) -> None:
-        asyncio.ensure_future(self.patch(), loop=self.client.loop)
+        async def patcher():
+            try:
+                await self.patch()
+            except HTTPException as exc:
+                m = 'errors.com.epicgames.social.party.party_not_found'
+                if exc.message_code != m:
+                    raise
+
+        asyncio.ensure_future(patcher(), loop=self.client.loop)
 
     async def leave(self) -> 'ClientParty':
         """|coro|
@@ -2797,7 +2830,8 @@ class ClientParty(PartyBase, Patchable):
         self.sub_type = config['sub_type']
         self.config = {**self.client.default_party_config.config, **config}
 
-    async def _update_members(self, members: Optional[list] = None) -> None:
+    async def _update_members(self, members: Optional[list] = None,
+                              remove_missing: bool = True) -> None:
         if members is None:
             data = await self.client.http.party_lookup(self.id)
             members = data['members']
@@ -2811,6 +2845,7 @@ class ClientParty(PartyBase, Patchable):
         )
         profiles = {p.id: p for p in profiles}
 
+        result = []
         for raw in members:
             user_id = get_id(raw)
             if user_id == self.client.user.id:
@@ -2820,18 +2855,21 @@ class ClientParty(PartyBase, Patchable):
             raw = {**raw, **(user.get_raw())}
 
             member = self._create_member(raw)
+            result.append(member)
 
             if member.id == self.client.user.id:
                 self._create_clientmember(raw)
 
-        ids = profiles.keys()
-        to_remove = []
-        for m in self.members.values():
-            if m.id not in ids:
-                to_remove.append(m.id)
+        if remove_missing:
+            to_remove = []
+            for m in self.members.values():
+                if m.id not in profiles:
+                    to_remove.append(m.id)
 
-        for user_id in to_remove:
-            self._remove_member(user_id)
+            for user_id in to_remove:
+                self._remove_member(user_id)
+
+        return result
 
     async def join_chat(self) -> None:
         await self.client.xmpp.join_muc(self.id)

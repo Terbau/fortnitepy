@@ -166,9 +166,9 @@ class ReadyState(Enum):
 
 
 class AwayStatus(Enum):
-    ONLINE        = PresenceShow.NONE
-    AWAY          = PresenceShow.AWAY
-    EXTENDED_AWAY = PresenceShow.EXTENDED_AWAY
+    ONLINE        = None
+    AWAY          = 'away'
+    EXTENDED_AWAY = 'xa'
 
 
 class SeasonStartTimestamp(Enum):

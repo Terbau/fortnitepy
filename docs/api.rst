@@ -740,7 +740,7 @@ Stats
 	  'lastmodified': datetime.datetime,
 	}
 
-**Default Squads Gamemode (defaultsquads)**
+**Default Squads Gamemode (defaultsquad)**
 
 .. code-block:: python3
 

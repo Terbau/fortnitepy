@@ -353,17 +353,17 @@ def run_multiple(clients: List['Client'], *,
 
 
 class LockEvent(asyncio.Lock):
-    def __init__(self, loop=None):
+    def __init__(self, loop=None) -> None:
         super().__init__(loop=loop)
 
         self._event = asyncio.Event()
         self.wait = self._event.wait
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         self._event.clear()
         await super().acquire()
 
-    def release(self):
+    def release(self) -> None:
         self._event.set()
         super().release()
 
@@ -378,6 +378,11 @@ class Client:
         :ref:`here <authentication>`.
     loop: Optional[:class:`asyncio.AbstractEventLoop`]
         The event loop to use for asynchronous operations.
+    connector: :class:`aiohttp.BaseConnector`
+        The connector to use for connection pooling.
+    ws_connector: :class:`aiohttp.BaseConnector`
+        The connector to use for websocket connection pooling. This could be
+        the same as the above connector.
     status: :class:`str`
         The status you want the client to send with its presence to friends.
         Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
@@ -449,7 +454,7 @@ class Client:
         self.auth.initialize(self)
         self.http = HTTPClient(self, connector=kwargs.get('connector'))
         self.http.add_header('Accept-Language', 'en-EN')
-        self.xmpp = None
+        self.xmpp = XMPPClient(self, ws_connector=kwargs.get('ws_connector'))
         self.party = None
 
         self._listeners = {}
@@ -741,7 +746,6 @@ class Client:
 
         await state_fut
 
-        self.xmpp = XMPPClient(self)
         await self.xmpp.run()
         log.debug('Connected to XMPP')
 
@@ -2469,13 +2473,19 @@ class Client:
             await party.meta.meta_ready_event.wait()
 
             updated, deleted = party.meta.set_privacy(config['privacy'])
+
+            edit_updated, edit_deleted = await party._edit(
+                *party._default_config.meta
+            )
+
             tasks.append(party.patch(
                 updated={
                     **updated,
+                    **edit_updated,
                     **party.construct_squad_assignments(),
                     **party.meta.set_voicechat_implementation('VivoxVoiceChat')
                 },
-                deleted=deleted
+                deleted=[*deleted, *edit_deleted]
             ))
             await asyncio.gather(*tasks)
 

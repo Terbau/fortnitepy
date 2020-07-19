@@ -77,10 +77,12 @@ class Auth:
     async def _authenticate(self) -> None:
         try:
             log.info('Running authentication.')
-            data = await self.authenticate()
-            self._update_data(data)
+            await self.authenticate()
         except asyncio.CancelledError:
             return False
+
+    async def reauthenticate(self) -> dict:
+        raise NotImplementedError
 
     async def get_eula_version(self) -> int:
         data = await self.client.http.eulatracking_get_data()
@@ -193,7 +195,7 @@ class Auth:
             auth='bearer {0}'.format(token)
         )
 
-    async def kill_other_sessions(self, auth='IOS_ACCESS_TOKEN'):
+    async def kill_other_sessions(self, auth='IOS_ACCESS_TOKEN') -> None:
         await self.client.http.account_sessions_kill(
             'OTHERS_ACCOUNT_CLIENT_SERVICE',
             auth=auth
@@ -228,23 +230,40 @@ class Auth:
             if self.client.party is not None:
                 await self.client.party._leave()
 
-            data = await self.grant_refresh_token(
-                self.ios_refresh_token,
-                self.ios_token
-            )
-            self._update_ios_data(data)
+            try:
+                data = await self.grant_refresh_token(
+                    self.ios_refresh_token,
+                    self.ios_token
+                )
+                self._update_ios_data(data)
 
-            data = await self.grant_refresh_token(
-                self.launcher_refresh_token,
-                self.launcher_token
-            )
-            self._update_launcher_data(data)
+                data = await self.grant_refresh_token(
+                    self.launcher_refresh_token,
+                    self.launcher_token
+                )
+                self._update_launcher_data(data)
 
-            data = await self.grant_refresh_token(
-                self.refresh_token,
-                self.fortnite_token
-            )
-            self._update_data(data)
+                data = await self.grant_refresh_token(
+                    self.refresh_token,
+                    self.fortnite_token
+                )
+                self._update_data(data)
+            except HTTPException as exc:
+                m = 'errors.com.epicgames.account.auth_token.' \
+                    'invalid_refresh_token'
+                if exc.message_code != m:
+                    raise
+
+                log.debug(
+                    'Invalid refresh token was supplied. Attempting to '
+                    'reconnect if possible.'
+                )
+                try:
+                    await self.reauthenticate()
+                except NotImplementedError:
+                    raise exc
+
+                log.debug('Successfully reauthenticated.')
 
             log.debug('Refreshing xmpp session')
             await self.client.xmpp.close()
@@ -253,6 +272,7 @@ class Auth:
             await self.client._create_party()
 
             self.refresh_i += 1
+            log.debug('Sessions was successfully refreshed.')
             self.client.dispatch_event('auth_refresh')
 
     async def run_refresh(self) -> None:
@@ -424,7 +444,7 @@ class EmailAndPasswordAuth(Auth):
         )
         return data
 
-    async def authenticate(self) -> dict:
+    async def authenticate(self) -> None:
         data = await self.ios_authenticate()
         self._update_ios_data(data)
 
@@ -439,10 +459,11 @@ class EmailAndPasswordAuth(Auth):
         self._update_launcher_data(data)
 
         code = await self.get_exchange_code()
-        return await self.exchange_code_for_session(
+        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
+        self._update_data(data)
 
 
 class ExchangeCodeAuth(Auth):
@@ -527,7 +548,7 @@ class ExchangeCodeAuth(Auth):
 
         return data
 
-    async def authenticate(self) -> dict:
+    async def authenticate(self) -> None:
         data = await self.ios_authenticate()
         self._update_ios_data(data)
 
@@ -542,10 +563,11 @@ class ExchangeCodeAuth(Auth):
         self._update_launcher_data(data)
 
         code = await self.get_exchange_code()
-        return await self.exchange_code_for_session(
+        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
+        self._update_data(data)
 
 
 class AuthorizationCodeAuth(ExchangeCodeAuth):
@@ -586,7 +608,7 @@ class AuthorizationCodeAuth(ExchangeCodeAuth):
                  **kwargs: Any) -> None:
         super().__init__(code, **kwargs)
 
-    async def ios_authenticate(self):
+    async def ios_authenticate(self) -> dict:
         self.resolved_code = await self.resolve(self.code)
 
         payload = {
@@ -679,7 +701,7 @@ class DeviceAuth(Auth):
 
         return data
 
-    async def authenticate(self) -> dict:
+    async def authenticate(self) -> None:
         data = await self.ios_authenticate()
         self._update_ios_data(data)
 
@@ -694,10 +716,15 @@ class DeviceAuth(Auth):
         self._update_launcher_data(data)
 
         code = await self.get_exchange_code()
-        return await self.exchange_code_for_session(
+        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
+        self._update_data(data)
+
+    async def reauthenticate(self) -> None:
+        """Used for reauthenticating if refreshing fails."""
+        return await self.authenticate()
 
 
 class RefreshTokenAuth(Auth):
@@ -725,7 +752,7 @@ class RefreshTokenAuth(Auth):
         )
         return data
 
-    async def authenticate(self) -> dict:
+    async def authenticate(self) -> None:
         data = await self.ios_authenticate()
         self._update_ios_data(data)
 
@@ -737,10 +764,11 @@ class RefreshTokenAuth(Auth):
         self._update_launcher_data(data)
 
         code = await self.get_exchange_code()
-        return await self.exchange_code_for_session(
+        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
+        self._update_data(data)
 
 
 class AdvancedAuth(Auth):
@@ -1044,6 +1072,8 @@ class AdvancedAuth(Auth):
             'account_id': data['accountId'],
             'secret': data['secret'],
         }
+        self.__dict__.update(details)
+
         account_data = await self.client.http.account_get_by_user_id(
             self.ios_account_id,
             auth='IOS_ACCESS_TOKEN'
@@ -1057,7 +1087,7 @@ class AdvancedAuth(Auth):
 
         return data
 
-    async def authenticate(self) -> dict:
+    async def authenticate(self) -> None:
         await self.ios_authenticate()
 
         if self.client.kill_other_sessions:
@@ -1071,7 +1101,32 @@ class AdvancedAuth(Auth):
         self._update_launcher_data(data)
 
         code = await self.get_exchange_code()
-        return await self.exchange_code_for_session(
+        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
+        self._update_data(data)
+
+    async def reauthenticate(self) -> None:
+        await self.run_device_authenticate(
+            device_id=self.device_id,
+            account_id=self.account_id,
+            secret=self.secret,
+        )
+
+        if self.client.kill_other_sessions:
+            await self.kill_other_sessions()
+
+        code = await self.get_exchange_code()
+        data = await self.exchange_code_for_session(
+            self.launcher_token,
+            code
+        )
+        self._update_launcher_data(data)
+
+        code = await self.get_exchange_code()
+        data = await self.exchange_code_for_session(
+            self.fortnite_token,
+            code
+        )
+        self._update_data(data)

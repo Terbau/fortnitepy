@@ -141,13 +141,12 @@ class PresenceParty:
         The party's playercount.
     """
 
-    __slots__ = ('client', 'raw', 'private', 'platform', 'id', 'party_type_id',
+    __slots__ = ('client', 'private', 'platform', 'id', 'party_type_id',
                  'key', 'app_id', 'build_id', 'net_cl', 'party_flags',
                  'not_accepting_reason', 'playercount')
 
     def __init__(self, client: 'Client', data: dict) -> None:
         self.client = client
-        self.raw = data
         self.private = data.get('bIsPrivate', False)
 
         pl = data.get('sourcePlatform')
@@ -273,7 +272,7 @@ class Presence:
 
     __slots__ = ('client', 'available', 'away', 'friend', 'platform',
                  'received_at', 'status', 'in_kairos', 'playing', 'joinable',
-                 'has_voice_support', 'session_id', 'raw_properties',
+                 'has_voice_support', 'session_id',
                  'has_properties', 'avatar', 'homebase_rating', 'lfg',
                  'sub_game', 'in_unjoinable_match', 'playlist', 'party_size',
                  'max_party_size', 'game_session_join_key',
@@ -300,18 +299,18 @@ class Presence:
         self.session_id = (data['SessionId'] if
                            data['SessionId'] != "" else None)
 
-        self.raw_properties = data.get('Properties', {})
-        self.has_properties = self.raw_properties != {}
+        raw_properties = data.get('Properties', {})
+        self.has_properties = raw_properties != {}
 
         # All values below will be "None" if properties is empty.
         # The only expections are avatar and party which could have
         # values as long as in_kairos is True.
 
-        kairos_p = self.raw_properties.get('KairosProfile_s', {})
+        kairos_p = raw_properties.get('KairosProfile_s', {})
         if kairos_p:
             kairos_p = json.loads(kairos_p)
         else:
-            kairos_p = self.raw_properties.get('KairosProfile_j', {})
+            kairos_p = raw_properties.get('KairosProfile_j', {})
 
         background = kairos_p.get('avatarBackground')
         if background and not isinstance(background, list):
@@ -322,64 +321,64 @@ class Presence:
             background_colors=background
         )
 
-        _basic_info = self.raw_properties.get('FortBasicInfo_j', {})
+        _basic_info = raw_properties.get('FortBasicInfo_j', {})
         self.homebase_rating = _basic_info.get('homeBaseRating')
 
-        if self.raw_properties.get('FortLFG_I') is None:
+        if raw_properties.get('FortLFG_I') is None:
             self.lfg = None
         else:
-            self.lfg = int(self.raw_properties.get('FortLFG_I')) == 1
+            self.lfg = int(raw_properties.get('FortLFG_I')) == 1
 
-        self.sub_game = self.raw_properties.get('FortSubGame_i')
+        self.sub_game = raw_properties.get('FortSubGame_i')
 
-        self.in_unjoinable_match = self.raw_properties.get(
+        self.in_unjoinable_match = raw_properties.get(
             'InUnjoinableMatch_b'
         )
         if self.in_unjoinable_match is not None:
             self.in_unjoinable_match = int(self.in_unjoinable_match)
 
-        self.playlist = self.raw_properties.get('GamePlaylistName_s')
+        self.playlist = raw_properties.get('GamePlaylistName_s')
 
-        players_alive = self.raw_properties.get('Event_PlayersAlive_s')
+        players_alive = raw_properties.get('Event_PlayersAlive_s')
         if players_alive is not None:
             players_alive = int(players_alive)
 
-        self.party_size = self.raw_properties.get('Event_PartySize_s')
+        self.party_size = raw_properties.get('Event_PartySize_s')
         if self.party_size is not None:
             self.party_size = int(self.party_size)
 
-        self.max_party_size = self.raw_properties.get('Event_PartyMaxSize_s')
+        self.max_party_size = raw_properties.get('Event_PartyMaxSize_s')
         if self.max_party_size is not None:
             self.max_party_size = int(self.max_party_size)
 
-        self.game_session_join_key = self.raw_properties.get(
+        self.game_session_join_key = raw_properties.get(
             'GameSessionJoinKey_s'
         )
 
-        self.server_player_count = self.raw_properties.get(
+        self.server_player_count = raw_properties.get(
             'ServerPlayerCount_i'
         )
         if self.server_player_count is not None:
             self.server_player_count = int(self.server_player_count)
 
-        if 'FortGameplayStats_j' in self.raw_properties.keys():
+        if 'FortGameplayStats_j' in raw_properties.keys():
             self.gameplay_stats = PresenceGameplayStats(
                 self.friend,
-                self.raw_properties['FortGameplayStats_j'],
+                raw_properties['FortGameplayStats_j'],
                 players_alive
             )
         else:
             self.gameplay_stats = None
 
         key = None
-        for k in self.raw_properties.keys():
+        for k in raw_properties.keys():
             if re.search(r'party\.joininfodata\.\d+_j', k) is not None:
                 key = k
 
         if key is None:
             self.party = None
         else:
-            self.party = PresenceParty(self.client, self.raw_properties[key])
+            self.party = PresenceParty(self.client, raw_properties[key])
 
     def __repr__(self) -> str:
         return ('<Presence friend={0.friend!r} available={0.available} '

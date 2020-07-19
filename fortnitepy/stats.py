@@ -124,7 +124,7 @@ class StatsV2:
 
             # gets ninjas winpercentage in solo on input touch
             async def get_ninja_touch_solo_winpercentage():
-                profile = await client.fetch_profile('Ninja)
+                profile = await client.fetch_profile('Ninja')
                 stats = await client.fetch_br_stats(profile.id)
 
                 return stats.get_winpercentage(stats.get_stats()['touch']['defaultsolo'])
