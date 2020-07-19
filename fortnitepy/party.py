@@ -563,8 +563,7 @@ class PartyMemberMeta(MetaBase):
         if member.id == client.user.id and isinstance(member,
                                                       ClientPartyMember):
             fut = asyncio.ensure_future(
-                member._edit(*member._default_config.meta,
-                             from_default=True),
+                member._edit(*member._default_config.meta),
                 loop=client.loop
             )
             fut.add_done_callback(lambda *args: self.meta_ready_event.set())
