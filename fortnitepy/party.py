@@ -1716,7 +1716,15 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         await super().edit_and_keep(*coros)
 
     def do_on_member_join_patch(self) -> None:
-        asyncio.ensure_future(self.patch(), loop=self.client.loop)
+        async def patcher():
+            try:
+                await self.patch()
+            except HTTPException as exc:
+                m = 'errors.com.epicgames.social.party.party_not_found'
+                if exc.message_code != m:
+                    raise
+
+        asyncio.ensure_future(patcher(), loop=self.client.loop)
 
     async def leave(self) -> 'ClientParty':
         """|coro|
