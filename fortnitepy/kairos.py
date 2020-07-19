@@ -66,6 +66,9 @@ class Avatar:
     background: Optional[Union[List[:class:`str`], :class:`KairosBackgroundColorPreset`]]
         A list of exactly three hex color values represented as strings.
     """  # noqa
+
+    __slots__ = ('asset', 'background_colors')
+
     def __init__(self, *, asset: Optional[str] = None,
                  background_colors: ListOrPreset = None) -> None:
         self.asset = asset
