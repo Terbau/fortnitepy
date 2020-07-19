@@ -2822,7 +2822,8 @@ class ClientParty(PartyBase, Patchable):
         self.sub_type = config['sub_type']
         self.config = {**self.client.default_party_config.config, **config}
 
-    async def _update_members(self, members: Optional[list] = None) -> None:
+    async def _update_members(self, members: Optional[list] = None,
+                              remove_missing: bool = True) -> None:
         if members is None:
             data = await self.client.http.party_lookup(self.id)
             members = data['members']
@@ -2836,6 +2837,7 @@ class ClientParty(PartyBase, Patchable):
         )
         profiles = {p.id: p for p in profiles}
 
+        result = []
         for raw in members:
             user_id = get_id(raw)
             if user_id == self.client.user.id:
@@ -2845,18 +2847,21 @@ class ClientParty(PartyBase, Patchable):
             raw = {**raw, **(user.get_raw())}
 
             member = self._create_member(raw)
+            result.append(member)
 
             if member.id == self.client.user.id:
                 self._create_clientmember(raw)
 
-        ids = profiles.keys()
-        to_remove = []
-        for m in self.members.values():
-            if m.id not in ids:
-                to_remove.append(m.id)
+        if remove_missing:
+            to_remove = []
+            for m in self.members.values():
+                if m.id not in profiles:
+                    to_remove.append(m.id)
 
-        for user_id in to_remove:
-            self._remove_member(user_id)
+            for user_id in to_remove:
+                self._remove_member(user_id)
+
+        return result
 
     async def join_chat(self) -> None:
         await self.client.xmpp.join_muc(self.id)

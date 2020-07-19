@@ -945,14 +945,27 @@ class XMPPClient:
                 member = await self.client.wait_for(
                     'party_member_join',
                     check=check,
-                    timeout=3
+                    timeout=1
                 )
             except asyncio.TimeoutError:
-                if user_id == self.client.user.id:
-                    await party._leave()
-                    p = await self.client._create_party()
-                    self.client.party = p
-                return
+                party_data = await self.client.http.party_lookup(party.id)
+                for m_data in party_data['members']:
+                    if user_id == m_data['account_id']:
+                        member = (await party._update_members(
+                            (m_data,),
+                            remove_missing=False
+                        ))[0]
+                        break
+                else:
+                    if user_id == self.client.user.id:
+                        await party._leave()
+                        p = await self.client._create_party()
+                        self.client.party = p
+                    return
+
+                yielding = party.me._default_config.yield_leadership
+                if party.me and party.me.leader and not yielding:
+                    await party.refresh_squad_assignments()
 
         def _getattr(member, key):
             value = getattr(member, key)
