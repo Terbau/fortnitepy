@@ -34,6 +34,7 @@ import itertools
 import unicodedata
 import aiohttp
 
+from xml.etree import ElementTree
 from collections import defaultdict
 from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any, Tuple
 
@@ -68,9 +69,34 @@ class EventContext:
 class EventDispatcher:
     def __init__(self) -> None:
         self._listeners = defaultdict(list)
+        self._presence_listeners = []
         self.interactions_enabled = False
 
-    def process_event(self, client: 'Client', body: dict) -> None:
+    def process_presence(self, client, *args):
+        for coro in self._presence_listeners:
+            if __name__ == coro.__module__:
+                asyncio.ensure_future(coro(client.xmpp, *args))
+            else:
+                asyncio.ensure_future(coro(*args))
+
+    def presence(self) -> Awaitable:
+        def decorator(coro: Awaitable) -> Awaitable:
+            self.add_presence_handler(coro)
+            return coro
+        return decorator
+
+    def add_presence_handler(self, coro):
+        if coro not in self._presence_listeners:
+            self._presence_listeners.append(coro)
+
+    def remove_presence_handler(self, func):
+        self._presence_listeners = [
+            f for f in self._presence_listeners if f is not func
+        ]
+
+    def process_event(self, client: 'Client', raw_body: dict) -> None:
+        body = json.loads(raw_body)
+
         type_ = body.get('type')
         if type_ is None:
             if self.interactions_enabled:
@@ -111,18 +137,93 @@ class EventDispatcher:
 dispatcher = EventDispatcher()
 
 
+class XMLProcessor:
+    def _process_presence(self, raw):
+        tree = ElementTree.fromstring(raw)
+
+        type_ = tree.get('type')
+
+        # Only intercept presences with either no type attribute
+        # (which means available) or unavailable type.
+        if type_ is not None and type_ not in ('available', 'unavailable'):
+            return False
+
+        from_ = tree.get('from')
+
+        # If from is a party, let aioxmpp handle it.
+        if from_ is not None and '-' in from_:
+            return False
+
+        status = None
+        show = None
+        for elem in tree:
+            if 'status' in elem.tag:
+                status = elem.text
+            if 'show' in elem.tag:
+                show = elem.text
+
+        # We have no use for the presence if status is None and
+        # therefore it's better to just let aioxmpp handle it.
+        if status is None:
+            return False
+
+        split = from_.split('@')
+        user_id = split[0]
+        platform = split[1].split(':')[2]
+
+        return ('presence', user_id, platform, type_, status, show)
+
+    def _process_message(self, raw):
+        tree = ElementTree.fromstring(raw)
+
+        type_ = tree.get('type')
+
+        # Only intercept messages with either no type attribute
+        # (which means normal) or  type.
+        if type_ is not None and type_ != 'normal':
+            return False
+
+        # Let aioxmpp handle it if no body tag is found. Also, technically
+        # a message can include multiple body tags for different languages
+        # but afaik only one body tag is sent from epics servers.
+        body = None
+        for elem in tree:
+            if 'body' in elem.tag:
+                body = elem.text
+                break
+        else:
+            return False
+
+        return ('message', body)
+
+    def process(self, raw):
+        # Yes, this is a hacky solution but it's better than
+        # using the quite unnecessary slow aioxmpp one.
+        if '<presence' in raw:
+            return self._process_presence(raw)
+        elif '<message' in raw:
+            return self._process_message(raw)
+
+        return False
+
+
 class WebsocketTransport:
     def __init__(self, loop: asyncio.AbstractEventLoop,
                  stream: 'WebsocketXMLStream',
+                 client: 'Client',
                  logger: logging.Logger) -> None:
         self.loop = loop
         self.stream = stream
+        self.client = client
         self.logger = logger
+
+        self.xml_processor = XMLProcessor()
 
         self.connection = None
         self._buffer = b''
         self._reader_task = None
         self._close_event = asyncio.Event()
+        self._called_lost = False
 
     async def create_connection(self, *args,
                                 **kwargs) -> aiohttp.ClientWebSocketResponse:
@@ -130,25 +231,58 @@ class WebsocketTransport:
         self.connection = con = await self.session.ws_connect(
             *args, **kwargs
         )
+
         self.loop.create_task(self.reader())
         self.stream.connection_made(self)
+        self._called_lost = False
+
         self.logger.debug('Websocket connection established.')
         return con
 
     async def reader(self) -> None:
         self.logger.debug('Websocket reader is now running.')
 
-        while True:
-            msg = await self.connection.receive()
+        try:
+            async for msg in self.connection:
+                self.logger.debug('RECV: {0}'.format(msg))
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    ret = self.xml_processor.process(msg.data)
+                    if ret is None:
+                        continue
+                    elif ret is False:
+                        self.stream.data_received(msg.data)
+                    else:
+                        type_ = ret[0]
+                        if type_ == 'presence':
+                            dispatcher.process_presence(
+                                self.client,
+                                *ret[1:]
+                            )
+                        elif type_ == 'message':
+                            dispatcher.process_event(
+                                self.client,
+                                *ret[1:]
+                            )
 
-            if msg.type == aiohttp.WSMsgType.text:
-                self.stream.data_received(msg.data)
-            if msg.type == aiohttp.WSMsgType.closed:
-                break
-            if msg.type == aiohttp.WSMsgType.error:
-                break
+                if msg.type == aiohttp.WSMsgType.CLOSED:
+                    self._called_lost = True
+                    self.stream.connection_lost(
+                        ConnectionError('websocket stream closed by peer')
+                    )
+                    break
+                if msg.type == aiohttp.WSMsgType.ERROR:
+                    self._called_lost = True
+                    self.stream.connection_lost(
+                        ConnectionError(
+                            'websocket stream received an error: '
+                            '{0}'.format(self.connection.exception()))
+                    )
+                    break
+        finally:
+            self.logger.debug('Websocket reader stopped.')
 
     async def send(self, data: bytes) -> None:
+        self.logger.debug('SEND: {0}'.format(data))
         await self.connection.send_bytes(data)
 
     def write(self, data: bytes) -> None:
@@ -164,7 +298,7 @@ class WebsocketTransport:
         return False
 
     def write_eof(self) -> None:
-        raise NotImplementedError("Cannot write_eof() on ws transport")
+        raise NotImplementedError("Cannot write_eof() on ws transport.")
 
     def _stop_reader(self) -> None:
         if self._reader_task is not None and not self._reader_task.cancelled():
@@ -174,11 +308,9 @@ class WebsocketTransport:
         self._close_event.set()
 
     def on_close(self, *args) -> None:
-        # We do this to make sure connection_lost() doesnt re-call
-        # _writer.abort().
-        self.stream._writer = None
-
-        self.stream.connection_lost(None)
+        if not self._called_lost:
+            self._called_lost = True
+            self.stream.connection_lost(None)
 
         try:
             task = self.loop.create_task(self.session.close())
@@ -191,10 +323,16 @@ class WebsocketTransport:
         if not self.connection:
             raise RuntimeError('Cannot close a non-existing connection.')
 
+        self.logger.debug('Closing websocket connection.')
+
         task = self.loop.create_task(self.connection.close())
         task.add_done_callback(self.on_close)
 
         self._stop_reader()
+
+    def abort(self) -> None:
+        self.logger.debug('Received abort signal.')
+        self.close()
 
     async def wait_closed(self) -> None:
         await self._close_event
@@ -246,6 +384,9 @@ class WebsocketXMLStream(aioxmpp.protocol.XMLStream):
 
 
 class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
+    def __init__(self, client):
+        self.client = client
+
     @property
     def tls_supported(self) -> bool:
         return False
@@ -282,6 +423,7 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
         transport = WebsocketTransport(
             loop,
             stream,
+            self.client,
             logger,
         )
         await transport.create_connection(
@@ -906,19 +1048,10 @@ class XMPPClient:
         if friend is not None:
             self.client.dispatch_event('party_invite_decline', friend)
 
-    async def process_presence(self, presence: aioxmpp.Presence) -> None:
-        user_id = presence.from_.localpart
-        if user_id == self.client.user.id or not presence.status:
-            return
-
-        if '-' in user_id:
-            return
-
-        if not presence.type_.is_presence_state:
-            return
-
+    @dispatcher.presence()
+    async def process_presence(self, user_id, platform, type_, status, show):
         try:
-            data = json.loads(presence.status.any())
+            data = json.loads(status)
 
             # We do this to filter out kairos from launcher presences
             ch = data.get('bIsEmbedded', False) or data.get('Status', '') != ''
@@ -940,14 +1073,10 @@ class XMPPClient:
             except asyncio.TimeoutError:
                 return
 
-        platform = None
-        if not presence.from_.is_bare:
-            platform = presence.from_.resource.split(':')[2]
-
-        is_available = presence.type_ is aioxmpp.PresenceType.AVAILABLE
+        is_available = type_ is None or type_ == 'available'
 
         try:
-            away = AwayStatus(presence.show)
+            away = AwayStatus(show)
         except ValueError:
             away = AwayStatus.ONLINE
 
@@ -978,10 +1107,7 @@ class XMPPClient:
 
         self.client.dispatch_event('friend_presence', before_pres, _pres)
 
-    def setup_callbacks(self,
-                        messages: bool = True,
-                        process_messages: bool = True,
-                        presences: bool = True) -> None:
+    def setup_callbacks(self, messages: bool = True) -> None:
         message_dispatcher = self.xmpp_client.summon(
             aioxmpp.dispatcher.SimpleMessageDispatcher
         )
@@ -992,30 +1118,6 @@ class XMPPClient:
                 None,
                 lambda m: asyncio.ensure_future(
                     self.process_chat_message(m),
-                    loop=self.client.loop
-                ),
-            )
-
-        if process_messages:
-            message_dispatcher.register_callback(
-                aioxmpp.MessageType.NORMAL,
-                None,
-                lambda m: dispatcher.process_event(
-                    self.client,
-                    json.loads(m.body.any())
-                )
-            )
-
-        if presences:
-            presence_dispatcher = self.xmpp_client.summon(
-                aioxmpp.dispatcher.SimplePresenceDispatcher,
-            )
-
-            presence_dispatcher.register_callback(
-                None,
-                None,
-                lambda m: asyncio.ensure_future(
-                    self.process_presence(m),
                     loop=self.client.loop
                 ),
             )
@@ -1059,10 +1161,12 @@ class XMPPClient:
             override_peer=[(
                 self.client.service_domain,
                 self.client.service_port,
-                XMPPOverWebsocketConnector()
+                XMPPOverWebsocketConnector(self.client)
             )],
             loop=self.client.loop
         )
+        self.xmpp_client.backoff_start = datetime.timedelta(seconds=0.1)
+
         self.muc_service = self.xmpp_client.summon(aioxmpp.MUCClient)
         self.setup_callbacks()
 
