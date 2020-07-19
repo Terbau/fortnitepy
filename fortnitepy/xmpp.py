@@ -1177,13 +1177,7 @@ class XMPPClient:
         self._ping_task = asyncio.ensure_future(self.loop_ping(),
                                                 loop=self.client.loop)
 
-        asyncio.ensure_future(self.send_presence_on_start(),
-                              loop=self.client.loop)
         self.client.dispatch_event('xmpp_session_establish')
-
-    async def send_presence_on_start(self) -> None:
-        await self.client.wait_until_ready()
-        await self.send_presence(status=self.client.party.last_raw_status)
 
     async def close(self) -> None:
         log.debug('Attempting to close xmpp client')
