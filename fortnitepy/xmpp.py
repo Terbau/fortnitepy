@@ -695,10 +695,10 @@ class XMPPClient:
 
         member = party.members.get(user_id)
         if member is None:
-            member = party._create_member(body)
-
-            if member.id == self.client.user.id:
-                party._create_clientmember(body)
+            member = (await party._update_members(
+                (body,),
+                remove_missing=False
+            ))[0]
 
         if party.me is not None:
             party.me.do_on_member_join_patch()
