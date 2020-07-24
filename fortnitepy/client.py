@@ -52,6 +52,7 @@ from .presence import Presence
 from .auth import RefreshTokenAuth
 from .kairos import Avatar, get_random_default_avatar
 from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
+from .utils import LockEvent
 
 log = logging.getLogger(__name__)
 
@@ -350,22 +351,6 @@ def run_multiple(clients: List['Client'], *,
 
     if not future.cancelled():
         return future.result()
-
-
-class LockEvent(asyncio.Lock):
-    def __init__(self, loop=None) -> None:
-        super().__init__(loop=loop)
-
-        self._event = asyncio.Event()
-        self.wait = self._event.wait
-
-    async def acquire(self) -> None:
-        self._event.clear()
-        await super().acquire()
-
-    def release(self) -> None:
-        self._event.set()
-        super().release()
 
 
 class Client:
