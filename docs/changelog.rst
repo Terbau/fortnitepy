@@ -6,6 +6,26 @@ Changelog
 Detailed version changes.
 
 
+v2.3.1
+------
+
+Stability improvements.
+
+Changed
+~~~~~~~
+
+- Dropped the underlying launcher session since it's not longer used for anything.
+- Authentication now attempts to reauthenticate on startup in some cases.
+- Reauthentication on sudden access token invalid has been improved.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed some issues with incorrect handling of websocket disconnects that resulted in the xmpp connection to eventually time out.
+- A graceful close is now attempted even if the client is not ready.
+- Processing of messages now handles some race conditions that some times resulted in :attr:`FriendMessage.author` being ``None``.
+
+
 v2.3.0
 ------
 
