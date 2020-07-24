@@ -520,7 +520,18 @@ class XMPPClient:
         return inv
 
     async def process_chat_message(self, message: aioxmpp.Message) -> None:
-        author = self.client.get_friend(message.from_.localpart)
+        user_id = message.from_.localpart
+        author = self.client.get_friend(user_id)
+        if author is None:
+            try:
+                author = await self.client.wait_for(
+                    'friend_add',
+                    check=lambda f: f.id == user_id,
+                    timeout=2
+                )
+            except asyncio.TimeoutError:
+                log.debug('Friend message discarded because friend not found.')
+                return
 
         try:
             m = FriendMessage(
