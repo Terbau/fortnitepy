@@ -172,6 +172,10 @@ class Auth:
         )
         log.debug('Killing other sessions')
 
+    def refresh_loop_running(self):
+        task = self.client._refresh_task
+        return task is not None and not task.cancelled()
+
     async def schedule_token_refresh(self) -> None:
         subtracted = self.ios_expires_at - datetime.datetime.utcnow()
         self.token_timeout = (subtracted).total_seconds() - 300

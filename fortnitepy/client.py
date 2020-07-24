@@ -784,8 +784,7 @@ class Client:
             await self.http.close()
             self._closed = True
 
-        if (self._refresh_task is not None
-                and not self._refresh_task.cancelled()):
+        if self.auth.refresh_loop_running():
             self._refresh_task.cancel()
 
         if not self._restarting:
