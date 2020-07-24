@@ -725,7 +725,7 @@ class Client:
         state_fut = asyncio.ensure_future(self.initialize_states(),
                                           loop=self.loop)
 
-        if self.accept_eula:
+        if self.auth.eula_check_needed() and self.accept_eula:
             await self.auth.accept_eula()
             log.debug('EULA accepted')
 

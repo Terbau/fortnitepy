@@ -66,6 +66,9 @@ class Auth:
     def identifier(self) -> str:
         raise NotImplementedError
 
+    def eula_check_needed(self) -> bool:
+        return True
+
     async def authenticate(self) -> dict:
         raise NotImplementedError
 
@@ -610,6 +613,9 @@ class DeviceAuth(Auth):
     def identifier(self) -> str:
         return self.account_id
 
+    def eula_check_needed(self) -> bool:
+        return False
+
     async def ios_authenticate(self) -> dict:
         payload = {
             'grant_type': 'device_auth',
@@ -672,6 +678,9 @@ class RefreshTokenAuth(Auth):
     @property
     def identifier(self) -> str:
         return self._refresh_token
+
+    def eula_check_needed(self) -> bool:
+        return False
 
     async def ios_authenticate(self) -> dict:
         data = await self.grant_refresh_token(
@@ -815,9 +824,14 @@ class AdvancedAuth(Auth):
         self.prompt_code_if_throttled = prompt_code_if_throttled
         self.kwargs = kwargs
 
+        self._used_auth = None
+
     @property
     def identifier(self) -> str:
         return self.email or self.account_id or self.exchange_code
+
+    def eula_check_needed(self) -> bool:
+        return self._used_auth.eula_check_needed()
 
     def email_and_password_ready(self) -> bool:
         return self.email and self.password
@@ -851,6 +865,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+        self._used_auth = auth
 
         return await auth.ios_authenticate()
 
@@ -860,6 +875,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+        self._used_auth = auth
 
         return await auth.ios_authenticate()
 
@@ -869,6 +885,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+        self._used_auth = auth
 
         return await auth.ios_authenticate()
 
@@ -883,6 +900,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+        self._used_auth = auth
 
         data = await auth.ios_authenticate()
         self._update_ios_data(data)
