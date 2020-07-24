@@ -623,9 +623,11 @@ class HTTPClient:
         return await self.delete(r)
 
     async def account_sessions_kill_token(self, token: str, auth=None) -> Any:
-        r = AccountPublicService('/account/api/oauth/sessions/kill/{token}',
-                                 token=token)
-        return await self.delete(r, auth=auth)
+        r = AccountPublicService(
+            '/account/api/oauth/sessions/kill/{token}',
+            token=token
+        )
+        return await self.delete(r, auth='bearer {0}'.format(token))
 
     async def account_sessions_kill(self, kill_type: str,
                                     auth='IOS_ACCESS_TOKEN') -> Any:
