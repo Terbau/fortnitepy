@@ -339,9 +339,41 @@ class HTTPClient:
                  'token_verification_failed')
             )
             if exc.message_code in catch and not self.client._closing:
-                await self.client.restart()
-                return await self.fn_request(method, route, auth, graphql,
-                                             **kwargs)
+                force_attempts = 3
+
+                async with MaybeLock(self.client._reauth_lock):
+                    retry = True
+
+                    def should_force():
+                        ts = self.client._refresh_times
+                        if len(ts) > force_attempts:
+                            self.client._refresh_times = ts[-force_attempts:]
+                        try:
+                            old = self.client._refresh_times[-force_attempts]
+                        except IndexError:
+                            return True
+                        else:
+                            return time.time() - old > 20
+
+                    if should_force():
+                        try:
+                            await self.client.auth.do_refresh()
+                        except Exception:
+                            if self.client.can_restart():
+                                await self.client.restart()
+                    else:
+                        retry = False
+
+                    if retry:
+                        return await self.fn_request(
+                            method,
+                            route,
+                            auth,
+                            graphql,
+                            **kwargs
+                        )
+                    else:
+                        raise exc from None
 
             elif exc.message_code in ('errors.com.epicgames.common.'
                                       'server_error',):

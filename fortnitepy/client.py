@@ -29,6 +29,7 @@ import asyncio
 import sys
 import signal
 import logging
+import time
 
 from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
@@ -452,6 +453,7 @@ class Client:
         self._ready = asyncio.Event(loop=self.loop)
         self._leave_lock = asyncio.Lock(loop=self.loop)
         self._join_party_lock = LockEvent(loop=self.loop)
+        self._reauth_lock = LockEvent(loop=self.loop)
         self._refresh_task = None
         self._start_runner_task = None
         self._closed = False
@@ -460,6 +462,7 @@ class Client:
         self._first_start = True
 
         self._join_confirmation = False
+        self._refresh_times = []
 
         self.setup_internal()
 
@@ -827,6 +830,9 @@ class Client:
         """:class:`bool`: Whether the client is running or not."""
         return self._closed
 
+    def can_restart(self):
+        return hasattr(self.auth, 'ios_refresh_token')
+
     async def restart(self) -> None:
         """|coro|
 
@@ -842,6 +848,8 @@ class Client:
             A request error occured while logging in.
         """
         self._restarting = True
+
+        self._refresh_times.append(time.time())
         ios_refresh_token = self.auth.ios_refresh_token
 
         asyncio.ensure_future(self.recover_events(), loop=self.loop)

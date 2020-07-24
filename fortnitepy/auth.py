@@ -28,6 +28,7 @@ import datetime
 import asyncio
 import logging
 import uuid
+import time
 
 from aioconsole import ainput
 from typing import TYPE_CHECKING, Optional, Any, List
@@ -212,11 +213,21 @@ class Auth:
             await self.do_refresh()
 
     async def do_refresh(self) -> None:
-        async with self._refresh_lock, self.client._join_party_lock:
-            log.debug('Refreshing session')
+        forced = self.client._reauth_lock.locked()
 
-            if self.client.party is not None:
-                await self.client.party._leave()
+        try:
+            if not forced:
+                await self._refresh_lock.acquire()
+                await self.client._join_party_lock.acquire()
+
+            log.debug('Refreshing session')
+            self.client._refresh_times.append(time.time())
+
+            if self.client.party is not None and not forced:
+                try:
+                    await self.client.party._leave()
+                except HTTPException:
+                    pass
 
             try:
                 data = await self.grant_refresh_token(
@@ -230,10 +241,10 @@ class Auth:
                     self.fortnite_token
                 )
                 self._update_data(data)
-            except HTTPException as exc:
+            except (HTTPException, AttributeError) as exc:
                 m = 'errors.com.epicgames.account.auth_token.' \
                     'invalid_refresh_token'
-                if exc.message_code != m:
+                if isinstance(exc, HTTPException) and exc.message_code != m:
                     raise
 
                 log.debug(
@@ -247,15 +258,23 @@ class Auth:
 
                 log.debug('Successfully reauthenticated.')
 
-            log.debug('Refreshing xmpp session')
-            await self.client.xmpp.close()
-            await self.client.xmpp.run()
+            try:
+                log.debug('Refreshing xmpp session')
+                await self.client.xmpp.close()
+                await self.client.xmpp.run()
 
-            await self.client._create_party()
+                await self.client._create_party()
+            except AttributeError:
+                pass
 
             self.refresh_i += 1
             log.debug('Sessions was successfully refreshed.')
             self.client.dispatch_event('auth_refresh')
+
+        finally:
+            if not forced:
+                self._refresh_lock.release()
+                self.client._join_party_lock.release()
 
     async def run_refresh(self) -> None:
         self._refresh_event.set()
@@ -676,7 +695,11 @@ class DeviceAuth(Auth):
 
     async def reauthenticate(self) -> None:
         """Used for reauthenticating if refreshing fails."""
-        return await self.authenticate()
+        log.debug('Starting reauthentication.')
+
+        ret = await self.authenticate()
+        log.debug('Successfully reauthenicated.')
+        return ret
 
 
 class RefreshTokenAuth(Auth):
@@ -1055,6 +1078,8 @@ class AdvancedAuth(Auth):
         self._update_data(data)
 
     async def reauthenticate(self) -> None:
+        log.debug('Starting reauthentication.')
+
         await self.run_device_authenticate(
             device_id=self.device_id,
             account_id=self.account_id,
@@ -1070,3 +1095,4 @@ class AdvancedAuth(Auth):
             code
         )
         self._update_data(data)
+        log.debug('Successfully reauthenticated.')
