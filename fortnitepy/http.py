@@ -33,6 +33,7 @@ import time
 
 from typing import TYPE_CHECKING, List, Optional, Any, Union, Tuple
 from urllib.parse import quote
+from .utils import MaybeLock
 
 from .errors import HTTPException
 
@@ -108,29 +109,14 @@ class EpicGames(Route):
     AUTH = None
 
 
-class LauncherWebsite(Route):
-    BASE = 'https://launcher-website-prod07.ol.epicgames.com'
-    AUTH = None
-
-
-class EntitlementPublicService(Route):
-    BASE = 'https://entitlement-public-service-prod08.ol.epicgames.com'
-    AUTH = 'LAUNCHER_ACCESS_TOKEN'
-
-
-class OrderprocessorPublicService(Route):
-    BASE = 'https://orderprocessor-public-service-ecomprod01.ol.epicgames.com'
-    AUTH = 'LAUNCHER_ACCESS_TOKEN'
-
-
 class PaymentWebsite(Route):
     BASE = 'https://payment-website-pci.ol.epicgames.com'
-    AUTH = 'LAUNCHER_ACCESS_TOKEN'
+    AUTH = None
 
 
 class LightswitchPublicService(Route):
     BASE = 'https://lightswitch-public-service-prod06.ol.epicgames.com'
-    AUTH = 'LAUNCHER_ACCESS_TOKEN'
+    AUTH = 'IOS_ACCESS_TOKEN'
 
 
 class ProfileSearchService(Route):
@@ -220,14 +206,10 @@ class HTTPClient:
 
         if u_auth == 'IOS_BASIC_TOKEN':
             return 'basic {0}'.format(self.client.auth.ios_token)
-        elif u_auth == 'LAUNCHER_BASIC_TOKEN':
-            return 'basic {0}'.format(self.client.auth.launcher_token)
         elif u_auth == 'FORTNITE_BASIC_TOKEN':
             return 'basic {0}'.format(self.client.auth.fortnite_token)
         elif u_auth == 'IOS_ACCESS_TOKEN':
             return self.client.auth.ios_authorization
-        elif u_auth == 'LAUNCHER_ACCESS_TOKEN':
-            return self.client.auth.launcher_authorization
         elif u_auth == 'FORTNITE_ACCESS_TOKEN':
             return self.client.auth.authorization
         return auth
@@ -357,9 +339,41 @@ class HTTPClient:
                  'token_verification_failed')
             )
             if exc.message_code in catch and not self.client._closing:
-                await self.client.restart()
-                return await self.fn_request(method, route, auth, graphql,
-                                             **kwargs)
+                force_attempts = 3
+
+                async with MaybeLock(self.client._reauth_lock):
+                    retry = True
+
+                    def should_force():
+                        ts = self.client._refresh_times
+                        if len(ts) > force_attempts:
+                            self.client._refresh_times = ts[-force_attempts:]
+                        try:
+                            old = self.client._refresh_times[-force_attempts]
+                        except IndexError:
+                            return True
+                        else:
+                            return time.time() - old > 20
+
+                    if should_force():
+                        try:
+                            await self.client.auth.do_refresh()
+                        except Exception:
+                            if self.client.can_restart():
+                                await self.client.restart()
+                    else:
+                        retry = False
+
+                    if retry:
+                        return await self.fn_request(
+                            method,
+                            route,
+                            auth,
+                            graphql,
+                            **kwargs
+                        )
+                    else:
+                        raise exc from None
 
             elif exc.message_code in ('errors.com.epicgames.common.'
                                       'server_error',):
@@ -558,115 +572,8 @@ class HTTPClient:
         return await self.post(r, headers=headers)
 
     ###################################
-    #          Entitlement            #
-    ###################################
-
-    async def entitlement_get_all(self) -> List:
-        params = {
-            'start': 0,
-            'count': 5000
-        }
-
-        r = EntitlementPublicService(
-            '/entitlement/api/account/{client_id}/entitlements',
-            client_id=self.client.user.id
-        )
-        return await self.get(r, params=params)
-
-    ###################################
-    #         Orderprocessor          #
-    ###################################
-
-    async def orderprocessor_quickpurchase(self) -> dict:
-        payload = {
-            'salesChannel': 'Launcher-purchase-client',
-            'entitlementSource': 'Launcher-purchase-client',
-            'returnSplitPaymentItems': False,
-            'lineOffers': [
-                {
-                    'offerId': '09176f4ff7564bbbb499bbe20bd6348f',
-                    'quantity': 1,
-                    'namespace': 'fn'
-                }
-            ]
-        }
-
-        r = OrderprocessorPublicService(
-            ('/orderprocessor/api/shared/accounts/'
-             '{client_id}/orders/quickPurchase'),
-            client_id=self.client.user.id)
-        return await self.post(r, json=payload)
-
-    ###################################
-    #        Launcher Website         #
-    ###################################
-
-    async def launcher_website_purchase(self, namespace: str,
-                                        offers: str) -> str:
-        params = {
-            'showNavigation': True,
-            'namespace': namespace,
-            'offers': offers
-        }
-
-        return await self.get(LauncherWebsite('/purchase'), params=params)
-
-    ###################################
     #        Payment Website          #
     ###################################
-
-    async def payment_website_order_preview(self, token: str,
-                                            namespace: str,
-                                            offers: str) -> Any:
-        headers = {
-            'x-requested-with': token
-        }
-
-        payload = {
-            'useDefault': True,
-            'setDefault': False,
-            'namespace': namespace,
-            'country': None,
-            'countryName': None,
-            'orderComplete': None,
-            'orderId': None,
-            'orderError': None,
-            'orderPending': None,
-            'offers': [
-                offers
-            ],
-            'offerPrice': ''
-        }
-
-        r = PaymentWebsite('/purchase/order-preview')
-        return await self.post(r, headers=headers, data=payload)
-
-    async def payment_website_confirm_order(self, token: str,
-                                            order: str) -> Any:
-        headers = {
-            'x-requested-with': token
-        }
-
-        payload = {
-            'useDefault': True,
-            'setDefault': False,
-            'namespace': order['namespace'],
-            'country': order['country'],
-            'countryName': order['countryName'],
-            'orderId': None,
-            'orderComplete': None,
-            'orderError': None,
-            'orderPending': None,
-            'offers': order['offers'],
-            'includeAccountBalance': False,
-            'totalAmount': order['orderResponse']['totalPrice'],
-            'affiliateId': '',
-            'creatorSource': '',
-            'syncToken': order['syncToken']
-        }
-
-        r = PaymentWebsite('/purchase/confirm-order')
-        return await self.post(r, headers=headers, data=payload)
 
     async def payment_website_search_sac_by_slug(self, slug: str) -> Any:
         params = {
@@ -748,9 +655,11 @@ class HTTPClient:
         return await self.delete(r)
 
     async def account_sessions_kill_token(self, token: str, auth=None) -> Any:
-        r = AccountPublicService('/account/api/oauth/sessions/kill/{token}',
-                                 token=token)
-        return await self.delete(r, auth=auth)
+        r = AccountPublicService(
+            '/account/api/oauth/sessions/kill/{token}',
+            token=token
+        )
+        return await self.delete(r, auth='bearer {0}'.format(token))
 
     async def account_sessions_kill(self, kill_type: str,
                                     auth='IOS_ACCESS_TOKEN') -> Any:
@@ -781,7 +690,7 @@ class HTTPClient:
             '/account/api/public/account/email/{email}',
             email=email
         )
-        return await self.get(r, auth='LAUNCHER_ACCESS_TOKEN')
+        return await self.get(r, auth='IOS_ACCESS_TOKEN')
 
     async def account_get_external_auths_by_id(self, user_id: str) -> list:
         r = AccountPublicService(

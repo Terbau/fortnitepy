@@ -28,6 +28,7 @@ import datetime
 import asyncio
 import logging
 import uuid
+import time
 
 from aioconsole import ainput
 from typing import TYPE_CHECKING, Optional, Any, List
@@ -45,7 +46,6 @@ _prompt_lock = asyncio.Lock()
 class Auth:
     def __init__(self, **kwargs: Any) -> None:
         self.ios_token = kwargs.get('ios_token', 'MzQ0NmNkNzI2OTRjNGE0NDg1ZDgxYjc3YWRiYjIxNDE6OTIwOWQ0YTVlMjVhNDU3ZmI5YjA3NDg5ZDMxM2I0MWE=')  # noqa
-        self.launcher_token = kwargs.get('launcher_token', 'MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=')  # noqa
         self.fortnite_token = kwargs.get('fortnite_token', 'ZWM2ODRiOGM2ODdmNDc5ZmFkZWEzY2IyYWQ4M2Y1YzY6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ=')  # noqa
 
     def initialize(self, client: 'Client') -> None:
@@ -60,10 +60,6 @@ class Auth:
         return 'bearer {0}'.format(self.ios_access_token)
 
     @property
-    def launcher_authorization(self) -> str:
-        return 'bearer {0}'.format(self.launcher_access_token)
-
-    @property
     def authorization(self) -> str:
         return 'bearer {0}'.format(self.access_token)
 
@@ -71,15 +67,32 @@ class Auth:
     def identifier(self) -> str:
         raise NotImplementedError
 
+    def eula_check_needed(self) -> bool:
+        return True
+
     async def authenticate(self) -> dict:
         raise NotImplementedError
 
     async def _authenticate(self) -> None:
-        try:
-            log.info('Running authentication.')
-            await self.authenticate()
-        except asyncio.CancelledError:
-            return False
+        max_attempts = 3
+        for i in range(max_attempts):
+            try:
+                log.info('Running authentication.')
+                return await self.authenticate()
+            except HTTPException as exc:
+                codes = (
+                    ('errors.com.epicgames.account.oauth.'
+                     'exchange_code_not_found'),
+                    ('errors.com.epicgames.account.oauth.'
+                     'expired_exchange_code_session'),
+                )
+                if exc.message_code in codes:
+                    if i != max_attempts-1:
+                        continue
+
+                raise
+            except asyncio.CancelledError:
+                return False
 
     async def reauthenticate(self) -> dict:
         raise NotImplementedError
@@ -113,21 +126,6 @@ class Auth:
         self.ios_client_service = data['client_service']
         self.ios_app = data['app']
         self.ios_in_app_id = data['in_app_id']
-
-    def _update_launcher_data(self, data: dict) -> None:
-        self.launcher_access_token = data['access_token']
-        self.launcher_expires_in = data['expires_in']
-        self.launcher_expires_at = self.client.from_iso(data["expires_at"])
-        self.launcher_token_type = data['token_type']
-        self.launcher_refresh_token = data['refresh_token']
-        self.launcher_refresh_expires = data['refresh_expires']
-        self.launcher_refresh_expires_at = data['refresh_expires_at']
-        self.launcher_account_id = data['account_id']
-        self.launcher_client_id = data['client_id']
-        self.launcher_internal_client = data['internal_client']
-        self.launcher_client_service = data['client_service']
-        self.launcher_app = data['app']
-        self.launcher_in_app_id = data['in_app_id']
 
     def _update_data(self, data: dict) -> None:
         self.access_token = data['access_token']
@@ -176,19 +174,6 @@ class Auth:
             data=payload
         )
 
-    async def exchange_launcher_code(self, code: str) -> dict:
-        payload = {
-            'grant_type': 'exchange_code',
-            'exchange_code': code,
-            'token_type': 'eg1',
-        }
-
-        return await self.client.http.account_oauth_grant(
-            auth='basic {0}'.format(self.launcher_token),
-            device_id=True,
-            data=payload
-        )
-
     async def kill_token(self, token: str) -> None:
         await self.client.http.account_sessions_kill_token(
             token,
@@ -202,8 +187,12 @@ class Auth:
         )
         log.debug('Killing other sessions')
 
+    def refresh_loop_running(self):
+        task = self.client._refresh_task
+        return task is not None and not task.cancelled()
+
     async def schedule_token_refresh(self) -> None:
-        subtracted = self.launcher_expires_at - datetime.datetime.utcnow()
+        subtracted = self.ios_expires_at - datetime.datetime.utcnow()
         self.token_timeout = (subtracted).total_seconds() - 300
         await asyncio.sleep(self.token_timeout)
 
@@ -224,11 +213,21 @@ class Auth:
             await self.do_refresh()
 
     async def do_refresh(self) -> None:
-        async with self._refresh_lock, self.client._join_party_lock:
-            log.debug('Refreshing session')
+        forced = self.client._reauth_lock.locked()
 
-            if self.client.party is not None:
-                await self.client.party._leave()
+        try:
+            if not forced:
+                await self._refresh_lock.acquire()
+                await self.client._join_party_lock.acquire()
+
+            log.debug('Refreshing session')
+            self.client._refresh_times.append(time.time())
+
+            if self.client.party is not None and not forced:
+                try:
+                    await self.client.party._leave()
+                except HTTPException:
+                    pass
 
             try:
                 data = await self.grant_refresh_token(
@@ -238,20 +237,14 @@ class Auth:
                 self._update_ios_data(data)
 
                 data = await self.grant_refresh_token(
-                    self.launcher_refresh_token,
-                    self.launcher_token
-                )
-                self._update_launcher_data(data)
-
-                data = await self.grant_refresh_token(
                     self.refresh_token,
                     self.fortnite_token
                 )
                 self._update_data(data)
-            except HTTPException as exc:
+            except (HTTPException, AttributeError) as exc:
                 m = 'errors.com.epicgames.account.auth_token.' \
                     'invalid_refresh_token'
-                if exc.message_code != m:
+                if isinstance(exc, HTTPException) and exc.message_code != m:
                     raise
 
                 log.debug(
@@ -265,15 +258,23 @@ class Auth:
 
                 log.debug('Successfully reauthenticated.')
 
-            log.debug('Refreshing xmpp session')
-            await self.client.xmpp.close()
-            await self.client.xmpp.run()
+            try:
+                log.debug('Refreshing xmpp session')
+                await self.client.xmpp.close()
+                await self.client.xmpp.run()
 
-            await self.client._create_party()
+                await self.client._create_party()
+            except AttributeError:
+                pass
 
             self.refresh_i += 1
             log.debug('Sessions was successfully refreshed.')
             self.client.dispatch_event('auth_refresh')
+
+        finally:
+            if not forced:
+                self._refresh_lock.release()
+                self.client._join_party_lock.release()
 
     async def run_refresh(self) -> None:
         self._refresh_event.set()
@@ -351,9 +352,6 @@ class EmailAndPasswordAuth(Auth):
         A 32 char hex representing your device.
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
-        not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
         not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
@@ -453,13 +451,6 @@ class EmailAndPasswordAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
@@ -495,9 +486,6 @@ class ExchangeCodeAuth(Auth):
         A 32 char hex string representing your device.
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
-        not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
         not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
@@ -557,13 +545,6 @@ class ExchangeCodeAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
@@ -596,9 +577,6 @@ class AuthorizationCodeAuth(ExchangeCodeAuth):
         A 32 char hex string representing your device.
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
-        not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
         not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
@@ -655,9 +633,6 @@ class DeviceAuth(Auth):
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
         not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
-        not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
         not need to set this manually.
@@ -674,6 +649,9 @@ class DeviceAuth(Auth):
     @property
     def identifier(self) -> str:
         return self.account_id
+
+    def eula_check_needed(self) -> bool:
+        return False
 
     async def ios_authenticate(self) -> dict:
         payload = {
@@ -710,13 +688,6 @@ class DeviceAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
@@ -724,7 +695,11 @@ class DeviceAuth(Auth):
 
     async def reauthenticate(self) -> None:
         """Used for reauthenticating if refreshing fails."""
-        return await self.authenticate()
+        log.debug('Starting reauthentication.')
+
+        ret = await self.authenticate()
+        log.debug('Successfully reauthenicated.')
+        return ret
 
 
 class RefreshTokenAuth(Auth):
@@ -745,6 +720,9 @@ class RefreshTokenAuth(Auth):
     def identifier(self) -> str:
         return self._refresh_token
 
+    def eula_check_needed(self) -> bool:
+        return False
+
     async def ios_authenticate(self) -> dict:
         data = await self.grant_refresh_token(
             self._refresh_token,
@@ -755,13 +733,6 @@ class RefreshTokenAuth(Auth):
     async def authenticate(self) -> None:
         data = await self.ios_authenticate()
         self._update_ios_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
@@ -852,9 +823,6 @@ class AdvancedAuth(Auth):
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
         not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
-        not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
         not need to set this manually.
@@ -897,9 +865,14 @@ class AdvancedAuth(Auth):
         self.prompt_code_if_throttled = prompt_code_if_throttled
         self.kwargs = kwargs
 
+        self._used_auth = None
+
     @property
     def identifier(self) -> str:
         return self.email or self.account_id or self.exchange_code
+
+    def eula_check_needed(self) -> bool:
+        return self._used_auth.eula_check_needed()
 
     def email_and_password_ready(self) -> bool:
         return self.email and self.password
@@ -933,6 +906,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+        self._used_auth = auth
 
         return await auth.ios_authenticate()
 
@@ -942,6 +916,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+        self._used_auth = auth
 
         return await auth.ios_authenticate()
 
@@ -951,6 +926,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+        self._used_auth = auth
 
         return await auth.ios_authenticate()
 
@@ -965,6 +941,7 @@ class AdvancedAuth(Auth):
             **self.kwargs
         )
         auth.initialize(self.client)
+        self._used_auth = auth
 
         data = await auth.ios_authenticate()
         self._update_ios_data(data)
@@ -1095,19 +1072,14 @@ class AdvancedAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
         self._update_data(data)
 
     async def reauthenticate(self) -> None:
+        log.debug('Starting reauthentication.')
+
         await self.run_device_authenticate(
             device_id=self.device_id,
             account_id=self.account_id,
@@ -1119,14 +1091,8 @@ class AdvancedAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
         self._update_data(data)
+        log.debug('Successfully reauthenticated.')

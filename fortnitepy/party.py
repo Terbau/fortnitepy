@@ -41,6 +41,7 @@ from .user import User
 from .friend import Friend
 from .enums import (PartyPrivacy, PartyDiscoverability, PartyJoinability,
                     DefaultCharactersChapter2, Region, ReadyState, Platform)
+from .utils import MaybeLock
 
 if TYPE_CHECKING:
     from .client import Client
@@ -246,29 +247,6 @@ class DefaultPartyMemberConfig:
                                 'of coroutines')
 
         self.meta = results
-
-
-class MaybeLock:
-    def __init__(self, lock: asyncio.Lock,
-                 loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
-        self.lock = lock
-        self.loop = loop or asyncio.get_event_loop()
-        self._cleanup = False
-
-    async def _acquire(self) -> None:
-        await self.lock.acquire()
-        self._cleanup = True
-
-    async def __aenter__(self) -> 'MaybeLock':
-        self._task = self.loop.create_task(self._acquire())
-        return self
-
-    async def __aexit__(self, *args: list) -> None:
-        if not self._task.cancelled():
-            self._task.cancel()
-
-        if self._cleanup:
-            self.lock.release()
 
 
 class Patchable:

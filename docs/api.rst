@@ -954,11 +954,20 @@ Data Classes
 
 Data classes used as data containers in the library.
 
+DefaultPartyConfig
+~~~~~~~~~~~~~~~~~~
+
 .. autoclass:: DefaultPartyConfig()
 	:members:
 
+DefaultPartyMemberConfig
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 .. autoclass:: DefaultPartyMemberConfig()
 	:members:
+
+Avatar
+~~~~~~
 
 .. autoclass:: Avatar()
 	:members:

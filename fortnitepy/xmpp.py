@@ -171,7 +171,7 @@ class XMLProcessor:
         user_id = split[0]
         platform = split[1].split(':')[2]
 
-        return ('presence', user_id, platform, type_, status, show)
+        return 'presence', (user_id, platform, type_, status, show)
 
     def _process_message(self, raw: str) -> Optional[Union[tuple, bool]]:
         tree = ElementTree.fromstring(raw)
@@ -194,7 +194,7 @@ class XMLProcessor:
         else:
             return False
 
-        return ('message', body)
+        return 'message', (body,)
 
     def process(self, raw: str) -> Optional[Union[tuple, bool]]:
         # Yes, this is a hacky solution but it's better than
@@ -226,6 +226,7 @@ class WebsocketTransport:
         self._reader_task = None
         self._close_event = asyncio.Event()
         self._called_lost = False
+        self._attempt_reconnect = True
 
     async def create_connection(self, *args,
                                 **kwargs) -> aiohttp.ClientWebSocketResponse:
@@ -242,6 +243,7 @@ class WebsocketTransport:
         self.loop.create_task(self.reader())
         self.stream.connection_made(self)
         self._called_lost = False
+        self._attempt_reconnect = True
 
         self.logger.debug('Websocket connection established.')
         return con
@@ -250,7 +252,9 @@ class WebsocketTransport:
         self.logger.debug('Websocket reader is now running.')
 
         try:
-            async for msg in self.connection:
+            while True:
+                msg = await self.connection.receive()
+
                 self.logger.debug('RECV: {0}'.format(msg))
                 if msg.type == aiohttp.WSMsgType.TEXT:
                     ret = self.xml_processor.process(msg.data)
@@ -263,27 +267,35 @@ class WebsocketTransport:
                         if type_ == 'presence':
                             dispatcher.process_presence(
                                 self.client,
-                                *ret[1:]
+                                *ret[1]
                             )
                         elif type_ == 'message':
                             dispatcher.process_event(
                                 self.client,
-                                *ret[1:]
+                                *ret[1]
                             )
 
                 if msg.type == aiohttp.WSMsgType.CLOSED:
-                    self._called_lost = True
-                    self.stream.connection_lost(
-                        ConnectionError('websocket stream closed by peer')
-                    )
+                    if self._attempt_reconnect:
+                        err = ConnectionError(
+                            'websocket stream closed by peer'
+                        )
+                    else:
+                        err = None
+
+                    if not self._called_lost:
+                        self._called_lost = True
+                        self.stream.connection_lost(err)
                     break
+
                 if msg.type == aiohttp.WSMsgType.ERROR:
-                    self._called_lost = True
-                    self.stream.connection_lost(
-                        ConnectionError(
-                            'websocket stream received an error: '
-                            '{0}'.format(self.connection.exception()))
-                    )
+                    if not self._called_lost:
+                        self._called_lost = True
+                        self.stream.connection_lost(
+                            ConnectionError(
+                                'websocket stream received an error: '
+                                '{0}'.format(self.connection.exception()))
+                        )
                     break
         finally:
             self.logger.debug('Websocket reader stopped.')
@@ -315,10 +327,6 @@ class WebsocketTransport:
         self._close_event.set()
 
     def on_close(self, *args) -> None:
-        if not self._called_lost:
-            self._called_lost = True
-            self.stream.connection_lost(None)
-
         try:
             task = self.loop.create_task(self.session.close())
         except AttributeError:
@@ -326,7 +334,7 @@ class WebsocketTransport:
         else:
             task.add_done_callback(self.close_callback)
 
-    def close(self) -> None:
+    def _close(self) -> None:
         if not self.connection:
             raise RuntimeError('Cannot close a non-existing connection.')
 
@@ -337,9 +345,13 @@ class WebsocketTransport:
 
         self._stop_reader()
 
+    def close(self) -> None:
+        self._attempt_reconnect = False
+        self._close()
+
     def abort(self) -> None:
         self.logger.debug('Received abort signal.')
-        self.close()
+        self._close()
 
     async def wait_closed(self) -> None:
         await self._close_event
@@ -508,7 +520,18 @@ class XMPPClient:
         return inv
 
     async def process_chat_message(self, message: aioxmpp.Message) -> None:
-        author = self.client.get_friend(message.from_.localpart)
+        user_id = message.from_.localpart
+        author = self.client.get_friend(user_id)
+        if author is None:
+            try:
+                author = await self.client.wait_for(
+                    'friend_add',
+                    check=lambda f: f.id == user_id,
+                    timeout=2
+                )
+            except asyncio.TimeoutError:
+                log.debug('Friend message discarded because friend not found.')
+                return
 
         try:
             m = FriendMessage(
@@ -683,7 +706,7 @@ class XMPPClient:
 
         user_id = body.get('account_id')
         if user_id != self.client.user.id:
-            await self.client._join_party_lock.wait()
+            await self.client.wait_until_party_ready()
 
         party = self.client.party
 

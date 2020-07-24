@@ -29,6 +29,7 @@ import asyncio
 import sys
 import signal
 import logging
+import time
 
 from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
@@ -52,6 +53,7 @@ from .presence import Presence
 from .auth import RefreshTokenAuth
 from .kairos import Avatar, get_random_default_avatar
 from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
+from .utils import LockEvent
 
 log = logging.getLogger(__name__)
 
@@ -352,22 +354,6 @@ def run_multiple(clients: List['Client'], *,
         return future.result()
 
 
-class LockEvent(asyncio.Lock):
-    def __init__(self, loop=None) -> None:
-        super().__init__(loop=loop)
-
-        self._event = asyncio.Event()
-        self.wait = self._event.wait
-
-    async def acquire(self) -> None:
-        self._event.clear()
-        await super().acquire()
-
-    def release(self) -> None:
-        self._event.set()
-        super().release()
-
-
 class Client:
     """Represents the client connected to Fortnite and EpicGames' services.
 
@@ -467,6 +453,7 @@ class Client:
         self._ready = asyncio.Event(loop=self.loop)
         self._leave_lock = asyncio.Lock(loop=self.loop)
         self._join_party_lock = LockEvent(loop=self.loop)
+        self._reauth_lock = LockEvent(loop=self.loop)
         self._refresh_task = None
         self._start_runner_task = None
         self._closed = False
@@ -475,6 +462,7 @@ class Client:
         self._first_start = True
 
         self._join_confirmation = False
+        self._refresh_times = []
 
         self.setup_internal()
 
@@ -624,7 +612,7 @@ class Client:
             try:
                 await self.start()
             finally:
-                if not self._closing and self.is_ready():
+                if not self._closing and not self._closed:
                     await self.close()
 
         try:
@@ -643,7 +631,7 @@ class Client:
             _stopped = True
         finally:
             future.remove_done_callback(stopper)
-            if not self._closing and self.is_ready():
+            if not self._closing and not self._closed:
                 log.info('Client not logged out when terminating loop. '
                          'Logging out now.')
                 loop.run_until_complete(self.close())
@@ -740,7 +728,7 @@ class Client:
         state_fut = asyncio.ensure_future(self.initialize_states(),
                                           loop=self.loop)
 
-        if self.accept_eula:
+        if self.auth.eula_check_needed() and self.accept_eula:
             await self.auth.accept_eula()
             log.debug('EULA accepted')
 
@@ -784,7 +772,6 @@ class Client:
         if not self._restarting:
             tasks = (
                 killer(getattr(self.auth, 'ios_access_token', None)),
-                killer(getattr(self.auth, 'launcher_access_token', None)),
                 killer(getattr(self.auth, 'access_token', None)),
             )
             await asyncio.gather(*tasks)
@@ -800,8 +787,7 @@ class Client:
             await self.http.close()
             self._closed = True
 
-        if (self._refresh_task is not None
-                and not self._refresh_task.cancelled()):
+        if self.auth.refresh_loop_running():
             self._refresh_task.cancel()
 
         if not self._restarting:
@@ -844,6 +830,9 @@ class Client:
         """:class:`bool`: Whether the client is running or not."""
         return self._closed
 
+    def can_restart(self):
+        return hasattr(self.auth, 'ios_refresh_token')
+
     async def restart(self) -> None:
         """|coro|
 
@@ -859,6 +848,8 @@ class Client:
             A request error occured while logging in.
         """
         self._restarting = True
+
+        self._refresh_times.append(time.time())
         ios_refresh_token = self.auth.ios_refresh_token
 
         asyncio.ensure_future(self.recover_events(), loop=self.loop)
@@ -2497,6 +2488,9 @@ class Client:
 
     def is_creating_party(self) -> bool:
         return self._join_party_lock.locked()
+
+    async def wait_until_party_ready(self) -> None:
+        await self._join_party_lock.wait()
 
     async def join_to_party(self, party_id: str, *,
                             check_private: bool = True) -> ClientParty:
