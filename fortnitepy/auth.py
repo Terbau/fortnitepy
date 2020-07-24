@@ -73,11 +73,25 @@ class Auth:
         raise NotImplementedError
 
     async def _authenticate(self) -> None:
-        try:
-            log.info('Running authentication.')
-            await self.authenticate()
-        except asyncio.CancelledError:
-            return False
+        max_attempts = 3
+        for i in range(max_attempts):
+            try:
+                log.info('Running authentication.')
+                return await self.authenticate()
+            except HTTPException as exc:
+                codes = (
+                    ('errors.com.epicgames.account.oauth.'
+                     'exchange_code_not_found'),
+                    ('errors.com.epicgames.account.oauth.'
+                     'expired_exchange_code_session'),
+                )
+                if exc.message_code in codes:
+                    if i != max_attempts-1:
+                        continue
+
+                raise
+            except asyncio.CancelledError:
+                return False
 
     async def reauthenticate(self) -> dict:
         raise NotImplementedError
