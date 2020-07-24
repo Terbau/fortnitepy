@@ -26,7 +26,7 @@ SOFTWARE.
 
 import datetime
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from .client import Client
@@ -39,7 +39,7 @@ class MessageBase:
     __slots__ = ('_client', '_author', '_content', '_created_at')
 
     def __init__(self, client: 'Client',
-                 author: 'Friend',
+                 author: Union['Friend', 'PartyMember'],
                  content: str) -> None:
         self._client = client
         self._author = author
