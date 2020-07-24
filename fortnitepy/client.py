@@ -609,7 +609,7 @@ class Client:
             try:
                 await self.start()
             finally:
-                if not self._closing and self.is_ready():
+                if not self._closing and not self._closed:
                     await self.close()
 
         try:
@@ -628,7 +628,7 @@ class Client:
             _stopped = True
         finally:
             future.remove_done_callback(stopper)
-            if not self._closing and self.is_ready():
+            if not self._closing and not self._closed:
                 log.info('Client not logged out when terminating loop. '
                          'Logging out now.')
                 loop.run_until_complete(self.close())
