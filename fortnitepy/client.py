@@ -2498,6 +2498,9 @@ class Client:
     def is_creating_party(self) -> bool:
         return self._join_party_lock.locked()
 
+    async def wait_until_party_ready(self) -> None:
+        await self._join_party_lock.wait()
+
     async def join_to_party(self, party_id: str, *,
                             check_private: bool = True) -> ClientParty:
         """|coro|

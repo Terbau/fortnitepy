@@ -706,7 +706,7 @@ class XMPPClient:
 
         user_id = body.get('account_id')
         if user_id != self.client.user.id:
-            await self.client._join_party_lock.wait()
+            await self.client.wait_until_party_ready()
 
         party = self.client.party
 
