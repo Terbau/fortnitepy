@@ -769,7 +769,6 @@ class Client:
         if not self._restarting:
             tasks = (
                 killer(getattr(self.auth, 'ios_access_token', None)),
-                killer(getattr(self.auth, 'launcher_access_token', None)),
                 killer(getattr(self.auth, 'access_token', None)),
             )
             await asyncio.gather(*tasks)

@@ -45,7 +45,6 @@ _prompt_lock = asyncio.Lock()
 class Auth:
     def __init__(self, **kwargs: Any) -> None:
         self.ios_token = kwargs.get('ios_token', 'MzQ0NmNkNzI2OTRjNGE0NDg1ZDgxYjc3YWRiYjIxNDE6OTIwOWQ0YTVlMjVhNDU3ZmI5YjA3NDg5ZDMxM2I0MWE=')  # noqa
-        self.launcher_token = kwargs.get('launcher_token', 'MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=')  # noqa
         self.fortnite_token = kwargs.get('fortnite_token', 'ZWM2ODRiOGM2ODdmNDc5ZmFkZWEzY2IyYWQ4M2Y1YzY6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ=')  # noqa
 
     def initialize(self, client: 'Client') -> None:
@@ -58,10 +57,6 @@ class Auth:
     @property
     def ios_authorization(self) -> str:
         return 'bearer {0}'.format(self.ios_access_token)
-
-    @property
-    def launcher_authorization(self) -> str:
-        return 'bearer {0}'.format(self.launcher_access_token)
 
     @property
     def authorization(self) -> str:
@@ -114,21 +109,6 @@ class Auth:
         self.ios_app = data['app']
         self.ios_in_app_id = data['in_app_id']
 
-    def _update_launcher_data(self, data: dict) -> None:
-        self.launcher_access_token = data['access_token']
-        self.launcher_expires_in = data['expires_in']
-        self.launcher_expires_at = self.client.from_iso(data["expires_at"])
-        self.launcher_token_type = data['token_type']
-        self.launcher_refresh_token = data['refresh_token']
-        self.launcher_refresh_expires = data['refresh_expires']
-        self.launcher_refresh_expires_at = data['refresh_expires_at']
-        self.launcher_account_id = data['account_id']
-        self.launcher_client_id = data['client_id']
-        self.launcher_internal_client = data['internal_client']
-        self.launcher_client_service = data['client_service']
-        self.launcher_app = data['app']
-        self.launcher_in_app_id = data['in_app_id']
-
     def _update_data(self, data: dict) -> None:
         self.access_token = data['access_token']
         self.expires_in = data['expires_in']
@@ -176,19 +156,6 @@ class Auth:
             data=payload
         )
 
-    async def exchange_launcher_code(self, code: str) -> dict:
-        payload = {
-            'grant_type': 'exchange_code',
-            'exchange_code': code,
-            'token_type': 'eg1',
-        }
-
-        return await self.client.http.account_oauth_grant(
-            auth='basic {0}'.format(self.launcher_token),
-            device_id=True,
-            data=payload
-        )
-
     async def kill_token(self, token: str) -> None:
         await self.client.http.account_sessions_kill_token(
             token,
@@ -203,7 +170,7 @@ class Auth:
         log.debug('Killing other sessions')
 
     async def schedule_token_refresh(self) -> None:
-        subtracted = self.launcher_expires_at - datetime.datetime.utcnow()
+        subtracted = self.ios_expires_at - datetime.datetime.utcnow()
         self.token_timeout = (subtracted).total_seconds() - 300
         await asyncio.sleep(self.token_timeout)
 
@@ -236,12 +203,6 @@ class Auth:
                     self.ios_token
                 )
                 self._update_ios_data(data)
-
-                data = await self.grant_refresh_token(
-                    self.launcher_refresh_token,
-                    self.launcher_token
-                )
-                self._update_launcher_data(data)
 
                 data = await self.grant_refresh_token(
                     self.refresh_token,
@@ -352,9 +313,6 @@ class EmailAndPasswordAuth(Auth):
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
         not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
-        not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
         not need to set this manually.
@@ -453,13 +411,6 @@ class EmailAndPasswordAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
@@ -495,9 +446,6 @@ class ExchangeCodeAuth(Auth):
         A 32 char hex string representing your device.
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
-        not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
         not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
@@ -557,13 +505,6 @@ class ExchangeCodeAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
@@ -596,9 +537,6 @@ class AuthorizationCodeAuth(ExchangeCodeAuth):
         A 32 char hex string representing your device.
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
-        not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
         not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
@@ -655,9 +593,6 @@ class DeviceAuth(Auth):
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
         not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
-        not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
         not need to set this manually.
@@ -710,13 +645,6 @@ class DeviceAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
@@ -755,13 +683,6 @@ class RefreshTokenAuth(Auth):
     async def authenticate(self) -> None:
         data = await self.ios_authenticate()
         self._update_ios_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
@@ -851,9 +772,6 @@ class AdvancedAuth(Auth):
         is created.
     ios_token: Optional[:class:`str`]
         The ios token to use with authentication. You should generally
-        not need to set this manually.
-    launcher_token: Optional[:class:`str`]
-        The launcher token to use with authentication. You should generally
         not need to set this manually.
     fortnite_token: Optional[:class:`str`]
         The fortnite token to use with authentication. You should generally
@@ -1095,13 +1013,6 @@ class AdvancedAuth(Auth):
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
             self.fortnite_token,
             code
         )
@@ -1116,13 +1027,6 @@ class AdvancedAuth(Auth):
 
         if self.client.kill_other_sessions:
             await self.kill_other_sessions()
-
-        code = await self.get_exchange_code()
-        data = await self.exchange_code_for_session(
-            self.launcher_token,
-            code
-        )
-        self._update_launcher_data(data)
 
         code = await self.get_exchange_code()
         data = await self.exchange_code_for_session(
