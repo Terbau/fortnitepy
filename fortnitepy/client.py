@@ -489,7 +489,7 @@ class Client:
             return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%SZ')
 
     @staticmethod
-    def to_iso(dt: str) -> datetime.datetime:
+    def to_iso(dt: datetime.datetime) -> str:
         """Converts a :class:`datetime.datetime`
         object to an iso formatted string
 
