@@ -70,15 +70,15 @@ class Auth:
     def eula_check_needed(self) -> bool:
         return True
 
-    async def authenticate(self) -> dict:
+    async def authenticate(self, **kwargs) -> dict:
         raise NotImplementedError
 
-    async def _authenticate(self) -> None:
+    async def _authenticate(self, priority: int = 0) -> None:
         max_attempts = 3
         for i in range(max_attempts):
             try:
                 log.info('Running authentication.')
-                return await self.authenticate()
+                return await self.authenticate(priority=priority)
             except HTTPException as exc:
                 codes = (
                     ('errors.com.epicgames.account.oauth.'
@@ -94,20 +94,23 @@ class Auth:
             except asyncio.CancelledError:
                 return False
 
-    async def reauthenticate(self) -> dict:
+    async def reauthenticate(self, priority: int = 0) -> dict:
         raise NotImplementedError
 
-    async def get_eula_version(self) -> int:
-        data = await self.client.http.eulatracking_get_data()
+    async def get_eula_version(self, **kwargs: Any) -> int:
+        data = await self.client.http.eulatracking_get_data(**kwargs)
         return data['version'] if isinstance(data, dict) else 0
 
-    async def accept_eula(self) -> None:
-        version = await self.get_eula_version()
+    async def accept_eula(self, **kwargs: Any) -> None:
+        version = await self.get_eula_version(**kwargs)
         if version != 0:
-            await self.client.http.eulatracking_accept(version)
+            await self.client.http.eulatracking_accept(
+                version,
+                **kwargs
+            )
 
             try:
-                await self.client.http.fortnite_grant_access()
+                await self.client.http.fortnite_grant_access(**kwargs)
             except HTTPException as e:
                 if e.message_code != 'errors.com.epicgames.bad_request':
                     raise
@@ -142,8 +145,8 @@ class Auth:
         self.app = data['app']
         self.in_app_id = data['in_app_id']
 
-    async def grant_refresh_token(self, refresh_token: str,
-                                  auth_token: str) -> dict:
+    async def grant_refresh_token(self, refresh_token: str, auth_token: str, *,
+                                  priority: int = 0) -> dict:
         payload = {
             'grant_type': 'refresh_token',
             'refresh_token': refresh_token
@@ -152,16 +155,21 @@ class Auth:
         return await self.client.http.account_oauth_grant(
             auth='basic {0}'.format(auth_token),
             device_id=True,
-            data=payload
+            data=payload,
+            priority=priority
         )
 
-    async def get_exchange_code(self, *, auth='IOS_ACCESS_TOKEN') -> str:
+    async def get_exchange_code(self, *,
+                                auth='IOS_ACCESS_TOKEN',
+                                priority: int = 0) -> str:
         data = await self.client.http.account_get_exchange_data(
-            auth=auth
+            auth=auth,
+            priority=priority
         )
         return data['code']
 
-    async def exchange_code_for_session(self, token: str, code: str) -> dict:
+    async def exchange_code_for_session(self, token: str, code: str, *,
+                                        priority: int = 0) -> dict:
         payload = {
             'grant_type': 'exchange_code',
             'exchange_code': code,
@@ -171,7 +179,8 @@ class Auth:
         return await self.client.http.account_oauth_grant(
             auth='basic {0}'.format(token),
             device_id=True,
-            data=payload
+            data=payload,
+            priority=priority
         )
 
     async def kill_token(self, token: str) -> None:
@@ -180,10 +189,12 @@ class Auth:
             auth='bearer {0}'.format(token)
         )
 
-    async def kill_other_sessions(self, auth='IOS_ACCESS_TOKEN') -> None:
+    async def kill_other_sessions(self, auth: str = 'IOS_ACCESS_TOKEN', *,
+                                  priority: int = 0) -> None:
         await self.client.http.account_sessions_kill(
             'OTHERS_ACCOUNT_CLIENT_SERVICE',
-            auth=auth
+            auth=auth,
+            priority=priority
         )
         log.debug('Killing other sessions')
 
@@ -213,7 +224,9 @@ class Auth:
             await self.do_refresh()
 
     async def do_refresh(self) -> None:
-        forced = self.client._reauth_lock.locked()
+        reauth_lock = self.client._reauth_lock
+        reauth_lock.priority += 1
+        forced = reauth_lock.locked()
 
         try:
             if not forced:
@@ -225,20 +238,24 @@ class Auth:
 
             if self.client.party is not None and not forced:
                 try:
-                    await self.client.party._leave()
+                    await self.client.party._leave(
+                        priority=reauth_lock.priority
+                    )
                 except HTTPException:
                     pass
 
             try:
                 data = await self.grant_refresh_token(
                     self.ios_refresh_token,
-                    self.ios_token
+                    self.ios_token,
+                    priority=reauth_lock.priority
                 )
                 self._update_ios_data(data)
 
                 data = await self.grant_refresh_token(
                     self.refresh_token,
-                    self.fortnite_token
+                    self.fortnite_token,
+                    priority=reauth_lock.priority
                 )
                 self._update_data(data)
             except (HTTPException, AttributeError) as exc:
@@ -252,7 +269,9 @@ class Auth:
                     'reconnect if possible.'
                 )
                 try:
-                    await self.reauthenticate()
+                    await self.reauthenticate(
+                        priority=reauth_lock.priority
+                    )
                 except NotImplementedError:
                     raise exc
 
@@ -263,7 +282,9 @@ class Auth:
                 await self.client.xmpp.close()
                 await self.client.xmpp.run()
 
-                await self.client._create_party()
+                await self.client._create_party(
+                    priority=reauth_lock.priority
+                )
             except AttributeError:
                 pass
 
@@ -442,7 +463,7 @@ class EmailAndPasswordAuth(Auth):
         )
         return data
 
-    async def authenticate(self) -> None:
+    async def authenticate(self, **kwargs) -> None:
         data = await self.ios_authenticate()
         self._update_ios_data(data)
 
@@ -536,7 +557,7 @@ class ExchangeCodeAuth(Auth):
 
         return data
 
-    async def authenticate(self) -> None:
+    async def authenticate(self, **kwargs) -> None:
         data = await self.ios_authenticate()
         self._update_ios_data(data)
 
@@ -653,7 +674,7 @@ class DeviceAuth(Auth):
     def eula_check_needed(self) -> bool:
         return False
 
-    async def ios_authenticate(self) -> dict:
+    async def ios_authenticate(self, priority: int = 0) -> dict:
         payload = {
             'grant_type': 'device_auth',
             'device_id': self.device_id,
@@ -665,7 +686,8 @@ class DeviceAuth(Auth):
         try:
             data = await self.client.http.account_oauth_grant(
                 auth='basic {0}'.format(self.ios_token),
-                data=payload
+                data=payload,
+                priority=priority
             )
         except HTTPException as exc:
             m = 'errors.com.epicgames.account.invalid_account_credentials'
@@ -679,25 +701,26 @@ class DeviceAuth(Auth):
 
         return data
 
-    async def authenticate(self) -> None:
-        data = await self.ios_authenticate()
+    async def authenticate(self, priority: int = 0) -> None:
+        data = await self.ios_authenticate(priority=priority)
         self._update_ios_data(data)
 
         if self.client.kill_other_sessions:
-            await self.kill_other_sessions()
+            await self.kill_other_sessions(priority=priority)
 
-        code = await self.get_exchange_code()
+        code = await self.get_exchange_code(priority=priority)
         data = await self.exchange_code_for_session(
             self.fortnite_token,
-            code
+            code,
+            priority=priority
         )
         self._update_data(data)
 
-    async def reauthenticate(self) -> None:
+    async def reauthenticate(self, priority: int = 0) -> None:
         """Used for reauthenticating if refreshing fails."""
         log.debug('Starting reauthentication.')
 
-        ret = await self.authenticate()
+        ret = await self.authenticate(priority=priority)
         log.debug('Successfully reauthenicated.')
         return ret
 
@@ -723,21 +746,23 @@ class RefreshTokenAuth(Auth):
     def eula_check_needed(self) -> bool:
         return False
 
-    async def ios_authenticate(self) -> dict:
+    async def ios_authenticate(self, priority: int = 0) -> dict:
         data = await self.grant_refresh_token(
             self._refresh_token,
-            self.ios_token
+            self.ios_token,
+            priority=priority
         )
         return data
 
-    async def authenticate(self) -> None:
-        data = await self.ios_authenticate()
+    async def authenticate(self, priority: int = 0) -> None:
+        data = await self.ios_authenticate(priority=priority)
         self._update_ios_data(data)
 
-        code = await self.get_exchange_code()
+        code = await self.get_exchange_code(priority=priority)
         data = await self.exchange_code_for_session(
             self.fortnite_token,
-            code
+            code,
+            priority=priority
         )
         self._update_data(data)
 
@@ -932,7 +957,8 @@ class AdvancedAuth(Auth):
 
     async def run_device_authenticate(self, device_id: Optional[str] = None,
                                       account_id: Optional[str] = None,
-                                      secret: Optional[str] = None
+                                      secret: Optional[str] = None,
+                                      *, priority: int = 0
                                       ) -> dict:
         auth = DeviceAuth(
             device_id=device_id or self.device_id,
@@ -943,13 +969,14 @@ class AdvancedAuth(Auth):
         auth.initialize(self.client)
         self._used_auth = auth
 
-        data = await auth.ios_authenticate()
+        data = await auth.ios_authenticate(priority=priority)
         self._update_ios_data(data)
 
-        code = await auth.get_exchange_code()
+        code = await auth.get_exchange_code(priority=priority)
         return await auth.exchange_code_for_session(
             auth.fortnite_token,
-            code
+            code,
+            priority=priority
         )
 
     async def ios_authenticate(self) -> dict:
@@ -1064,7 +1091,7 @@ class AdvancedAuth(Auth):
 
         return data
 
-    async def authenticate(self) -> None:
+    async def authenticate(self, **kwargs) -> None:
         await self.ios_authenticate()
 
         if self.client.kill_other_sessions:
@@ -1077,22 +1104,24 @@ class AdvancedAuth(Auth):
         )
         self._update_data(data)
 
-    async def reauthenticate(self) -> None:
+    async def reauthenticate(self, priority: int = 0) -> None:
         log.debug('Starting reauthentication.')
 
         await self.run_device_authenticate(
             device_id=self.device_id,
             account_id=self.account_id,
             secret=self.secret,
+            priority=priority,
         )
 
         if self.client.kill_other_sessions:
-            await self.kill_other_sessions()
+            await self.kill_other_sessions(priority=priority)
 
-        code = await self.get_exchange_code()
+        code = await self.get_exchange_code(priority=priority)
         data = await self.exchange_code_for_session(
             self.fortnite_token,
-            code
+            code,
+            priority=priority
         )
         self._update_data(data)
         log.debug('Successfully reauthenticated.')

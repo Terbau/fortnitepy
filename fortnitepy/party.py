@@ -2589,39 +2589,67 @@ class PartyBase:
         self.sub_type = config['sub_type']
         self.config = {**self.client.default_party_config.config, **config}
 
-    async def _update_members(self, members: Optional[list] = None) -> None:
+    async def _update_members(self, members: Optional[list] = None,
+                              remove_missing: bool = True,
+                              priority: int = 0) -> None:
+        client = self.client
         if members is None:
-            data = await self.client.http.party_lookup(self.id)
+            data = await client.http.party_lookup(
+                self.id,
+                priority=priority
+            )
             members = data['members']
 
         def get_id(m):
             return m.get('account_id', m.get('accountId'))
 
-        profiles = await self.client.fetch_profiles(
-            [get_id(m) for m in members],
-            cache=True
-        )
-        profiles = {p.id: p for p in profiles}
+        raw_users = {}
+        user_ids = [get_id(m) for m in members]
+        for user_id in user_ids:
+            if user_id == client.user.id:
+                user = client.user
+            else:
+                user = client.get_user(user_id)
 
+            if user is not None:
+                raw_users[user.id] = user.get_raw()
+
+        user_ids = [uid for uid in user_ids if uid not in raw_users]
+
+        if user_ids:
+            data = await client.http.account_graphql_get_multiple_by_user_id(
+                user_ids,
+                priority=priority
+            )
+            for account_data in data['accounts']:
+                raw_users[account_data['id']] = account_data
+
+        result = []
         for raw in members:
             user_id = get_id(raw)
-            if user_id == self.client.user.id:
-                user = self.client.user
-            else:
-                user = profiles[user_id]
-            raw = {**raw, **(user.get_raw())}
 
-            member = PartyMember(self.client, self, raw)
-            self._add_member(member)
+            account_data = raw_users[user_id]
+            raw = {**raw, **account_data}
 
-        ids = profiles.keys()
-        to_remove = []
-        for m in self.members.values():
-            if m.id not in ids:
-                to_remove.append(m.id)
+            member = self._create_member(raw)
+            result.append(member)
 
-        for user_id in to_remove:
-            self._remove_member(user_id)
+            if member.id == client.user.id:
+                try:
+                    self._create_clientmember(raw)
+                except AttributeError:
+                    pass
+
+        if remove_missing:
+            to_remove = []
+            for m in self._members.values():
+                if m.id not in raw_users:
+                    to_remove.append(m.id)
+
+            for user_id in to_remove:
+                self._remove_member(user_id)
+
+        return result
 
 
 class Party(PartyBase):
@@ -3128,11 +3156,20 @@ class ClientParty(PartyBase, Patchable):
 
         return invites
 
-    async def _leave(self, ignore_not_found: bool = True) -> None:
+    async def _leave(self, *,
+                     ignore_not_found: bool = True,
+                     priority: int = 0) -> None:
+        me = self.me
+        if me is not None:
+            me._cancel_clear_emote()
+
         await self.client.xmpp.leave_muc()
 
         try:
-            await self.client.http.party_leave(self.id)
+            await self.client.http.party_leave(
+                self.id,
+                priority=priority
+            )
         except HTTPException as e:
             m = 'errors.com.epicgames.social.party.party_not_found'
             if ignore_not_found and e.message_code == m:

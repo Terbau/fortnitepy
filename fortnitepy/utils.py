@@ -33,6 +33,7 @@ class LockEvent(asyncio.Lock):
         self._event = asyncio.Event()
         self._event.set()
         self.wait = self._event.wait
+        self.priority = 0
 
     async def acquire(self) -> None:
         await super().acquire()
@@ -47,3 +48,4 @@ class LockEvent(asyncio.Lock):
         if not (self._waiters is not None and [w for w in self._waiters
                                                if not w.cancelled()]):
             self._event.set()
+            self.priority = 0

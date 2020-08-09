@@ -386,6 +386,8 @@ class Client:
     default_party_member_config: :class:`DefaultPartyMemberConfig`
         The party member configuration used when creating parties. If not specified,
         the client will use the default values specified in the data class.
+    http_retry_config: Optional[:class:`HTTPRetryConfig`]
+        The config to use for http retries.
     build: :class:`str`
         The build used by Fortnite.
         Defaults to a valid but maybe outdated value.
@@ -438,7 +440,11 @@ class Client:
 
         self.auth = auth
         self.auth.initialize(self)
-        self.http = HTTPClient(self, connector=kwargs.get('connector'))
+        self.http = HTTPClient(
+            self,
+            connector=kwargs.get('connector'),
+            retry_config=kwargs.get('http_retry_config')
+        )
         self.http.add_header('Accept-Language', 'en-EN')
         self.xmpp = XMPPClient(self, ws_connector=kwargs.get('ws_connector'))
         self.party = None
@@ -451,9 +457,11 @@ class Client:
         self._blocked_users = Cache()
         self._presences = Cache()
         self._ready = asyncio.Event(loop=self.loop)
+        self._exception_future = self.loop.create_future()
         self._leave_lock = asyncio.Lock(loop=self.loop)
         self._join_party_lock = LockEvent(loop=self.loop)
         self._reauth_lock = LockEvent(loop=self.loop)
+        self._reauth_lock.failed = False
         self._refresh_task = None
         self._start_runner_task = None
         self._closed = False
@@ -642,6 +650,16 @@ class Client:
         if not future.cancelled():
             return future.result()
 
+        # Somehow the exception from _exception_future is not always
+        # raised so we might have to raise it here.
+        try:
+            exc = self._exception_future.exception()
+        except (asyncio.CancelledError, asyncio.InvalidStateError):
+            pass
+        else:
+            if exc is not None:
+                raise exc
+
     async def start(self, dispatch_ready: bool = True) -> None:
         """|coro|
 
@@ -670,6 +688,7 @@ class Client:
             A request error occured while logging in.
         """
         _started_while_restarting = self._restarting
+        pri = self._reauth_lock.priority if _started_while_restarting else 0
 
         if self._first_start:
             self.register_methods()
@@ -681,7 +700,7 @@ class Client:
             self.http.create_connection()
             self._closed = False
 
-        ret = await self._login()
+        ret = await self._login(priority=pri)
         if ret is False:
             return
 
@@ -689,13 +708,22 @@ class Client:
         if dispatch_ready:
             self.dispatch_event('ready')
 
+        async def waiter(task):
+            done, pending = await asyncio.wait(
+                (task, self._exception_future),
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            try:
+                exc = done.pop().exception()
+            except asyncio.CancelledError:
+                pass
+            else:
+                raise exc
+
         self._refresh_task = self.loop.create_task(
             self.auth.run_refresh_loop()
         )
-        try:
-            await self._refresh_task
-        except asyncio.CancelledError:
-            pass
+        await waiter(self._refresh_task)
 
         if not _started_while_restarting and self._restarting:
             async def runner():
@@ -703,21 +731,26 @@ class Client:
                     await asyncio.sleep(1)
 
             self._start_runner_task = self.loop.create_task(runner())
-            try:
-                await self._start_runner_task
-            except asyncio.CancelledError:
-                pass
+            await waiter(self._start_runner_task)
 
-    async def _login(self) -> None:
+    async def _login(self, priority: int = 0) -> None:
         log.debug('Running authenticating')
-        ret = await self.auth._authenticate()
+        ret = await self.auth._authenticate(priority=priority)
         if ret is False:
             return False
 
         tasks = [
-            self.http.account_get_by_user_id(self.auth.account_id),
-            self.http.account_graphql_get_clients_external_auths(),
-            self.http.account_get_external_auths_by_id(self.auth.account_id),
+            self.http.account_get_by_user_id(
+                self.auth.account_id,
+                priority=priority
+            ),
+            self.http.account_graphql_get_clients_external_auths(
+                priority=priority
+            ),
+            self.http.account_get_external_auths_by_id(
+                self.auth.account_id,
+                priority=priority
+            ),
         ]
 
         data, ext_data, extra_ext_data, *_ = await asyncio.gather(*tasks)
@@ -725,11 +758,15 @@ class Client:
         data['extraExternalAuths'] = extra_ext_data
         self.user = ClientUser(self, data)
 
-        state_fut = asyncio.ensure_future(self.initialize_states(),
-                                          loop=self.loop)
+        state_fut = asyncio.ensure_future(
+            self.refresh_caches(priority=priority),
+            loop=self.loop
+        )
 
         if self.auth.eula_check_needed() and self.accept_eula:
-            await self.auth.accept_eula()
+            await self.auth.accept_eula(
+                priority=priority
+            )
             log.debug('EULA accepted')
 
         await state_fut
@@ -737,17 +774,18 @@ class Client:
         await self.xmpp.run()
         log.debug('Connected to XMPP')
 
-        await self.initialize_party()
+        await self.initialize_party(priority=priority)
         log.debug('Party created')
 
     async def _close(self, *,
                      close_http: bool = True,
-                     dispatch_close: bool = True) -> None:
+                     dispatch_close: bool = True,
+                     priority: int = 0) -> None:
         self._closing = True
 
         try:
             if self.party is not None:
-                await self.party._leave()
+                await self.party._leave(priority=priority)
         except Exception:
             pass
 
@@ -847,39 +885,50 @@ class Client:
         HTTPException
             A request error occured while logging in.
         """
-        self._restarting = True
+        self._reauth_lock.priority += 1
+        priority = self._reauth_lock.priority
+        async with MaybeLock(self._reauth_lock):
+            self._restarting = True
 
-        self._refresh_times.append(time.time())
-        ios_refresh_token = self.auth.ios_refresh_token
+            self._refresh_times.append(time.time())
+            ios_refresh_token = self.auth.ios_refresh_token
 
-        asyncio.ensure_future(self.recover_events(), loop=self.loop)
-        await self.close(close_http=False, dispatch_close=False)
+            asyncio.ensure_future(self.recover_events(), loop=self.loop)
+            await self._close(
+                close_http=False,
+                dispatch_close=False,
+                priority=priority
+            )
 
-        auth = RefreshTokenAuth(
-            refresh_token=ios_refresh_token
-        )
-        auth.initialize(self)
-        self.auth = auth
+            auth = RefreshTokenAuth(
+                refresh_token=ios_refresh_token
+            )
+            auth.initialize(self)
+            self.auth = auth
 
-        async def runner():
-            try:
-                await self.start(dispatch_ready=False)
-            except Exception as e:
-                return e
+            async def runner():
+                try:
+                    await self.start(dispatch_ready=False)
+                except Exception as e:
+                    return e
 
-        tasks = (
-            self.loop.create_task(runner()),
-            self.loop.create_task(self.wait_until_ready()),
-        )
-        d, p = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            tasks = (
+                self.loop.create_task(runner()),
+                self.loop.create_task(self.wait_until_ready()),
+            )
+            d, p = await asyncio.wait(
+                tasks,
+                return_when=asyncio.FIRST_COMPLETED
+            )
 
-        done_task = d.pop()
-        if done_task.result() is not None:
-            p.pop().cancel()
-            raise done_task.result()
+            done_task = d.pop()
+            if done_task.result() is not None:
+                p.pop().cancel()
+                raise done_task.result()
 
-        self.dispatch_event('restart')
-        self._restarting = False
+            self.dispatch_event('restart')
+            self._restarting = False
+
 
     async def recover_events(self) -> None:
         await self.wait_for('xmpp_session_close')
@@ -931,14 +980,17 @@ class Client:
         clazz = cls or self.default_party_config.cls
         return clazz(self, data)
 
-    async def initialize_party(self) -> None:
-        data = await self.http.party_lookup_user(self.user.id)
+    async def initialize_party(self, priority: int = 0) -> None:
+        data = await self.http.party_lookup_user(
+            self.user.id,
+            priority=priority
+        )
         if len(data['current']) > 0:
             party = self.construct_party(data['current'][0])
-            await party._leave()
+            await party._leave(priority=priority)
             log.debug('Left old party')
 
-        await self._create_party()
+        await self._create_party(priority=priority)
 
     async def fetch_profile_by_display_name(self, display_name, *,
                                             cache: bool = False,
@@ -1342,21 +1394,40 @@ class Client:
         return entries
 
     async def initialize_states(self) -> None:
+    async def refresh_caches(self, priority: int = 0) -> None:
         tasks = (
-            self.http.friends_get_all(include_pending=True),
-            self.http.friends_get_summary(),
-            self.http.presence_get_last_online(),
+            self.http.friends_get_all(
+                include_pending=True,
+                priority=priority
+            ),
+            self.http.friends_get_summary(priority=priority),
+            self.http.presence_get_last_online(priority=priority),
         )
         raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
 
         ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
-        profiles = await self.fetch_profiles(ids, raw=True)
+        chunks = [ids[i:i + 100] for i in range(0, len(ids), 100)]
 
-        profiles = {profile['id']: profile for profile in profiles}
+        users = {}
+        tasks = [
+            self.http.account_graphql_get_multiple_by_user_id(
+                chunk,
+                priority=priority
+            )
+            for chunk in chunks
+        ]
+        if tasks:
+            done = await asyncio.gather(*tasks)
+        else:
+            done = []
+
+        for results in done:
+            for user in results['accounts']:
+                users[user['id']] = user
 
         for friend in raw_friends:
             try:
-                data = profiles[friend['accountId']]
+                data = users[friend['accountId']]
             except KeyError:
                 continue
 
@@ -1387,7 +1458,7 @@ class Client:
                 )
 
         for data in raw_summary['blocklist']:
-            user = profiles.get(data['accountId'])
+            user = users.get(data['accountId'])
             if user is not None:
                 self.store_blocked_user(user)
 
@@ -2419,8 +2490,10 @@ class Client:
         return data['entries']
 
     async def _create_party(self,
-                            config: Optional[dict] = None) -> ClientParty:
-        aquiring = not self.auth._refresh_lock.locked()
+                            config: Optional[dict] = None,
+                            acquire: bool = True,
+                            priority: int = 0) -> ClientParty:
+        aquiring = not self.auth._refresh_lock.locked() and acquire
         try:
             if aquiring:
                 await self._join_party_lock.acquire()
@@ -2432,18 +2505,25 @@ class Client:
 
             while True:
                 try:
-                    data = await self.http.party_create(cf)
+                    data = await self.http.party_create(
+                        cf,
+                        priority=priority
+                    )
                     break
                 except HTTPException as exc:
                     if exc.message_code != ('errors.com.epicgames.social.'
                                             'party.user_has_party'):
                         raise
 
-                    data = await self.http.party_lookup_user(self.user.id)
+                    data = await self.http.party_lookup_user(
+                        self.user.id,
+                        priority=priority
+                    )
                     async with self._leave_lock:
                         try:
                             await self.http.party_leave(
-                                data['current'][0]['id']
+                                data['current'][0]['id'],
+                                priority=priority
                             )
                         except HTTPException as e:
                             m = ('errors.com.epicgames.social.'
@@ -2455,7 +2535,10 @@ class Client:
 
             config = {**cf, **data['config']}
             party = self.construct_party(data)
-            await party._update_members(members=data['members'])
+            await party._update_members(
+                members=data['members'],
+                priority=priority
+            )
             self.party = party
 
             tasks = [
@@ -2476,7 +2559,8 @@ class Client:
                     **party.construct_squad_assignments(),
                     **party.meta.set_voicechat_implementation('VivoxVoiceChat')
                 },
-                deleted=[*deleted, *edit_deleted]
+                deleted=[*deleted, *edit_deleted],
+                priority=priority,
             ))
             await asyncio.gather(*tasks)
 
