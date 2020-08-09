@@ -6,6 +6,108 @@ Changelog
 Detailed version changes.
 
 
+v3.0.0
+------
+
+This major update focuses on stability but also introduces lots of additions and changes.
+
+Changed
+~~~~~~~
+
+- (**Breaking**) Renamed ``ProfileSearchPlatform`` -> :class:`UserSearchPlatform`.
+- (**Breaking**) Renamed ``ProfileSearchEntryUser`` -> :class:`UserSearchEntry`.
+- (**Breaking**) The access attribute for caches now return a copied list of the caches values. This affects these attributes:
+    - :attr:`Client.friends`
+    - :attr:`Client.pending_friends`
+    - :attr:`Client.users`
+    - :attr:`Client.blocked_users`
+    - :attr:`Client.presences`
+    - :attr:`Party.members`
+- (**Breaking**) Renamed ``Client.join_to_party()`` -> :meth:`Client.join_party()`.
+- (**Breaking**) Renamed ``Client.set_status()`` -> :meth:`Client.set_presence()`.
+- (**Breaking**) Renamed ``Client.send_status()`` -> :meth:`Client.send_presence()`.
+- (**Breaking**) Renamed ``event_party_member_disconnect()`` -> :func:`event_party_member_zombie()`.
+- Renamed multiple fetch methods. All of the renamed methods are still aliased to their previous names so this should break anything.
+    - ``Client.fetch_profile_by_display_name()`` -> :meth:`Client.fetch_user_by_display_name()`.
+    - ``Client.fetch_profiles_by_display_name()`` -> :meth:`Client.fetch_users_by_display_name()`.
+    - ``Client.fetch_profile()`` -> :meth:`Client.fetch_user()`.
+    - ``Client.fetch_profiles()`` -> :meth:`Client.fetch_users()`.
+    - ``Client.fetch_profile_by_email()`` -> :meth:`Client.fetch_user_by_email()`.
+    - ``Client.search_profiles()`` -> :meth:`Client.search_users()`.
+- Removed usage of the loop parameter internally since asyncio is deprecating it soon.
+- The client now logs out and returns the start call (:meth:`Client.start()` or :meth:`Client.run()`) when too many reauth attempts has been tried. This happens even if the client has previously successfully logged in and emitted :func:`event_ready()`.
+
+Added
+~~~~~
+
+- Added parameter ``error_callback`` to :func:`start_multiple()` and :func:`run_multiple()`.
+- Added parameter ``away`` to :class:`Client` to set the clients presence :class:`AwayStatus`.
+- Added proper ratelimit and retry handling for http requests.
+- Added parameter ``http_retry_config`` to :class:`Client` which controls how http ratelimits and retries are handled. Check out its new dataclass :class:`HTTPRetryConfig` to see the options you can set.
+- Added :attr:`Client.incoming_pending_friends` to get a list of the clients incoming pending friends.
+- Added :attr:`Client.outgoing_pending_friends` to get a list of the clients outgoing pending friends.
+- Added :meth:`Client.get_incoming_pending_friend()` to get an incoming pending friend by their id.
+- Added :meth:`Client.get_outgoing_pending_friend()` to get an outgoing pending friend by their id.
+- Added :meth:`Client.wait_until_closed()`.
+- Added :meth:`Client.fetch_party()` to fetch a party by its id.
+- Added parameter ``away`` to :meth:`Client.set_presence()` and :meth:`Client.send_presence()`.
+- Added :attr:`HTTPException.request_headers` to access the headers of the request that failed.
+- Added alias ``inbound`` for attribute ``incoming`` to :class:`IncomingPendingFriend` and :class:`OutgoingPendingFriend`.
+- Added alias ``outbound`` for attribute ``outgoing`` to :class:`IncomingPendingFriend` and :class:`OutgoingPendingFriend`.
+- Added parameter ``offline_ttl`` to :class:`DefaultPartyMemberConfig`.
+- Added :attr:`PartyMember.offline_ttl` to check a members time to live seconds before leaving the party when its connection is lost.
+- Added :meth:`PartyMember.is_zombie()` to check if the members connection is currently lost and therefore not responding.
+- Added :attr:`PartyMember.zombie_since` to check when a member lost its connection.
+- Added :meth:`Party.join()`.
+- Added :meth:`ClientParty.set_max_size()` to set the max size of the party while in it.
+- Added :func:`event_invalid_party_invite()`.
+- Added :func:`event_party_member_reconnect()`.
+- Added :func:`event_xmpp_session_establish()`.
+- Added :func:`event_xmpp_session_lost()`.
+- Added :func:`event_xmpp_session_close()`.
+- Added compare magic methods (``__eq__`` and ``__ne__``) to:
+    - :class:`Avatar`
+    - :class:`Party`
+    - :class:`ClientParty`
+    - :class:`ReceivedPartyInvitation`
+    - :class:`SentPartyInvitation`
+    - :class:`PartyJoinConfirmation`
+    - :class:`Playlist`
+    - :class:`ExternalAuth`
+    - :class:`User`
+    - :class:`BlockedUser`
+    - :class:`UserSearchEntry`
+    - :class:`SacSearchUser`
+    - :class:`User`
+    - :class:`Friend`
+    - :class:`IncomingPendingFriend`
+    - :class:`OutgoingPendingFriend`
+    - :class:`PartyMember`
+
+Removed
+~~~~~~~
+
+- Removed parameter ``check_private`` from :meth:`Client.join_party()`.
+
+Bug Fixes
+~~~~~~~~~
+
+- Reworked the invalid access token reauth strategy to fix multiple issues that caused stuff to break down completely.
+- Fixed an issue regarding joining a bots party when the bot was party leader but not the original creator.
+- Fixed party config patching.
+- Fixed an issue where bots were not able to join any new lobbies in some rare circumstances.
+- Fixed an issue that caused other users to not be able to rejoin or lookup the bots private party even when the user had already been a part of the party before.
+- Fixed an issue where :exc:`HTTPException` would sometimes fail at initializing because of a missing required value.
+- Fixed multiple issues regarding graphql error responses that was not correctly catched to raise an :exc:`HTTPException` and would raise an ugly error.
+- HTTP retries are now attempted for even more errors.
+- Fixed an issue where :attr:`PartyMember.connection` wasn't always updated to use the latest connection.
+- Improved the clients knowledge of which member is actually the party leader.
+- Fixed and improved lots of stuff regarding sudden connection loss including recovering and dispatching events, automatic party reconnect if the criterias is met and more.
+- Fixed an issue where a member was removed from the party internally if their connection was lost but not expired.
+- Lowered the deadtime hard limit values for the xmpp connection before reconnecting.
+- Fixed a window where :attr:`ClientParty.me` could be ``None``.
+
+
 v2.3.1
 ------
 
