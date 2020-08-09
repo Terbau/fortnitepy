@@ -2793,7 +2793,7 @@ class Client:
 
         return party
 
-    async def join_to_party(self, party_id: str) -> ClientParty:
+    async def join_party(self, party_id: str) -> ClientParty:
         """|coro|
 
         Joins a party by the party id.
@@ -2863,7 +2863,7 @@ class Client:
                 await self._create_party(acquire=False)
                 raise
 
-    async def set_status(self, status: str, *,
+    async def set_presence(self, status: str, *,
                          away: AwayStatus = AwayStatus.ONLINE) -> None:
         """|coro|
 
@@ -2891,7 +2891,7 @@ class Client:
             show=away.value
         )
 
-    async def send_status(self, status: str, *,
+    async def send_presence(self, status: str, *,
                           away: AwayStatus = AwayStatus.ONLINE,
                           to: Optional[JID] = None) -> None:
         """|coro|

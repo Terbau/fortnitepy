@@ -47,3 +47,4 @@ from .store import Store, FeaturedStoreItem, DailyStoreItem
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 from .kairos import Avatar
+from .http import HTTPRetryConfig

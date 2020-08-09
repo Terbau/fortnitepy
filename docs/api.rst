@@ -252,6 +252,18 @@ this decorator if you are in a subclass of :class:`Client`.
 .. function:: event_restart()
 
 	This event is called when the client has successfully restarted.
+
+.. function:: event_xmpp_session_establish()
+
+	Called whenever a xmpp session has been established. This can be called multiple times.
+
+.. function:: event_xmpp_session_lost()
+
+	Called whenever the xmpp connection is lost. This can happen when the internet connection is lost or if epics services goes down.
+
+.. function:: event_xmpp_session_close()
+
+	Called whenever the xmpp connection is closed. This means that it is called both when it's lost or closed gracefully.
 	
 .. function:: event_device_auth_generate(details, email)
 
@@ -342,12 +354,12 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param invitation: Invitation object.
 	:type invitation: :class:`ReceivedPartyInvitation`
 
-.. function:: event_party_member_expire(member)
+.. function:: event_invalid_party_invite(friend)
 
-	This event is called when a partymember expires.
-	
-	:param member: Expired member.
-	:type member: :class:`PartyMember`
+	This event is called whenever you received an invite that was invalid. Usually this is because the invite was from a private party you have been kicked from.
+
+	:param friend: The friend that invited you.
+	:type friend: :class:`Friend`
 	
 .. function:: event_party_member_promote(old_leader, new_leader)
 
@@ -365,11 +377,25 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param member: The member that was kicked.
 	:type member: :class:`PartyMember`
 
-.. function:: event_party_member_disconnect(member)
+.. function:: event_party_member_zombie(member)
 
-	This event is called when a member disconnects from the party.
+	This event is called when a members connection was lost and therefore entered a zombie state waiting for their offline time to live expires. If the connection is restored before timing out, :func:`event_party_member_reconnect()` is called. If not then :func:`event_party_member_expire()` is called when their time to live runs out.
 
-	:param member: The member that disconnected.
+	:param member: The member that lost its connection.
+	:type member: :class:`PartyMember`
+
+.. function:: event_party_member_reconnect(member)
+
+	This event is called when a member reconnects after losing their connection.
+
+	:param member: The member that reconnected.
+	:type member: :class:`PartyMember`
+
+.. function:: event_party_member_expire(member)
+
+	This event is called when a member expires after being in their zombie state for 30 seconds.
+	
+	:param member: The member that expired.
 	:type member: :class:`PartyMember`
 
 .. function:: event_party_update(party)

@@ -2793,7 +2793,7 @@ class Party(PartyBase):
         if self.client.party.id == self.id:
             raise PartyError('You are already a member of this party.')
 
-        return await self.client.join_to_party(self.id)
+        return await self.client.join_party(self.id)
 
 
 class ClientParty(PartyBase, Patchable):
@@ -3475,7 +3475,7 @@ class ReceivedPartyInvitation:
         if self.net_cl != self.client.net_cl and self.client.net_cl != '':
             raise PartyError('Incompatible net_cl')
 
-        await self.client.join_to_party(self.party.id)
+        await self.client.join_party(self.party.id)
         asyncio.ensure_future(
             self.client.http.party_delete_ping(self.sender.id)
         )

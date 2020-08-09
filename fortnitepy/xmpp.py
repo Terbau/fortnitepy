@@ -680,14 +680,17 @@ class XMPPClient:
         pinger = body['pinger_id']
         try:
             data = (await self.client.http.party_lookup_ping(pinger))[0]
-        except IndexError:
-            return
-        except HTTPException as exc:
-            m = 'errors.com.epicgames.social.party.ping_not_found'
-            if exc.message_code == m:
-                return
+        except (IndexError, HTTPException) as exc:
+            if isinstance(exc, HTTPException):
+                m = 'errors.com.epicgames.social.party.ping_not_found'
+                if exc.message_code != m:
+                    raise
 
-            raise
+            self.client.dispatch_event(
+                'invalid_party_invite',
+                self.client.get_friend(pinger)
+            )
+            return
 
         for inv in data['invites']:
             if inv['sent_by'] == pinger and inv['status'] == 'SENT':

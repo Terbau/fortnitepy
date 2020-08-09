@@ -198,7 +198,7 @@ class PresenceParty:
         if self.private:
             raise Forbidden('You cannot join a private party.')
 
-        return await self.client.join_to_party(self.id)
+        return await self.client.join_party(self.id)
 
 
 class Presence:
