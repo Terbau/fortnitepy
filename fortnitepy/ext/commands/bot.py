@@ -821,7 +821,7 @@ class Bot(GroupMixin, Client):
             self._print_error(ctx, error)
 
     def dispatch_error(self, ctx: Context, error: Exception) -> None:
-        if self._event_has_handlers('command_error'):
+        if self._event_has_handler('command_error'):
             futures = self.dispatch_event('command_error', ctx, error)
             asyncio.ensure_future(self._wait_for_error_return(
                 futures,

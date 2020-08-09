@@ -48,6 +48,13 @@ class Playlist:
         return ('<Playlist internal_name={0.internal_name!r} '
                 'image_url={0.image_url!r} type={0.type!r}>'.format(self))
 
+    def __eq__(self, other):
+        return (isinstance(other, Playlist)
+                and other._internal_name == self._internal_name)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def image_url(self) -> str:
         """:class:`str`: Image url for the playlist."""

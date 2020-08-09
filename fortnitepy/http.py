@@ -194,7 +194,7 @@ class LightswitchPublicService(Route):
     AUTH = 'IOS_ACCESS_TOKEN'
 
 
-class ProfileSearchService(Route):
+class UserSearchService(Route):
     BASE = 'https://user-search-service-prod.ol.epicgames.com'
     AUTH = 'FORTNITE_ACCESS_TOKEN'
 
@@ -828,7 +828,7 @@ class HTTPClient:
             'platform': platform
         }
 
-        r = ProfileSearchService('/api/v1/search')
+        r = UserSearchService('/api/v1/search')
         return await self.get(r, params=params)
 
     ###################################
@@ -1217,6 +1217,14 @@ class HTTPClient:
     #             Party               #
     ###################################
 
+    async def party_disconnect(self, party_id: str, user_id: str):
+        r = PartyService(
+            'party/api/v1/Fortnite/parties/{party_id}/members/{user_id}/disconnect',  # noqa
+            party_id=party_id,
+            user_id=user_id,
+        )
+        return await self.post(r)
+
     async def party_send_invite(self, party_id: str,
                                 user_id: str,
                                 send_ping: bool = True) -> Any:
@@ -1341,7 +1349,6 @@ class HTTPClient:
     async def party_join_request(self, party_id: str) -> Any:
         conf = self.client.default_party_member_config
         conn_type = conf.cls.CONN_TYPE
-        yield_leadership = conf.yield_leadership
         payload = {
             'connection': {
                 'id': str(self.client.xmpp.xmpp_client.local_jid),
@@ -1349,7 +1356,8 @@ class HTTPClient:
                     'urn:epic:conn:platform_s': self.client.platform.value,
                     'urn:epic:conn:type_s': conn_type,
                 },
-                'yield_leadership': yield_leadership,
+                'yield_leadership': conf.yield_leadership,
+                'offline_ttl': conf.offline_ttl,
             },
             'meta': {
                 'urn:epic:member:dn_s': self.client.user.display_name,
@@ -1399,7 +1407,6 @@ class HTTPClient:
     async def party_create(self, config: dict, **kwargs: Any) -> dict:
         conf = self.client.default_party_member_config
         conn_type = conf.cls.CONN_TYPE
-        yield_leadership = conf.yield_leadership
 
         _chat_enabled = str(config['chat_enabled']).lower()
         payload = {
@@ -1415,7 +1422,8 @@ class HTTPClient:
                         'urn:epic:conn:platform_s': self.client.platform.value,
                         'urn:epic:conn:type_s': conn_type
                     },
-                    'yield_leadership': yield_leadership,
+                    'yield_leadership': conf.yield_leadership,
+                    'offline_ttl': conf.offline_ttl,
                 },
             },
             'meta': {
@@ -1461,27 +1469,20 @@ class HTTPClient:
                                 updated_meta: dict,
                                 deleted_meta: list,
                                 overridden_meta: dict,
-                                config: dict,
-                                revision: int) -> Any:
+                                revision: int,
+                                config: dict = {},
+                                **kwargs: Any) -> Any:
         payload = {
-            'config': {
-                'join_confirmation': config['join_confirmation'],
-                'joinability': config['joinability'],
-                'max_size': config['max_size']
-            },
             'meta': {
                 'delete': deleted_meta,
                 'update': updated_meta,
                 'override': overridden_meta
             },
-            'party_state_overridden': {},
-            'party_privacy_type': config['joinability'],
-            'party_type': config['type'],
-            'party_sub_type': config['sub_type'],
-            'max_number_of_members': config['max_size'],
-            'invite_ttl_seconds': config['invite_ttl_seconds'],
-            'revision': revision
+            'revision': revision,
         }
+
+        if config:
+            payload['config'] = config
 
         r = PartyService('/party/api/v1/Fortnite/parties/{party_id}',
                          party_id=party_id)

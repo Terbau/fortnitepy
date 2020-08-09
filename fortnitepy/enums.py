@@ -148,13 +148,13 @@ class Platform(Enum):
     ANDROID     = 'AND'
 
 
-class ProfileSearchPlatform(Enum):
+class UserSearchPlatform(Enum):
     EPIC_GAMES  = 'epic'
     PLAYSTATION = 'psn'
     XBOX        = 'xbl'
 
 
-class ProfileSearchMatchType(Enum):
+class UserSearchMatchType(Enum):
     EXACT = 'exact'
     PREFIX = 'prefix'
 

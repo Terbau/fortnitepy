@@ -39,7 +39,7 @@ from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, PartyMember,
                     PartyJoinConfirmation)
 from .presence import Presence, PresenceGameplayStats, PresenceParty
 from .user import (ClientUser, User, BlockedUser, ExternalAuth,
-                   ProfileSearchEntryUser, SacSearchEntryUser)
+                   UserSearchEntry, SacSearchEntryUser)
 from .stats import StatsV2
 from .enums import *
 from .errors import *

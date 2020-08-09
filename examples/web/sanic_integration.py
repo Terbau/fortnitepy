@@ -58,7 +58,7 @@ async def event_device_auth_generate(details, email):
 
 @sanic_app.route('/friends', methods=['GET'])
 async def get_friends_handler(request):
-    friends = [friend.id for friend in bot.friends.values()]
+    friends = [friend.id for friend in bot.friends]
     return sanic.response.json(friends)
 
 @bot.event

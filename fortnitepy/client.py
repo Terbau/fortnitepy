@@ -39,12 +39,12 @@ from .errors import (PartyError, HTTPException, NotFound, Forbidden,
 from .xmpp import XMPPClient
 from .http import HTTPClient
 from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
-                   ProfileSearchEntryUser)
+                   UserSearchEntry)
 from .friend import Friend, IncomingPendingFriend, OutgoingPendingFriend
-from .enums import (Platform, Region, ProfileSearchPlatform,
+from .enums import (Platform, Region, UserSearchPlatform, AwayStatus,
                     SeasonStartTimestamp, SeasonEndTimestamp)
-from .cache import Cache
-from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, ClientParty)
+from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, ClientParty,
+                    Party)
 from .stats import StatsV2
 from .store import Store
 from .news import BattleRoyaleNewsPost
@@ -53,7 +53,7 @@ from .presence import Presence
 from .auth import RefreshTokenAuth
 from .kairos import Avatar, get_random_default_avatar
 from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
-from .utils import LockEvent
+from .utils import LockEvent, MaybeLock
 
 log = logging.getLogger(__name__)
 
@@ -98,7 +98,8 @@ def _cleanup_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 async def _start_client(client: 'Client', *,
                         shutdown_on_error: bool = True,
-                        after: Optional[MaybeCoro] = None
+                        after: Optional[MaybeCoro] = None,
+                        error_after: Optional[MaybeCoro] = None,
                         ) -> None:
     loop = asyncio.get_event_loop()
 
@@ -127,6 +128,8 @@ async def _start_client(client: 'Client', *,
         done_task = done.pop()
         e = done_task.result()
         if e is not None:
+            await client.close()
+
             identifier = client.auth.identifier
 
             if shutdown_on_error:
@@ -137,6 +140,16 @@ async def _start_client(client: 'Client', *,
 
                 raise e
             else:
+                if error_after is not None:
+                    if asyncio.iscoroutinefunction(after):
+                        asyncio.ensure_future(
+                            error_after(client, e),
+                            loop=loop
+                        )
+                    else:
+                        error_after(client, e)
+                    return
+
                 message = ('An exception occured while running client '
                            '{0}'.format(identifier))
                 return loop.call_exception_handler({
@@ -158,6 +171,7 @@ async def start_multiple(clients: List['Client'], *,
                          gap_timeout: float = 0.2,
                          shutdown_on_error: bool = True,
                          ready_callback: Optional[MaybeCoro] = None,
+                         error_callback: Optional[MaybeCoro] = None,
                          all_ready_callback: Optional[MaybeCoro] = None
                          ) -> None:
     """|coro|
@@ -182,12 +196,20 @@ async def start_multiple(clients: List['Client'], *,
         The time to sleep between starting clients. Defaults to ``0.2``.
     shutdown_on_error: :class:`bool`
         If the function should cancel all other start tasks if one of the
-        tasks fails.
+        tasks fails. You can catch the error by try excepting.
     ready_callback: Optional[Union[Callable[:class:`Client`], Awaitable[:class:`Client`]]]
         A callable/async callback taking a single parameter ``client``. 
         The callback is called whenever a client is ready.
+    error_callback: Optional[Union[Callable[:class:`Client`, Exception], Awaitable[:class:`Client`, Exception]]]
+        A callable/async callback taking two parameters, :class:`Client`
+        and an exception. The callback is called whenever a client fails
+        logging in. The callback is not called if ``shutdown_on_error`` is
+        ``True``.
     all_ready_callback: Optional[Union[Callable, Awaitable]]
-        A callback/async callback that is called whenever all clients are ready.
+        A callback/async callback that is called whenever all clients
+        have finished logging in, regardless if one of the clients failed
+        logging in. That means that the callback is always called when all
+        clients are either logged in or raised an error.
 
     Raises
     ------
@@ -199,10 +221,22 @@ async def start_multiple(clients: List['Client'], *,
     """  # noqa
     loop = asyncio.get_event_loop()
 
+    async def waiter(client):
+        done, pending = await asyncio.wait(
+            (client.wait_until_ready(), client.wait_until_closed()),
+            return_when=asyncio.FIRST_COMPLETED
+        )
+
+        for task in pending:
+            task.cancel()
+
     async def all_ready_callback_runner():
-        tasks = [loop.create_task(client.wait_until_ready())
+        tasks = [loop.create_task(waiter(client))
                  for client in clients]
         await asyncio.gather(*tasks)
+
+        if all(client.is_closed() for client in clients):
+            return
 
         log.info('All clients started.')
 
@@ -219,7 +253,8 @@ async def start_multiple(clients: List['Client'], *,
         tasks[client] = loop.create_task(_start_client(
             client,
             shutdown_on_error=shutdown_on_error,
-            after=ready_callback
+            after=ready_callback,
+            error_after=error_callback
         ))
 
         # sleeping between starting to avoid throttling
@@ -249,12 +284,15 @@ async def close_multiple(clients: List['Client']) -> None:
     Parameters
     ----------
     clients: List[:class:`Client`]
-        A list of the clients you wish to close.
+        A list of the clients you wish to close. If a client is already closing
+        or closed, it will get skipped without raising an error.
     """
     loop = asyncio.get_event_loop()
 
-    tasks = [loop.create_task(client.close())
-             for client in clients if not client._closing]
+    tasks = [
+        loop.create_task(client.close()) for client in clients
+        if not client._closing and not client.is_closed()
+    ]
     await asyncio.gather(*tasks)
 
 
@@ -262,6 +300,7 @@ def run_multiple(clients: List['Client'], *,
                  gap_timeout: float = 0.2,
                  shutdown_on_error: bool = True,
                  ready_callback: Optional[MaybeCoro] = None,
+                 error_callback: Optional[MaybeCoro] = None,
                  all_ready_callback: Optional[MaybeCoro] = None) -> None:
     """This function sets up a loop and then calls :func:`start_multiple()`
     for you. If you already have a running event loop, you should start
@@ -285,14 +324,21 @@ def run_multiple(clients: List['Client'], *,
     gap_timeout: :class:`float`
         The time to sleep between starting clients. Defaults to ``0.2``.
     shutdown_on_error: :class:`bool`
-        If the function should shut down all other start tasks gracefully if
-        one of the tasks fails.
+        If the function should cancel all other start tasks if one of the
+        tasks fails. You can catch the error by try excepting.
     ready_callback: Optional[Union[Callable[:class:`Client`], Awaitable[:class:`Client`]]]
         A callable/async callback taking a single parameter ``client``. 
         The callback is called whenever a client is ready.
+    error_callback: Optional[Union[Callable[:class:`Client`, Exception], Awaitable[:class:`Client`, Exception]]]
+        A callable/async callback taking two parameters, :class:`Client`
+        and an exception. The callback is called whenever a client fails
+        logging in. The callback is not called if ``shutdown_on_error`` is
+        ``True``.
     all_ready_callback: Optional[Union[Callable, Awaitable]]
-        A callback/async callback that is called whenever all clients are
-        ready.
+        A callback/async callback that is called whenever all clients
+        have finished logging in, regardless if one of the clients failed
+        logging in. That means that the callback is always called when all
+        clients are either logged in or raised an error.
 
     Raises
     ------
@@ -332,6 +378,7 @@ def run_multiple(clients: List['Client'], *,
             gap_timeout=gap_timeout,
             shutdown_on_error=shutdown_on_error,
             ready_callback=ready_callback,
+            error_callback=error_callback,
             all_ready_callback=all_ready_callback,
         )
 
@@ -372,6 +419,9 @@ class Client:
     status: :class:`str`
         The status you want the client to send with its presence to friends.
         Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
+    away: :class:`AwayStatus`
+        The away status the client should use for its presence. Defaults to
+        :attr:`AwayStatus.ONLINE`.
     platform: :class:`.Platform`
         The platform you want the client to display as its source.
         Defaults to :attr:`Platform.WINDOWS`.
@@ -421,6 +471,7 @@ class Client:
         self.cache_users = cache_users
 
         self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')  # noqa
+        self.away = kwargs.get('away', AwayStatus.ONLINE)
         self.avatar = kwargs.get('avatar', get_random_default_avatar())  # noqa
         self.platform = kwargs.get('platform', Platform.WINDOWS)
         self.net_cl = kwargs.get('net_cl', '')
@@ -451,13 +502,14 @@ class Client:
 
         self._listeners = {}
         self._events = {}
-        self._friends = Cache()
-        self._pending_friends = Cache()
-        self._users = Cache()
-        self._blocked_users = Cache()
-        self._presences = Cache()
-        self._ready = asyncio.Event(loop=self.loop)
+        self._friends = {}
+        self._pending_friends = {}
+        self._users = {}
+        self._blocked_users = {}
+        self._presences = {}
         self._exception_future = self.loop.create_future()
+        self._ready_event = asyncio.Event(loop=self.loop)
+        self._closed_event = asyncio.Event()
         self._leave_lock = asyncio.Lock(loop=self.loop)
         self._join_party_lock = LockEvent(loop=self.loop)
         self._reauth_lock = LockEvent(loop=self.loop)
@@ -533,39 +585,53 @@ class Client:
         self._default_party_member_config = o
 
     @property
-    def friends(self) -> Dict[str, Friend]:
-        """Dict[:class:`str`, :class:`Friends`]: Mapping of current friends."""
-        return self._friends._cache
+    def friends(self) -> List[Friend]:
+        """List[:class:`Friend`]: A list of the clients friends."""
+        return list(self._friends.values())
 
     @property
-    def pending_friends(self) -> Dict[str, Union[IncomingPendingFriend,
-                                                 OutgoingPendingFriend]]:
-        """Dict[:class:`str`, Union[:class:`IncomingPendingFriend`, 
-        :class:`OutgoingPendingFriend`]]]: Mapping of currently pending
-        friends.
+    def pending_friends(self) -> List[Union[IncomingPendingFriend,
+                                            OutgoingPendingFriend]]:
+        """List[Union[:class:`IncomingPendingFriend`,
+        :class:`OutgoingPendingFriend`]]: A list of all of the clients
+        pending friends.
 
         .. note::
 
             Pending friends can be both incoming (pending friend sent the
             request to the bot) or outgoing (the bot sent the request to the
             pending friend). You must check what kind of pending friend an
-            object is by TODO
+            object is by their attributes ``incoming`` or ``outgoing``.
         """  # noqa
-        return self._pending_friends._cache
+        return list(self._pending_friends.values())
 
     @property
-    def blocked_users(self) -> Dict[str, BlockedUser]:
-        """Dict[:class:`str`, :class:`BlockedUser`]: Mapping of currently
-        blocked users.
+    def incoming_pending_friends(self) -> List[IncomingPendingFriend]:
+        """List[:class:`IncomingPendingFriend`]: A list of the clients
+        incoming pending friends.
         """
-        return self._blocked_users._cache
+        return [pf for pf in self._pending_friends.values() if pf.incoming]
 
     @property
-    def presences(self) -> Dict[str, Presence]:
-        """Dict[:class:`str`, :class:`Presence`]: Mapping of the last presence
-        received from friends.
+    def outgoing_pending_friends(self) -> List[OutgoingPendingFriend]:
+        """List[:class:`OutgoingPendingFriend`]: A list of the clients
+        outgoing pending friends.
         """
-        return self._presences._cache
+        return [pf for pf in self._pending_friends.values() if pf.outgoing]
+
+    @property
+    def blocked_users(self) -> List[BlockedUser]:
+        """List[:class:`BlockedUser`]: A list of the users client has
+        as blocked.
+        """
+        return list(self._blocked_users.values())
+
+    @property
+    def presences(self) -> List[Presence]:
+        """List[:class:`Presence`]: A list of the last presences from
+        currently online friends.
+        """
+        return list(self._presences.values())
 
     def _check_party_confirmation(self) -> None:
         k = 'party_member_confirm'
@@ -689,6 +755,8 @@ class Client:
         """
         _started_while_restarting = self._restarting
         pri = self._reauth_lock.priority if _started_while_restarting else 0
+
+        self._closed_event.clear()
 
         if self._first_start:
             self.register_methods()
@@ -819,7 +887,7 @@ class Client:
         self._users.clear()
         self._blocked_users.clear()
         self._presences.clear()
-        self._ready.clear()
+        self._ready_event.clear()
 
         if close_http:
             await self.http.close()
@@ -834,6 +902,7 @@ class Client:
                 self._start_runner_task.cancel()
 
         self._closing = False
+        self._set_closed()
         log.debug('Successfully logged out')
 
     async def close(self, *,
@@ -929,34 +998,43 @@ class Client:
             self.dispatch_event('restart')
             self._restarting = False
 
+    async def recover_events(self, *,
+                             refresh_caches: bool = False,
+                             wait_for_close: bool = True) -> None:
+        if wait_for_close:
+            await self.wait_for('xmpp_session_close')
 
-    async def recover_events(self) -> None:
-        await self.wait_for('xmpp_session_close')
         pre_friends = self.friends
         pre_pending = self.pending_friends
         await self.wait_for('xmpp_session_establish')
 
-        for friend in pre_friends.values():
-            if friend.id not in self.friends:
+        if refresh_caches:
+            await self.refresh_caches()
+
+        for friend in pre_friends:
+            if friend not in self._friends.values():
                 self.dispatch_event('friend_remove', friend)
 
         added_friends = []
-        for friend in self.friends.values():
-            if friend.id not in pre_friends:
-                added_friends.append(friend.id)
+        for friend in self._friends.values():
+            if friend not in pre_friends:
+                added_friends.append(friend)
                 self.dispatch_event('friend_add', friend)
 
-        for pending in pre_pending.values():
-            if (pending.id not in self.pending_friends
-                    and pending.id not in added_friends):
+        for pending in pre_pending:
+            if (pending not in self._pending_friends.values()
+                    and pending not in added_friends):
                 self.dispatch_event('friend_request_abort', pending)
 
-        for pending in self.pending_friends.values():
-            if pending.id not in pre_pending:
+        for pending in self._pending_friends.values():
+            if pending not in pre_pending:
                 self.dispatch_event('friend_request', pending)
 
     def _set_ready(self) -> None:
-        self._ready.set()
+        self._ready_event.set()
+
+    def _set_closed(self) -> None:
+        self._closed_event.set()
 
     def is_ready(self) -> bool:
         """Specifies if the internal state of the client is ready.
@@ -966,14 +1044,21 @@ class Client:
         :class:`bool`
             ``True`` if the internal state is ready else ``False``
         """
-        return self._ready.is_set()
+        return self._ready_event.is_set()
 
     async def wait_until_ready(self) -> None:
         """|coro|
 
         Waits until the internal state of the client is ready.
         """
-        await self._ready.wait()
+        await self._ready_event.wait()
+
+    async def wait_until_closed(self) -> None:
+        """|coro|
+
+        Waits until the client is fully closed.
+        """
+        await self._closed_event.wait()
 
     def construct_party(self, data: dict, *,
                         cls: Optional[ClientParty] = None) -> ClientParty:
@@ -992,20 +1077,21 @@ class Client:
 
         await self._create_party(priority=priority)
 
-    async def fetch_profile_by_display_name(self, display_name, *,
-                                            cache: bool = False,
-                                            raw: bool = False
-                                            ) -> Optional[User]:
+    async def fetch_user_by_display_name(self, display_name, *,
+                                         cache: bool = False,
+                                         raw: bool = False
+                                         ) -> Optional[User]:
         """|coro|
 
-        Fetches a profile from the passed display name
+        Fetches a user from the passed display name. Aliased to
+        ``fetch_profile_by_display_name()`` as well for legacy reasons.
 
         Parameters
         ----------
         display_name: :class:`str`
-            The display name of the user you want to fetch the profile for.
+            The display name of the user you want to fetch the user for.
         cache: :class:`bool`
-            If set to True it will try to get the profile from the friends or
+            If set to True it will try to get the user from the friends or
             user cache.
 
             .. note::
@@ -1031,7 +1117,7 @@ class Client:
             The user requested. If not found it will return ``None``.
         """
         if cache:
-            for u in self._users._cache.values():
+            for u in self._users.values():
                 try:
                     if u.display_name.casefold() == display_name.casefold():
                         return u
@@ -1053,23 +1139,26 @@ class Client:
             return account
         return self.store_user(account, try_cache=cache)
 
-    async def fetch_profiles_by_display_name(self, display_name, *,
-                                             raw: bool = False
-                                             ) -> Optional[User]:
+    fetch_profile_by_display_name = fetch_user_by_display_name
+
+    async def fetch_users_by_display_name(self, display_name, *,
+                                          raw: bool = False
+                                          ) -> Optional[User]:
         """|coro|
 
         Fetches all users including external users (accounts from other
-        platforms) that matches the given the display name.
+        platforms) that matches the given the display name. Aliased to
+        ``fetch_profiles_by_display_name()`` as well for legacy reasons.
 
         .. warning::
 
-            This function is not for requesting multiple profiles by multiple
-            display names. Use :meth:`Client.fetch_profile()` for that.
+            This function is not for requesting multiple users by multiple
+            display names. Use :meth:`Client.fetch_user()` for that.
 
         Parameters
         ----------
         display_name: :class:`str`
-            The display name of the profiles you want to get.
+            The display name of the users you want to get.
 
         raw: :class:`bool`
             If set to True it will return the data as you would get it from
@@ -1088,20 +1177,23 @@ class Client:
         res = await self.http.account_graphql_get_by_display_name(display_name)
         return [User(self, account) for account in res['account']]
 
-    async def fetch_profile(self, user, *,
-                            cache: bool = False,
-                            raw: bool = False
-                            ) -> Optional[User]:
+    fetch_profiles_by_display_name = fetch_users_by_display_name
+
+    async def fetch_user(self, user, *,
+                         cache: bool = False,
+                         raw: bool = False
+                         ) -> Optional[User]:
         """|coro|
 
-        Fetches a single profile by the given id/displayname
+        Fetches a single user by the given id/displayname. Aliased to
+        ``fetch_profile()`` as well for legacy reasons.
 
         Parameters
         ----------
         user: :class:`str`
             Id or display name
         cache: :class:`bool`
-            If set to True it will try to get the profile from the friends or
+            If set to True it will try to get the user from the friends or
             user cache and fall back to an api request if not found.
 
             .. note::
@@ -1127,24 +1219,27 @@ class Client:
             The user requested. If not found it will return ``None``
         """
         try:
-            data = await self.fetch_profiles((user,), cache=cache, raw=raw)
+            data = await self.fetch_users((user,), cache=cache, raw=raw)
             return data[0]
         except IndexError:
             return None
 
-    async def fetch_profiles(self, users, *,
-                             cache: bool = False,
-                             raw: bool = False) -> List[User]:
+    fetch_profile = fetch_user
+
+    async def fetch_users(self, users, *,
+                          cache: bool = False,
+                          raw: bool = False) -> List[User]:
         """|coro|
 
-        Fetches multiple profiles at once by the given ids/displaynames
+        Fetches multiple users at once by the given ids/displaynames. Aliased
+        to ``fetch_profiles()`` as well for legacy reasons.
 
         Parameters
         ----------
         users: List[:class:`str`]
             A list/tuple containing ids/displaynames.
         cache: :class:`bool`
-            If set to True it will try to get the profiles from the friends or
+            If set to True it will try to get the users from the friends or
             user cache and fall back to an api request if not found.
 
             .. note::
@@ -1172,16 +1267,16 @@ class Client:
         if len(users) == 0:
             return []
 
-        profiles = []
+        _users = []
         new = []
         tasks = []
 
         def find_by_display_name(dn):
             if cache:
-                for u in self._users._cache.values():
+                for u in self._users.values():
                     try:
                         if u.display_name.casefold() == dn.casefold():
-                            profiles.append(u)
+                            _users.append(u)
                             return
                     except AttributeError:
                         pass
@@ -1197,9 +1292,9 @@ class Client:
                     p = self.get_user(elem)
                     if p:
                         if raw:
-                            profiles.append(p.get_raw())
+                            _users.append(p.get_raw())
                         else:
-                            profiles.append(p)
+                            _users.append(p)
                         continue
                 new.append(elem)
 
@@ -1228,18 +1323,21 @@ class Client:
             for results in d:
                 for result in results['accounts']:
                     if raw:
-                        profiles.append(result)
+                        _users.append(result)
                     else:
                         u = self.store_user(result, try_cache=cache)
-                        profiles.append(u)
-        return profiles
+                        _users.append(u)
+        return _users
 
-    async def fetch_profile_by_email(self, email, *,
-                                     cache: bool = False,
-                                     raw: bool = False) -> Optional[User]:
+    fetch_profiles = fetch_users
+
+    async def fetch_user_by_email(self, email, *,
+                                  cache: bool = False,
+                                  raw: bool = False) -> Optional[User]:
         """|coro|
 
-        Fetches a single profile by the email.
+        Fetches a single user by the email. Aliased to
+        ``fetch_profile_by_email()`` as well for legacy reasons.
 
         .. warning::
 
@@ -1253,7 +1351,7 @@ class Client:
         email: :class:`str`
             The email of the account you are requesting.
         cache: :class:`bool`
-            If set to True it will try to get the profile from the friends or
+            If set to True it will try to get the user from the friends or
             user cache and fall back to an api request if not found.
 
             .. note::
@@ -1291,23 +1389,26 @@ class Client:
         # Request the account data through graphql since the one above returns
         # empty external auths payload.
         account_id = res['id']
-        return await self.fetch_profile(account_id, cache=cache, raw=raw)
+        return await self.fetch_user(account_id, cache=cache, raw=raw)
 
-    async def search_profiles(self, prefix: str,
-                              platform: ProfileSearchPlatform
-                              ) -> List[ProfileSearchEntryUser]:
+    fetch_profile_by_email = fetch_user_by_email
+
+    async def search_users(self, prefix: str,
+                           platform: UserSearchPlatform
+                           ) -> List[UserSearchEntry]:
         """|coro|
 
-        Searches after profiles by a prefix and returns up to 100 matches.
+        Searches after users by a prefix and returns up to 100 matches.
+        Aliased to ``search_profiles()`` as well for legacy reasons.
 
         Parameters
         ----------
         prefix: :class:`str`
             | The prefix you want to search by. The prefix is case insensitive.
-            | Example: ``Tfue`` will return Tfue's profile + up to 99 other
-            profiles which have display names that start with or match exactly
+            | Example: ``Tfue`` will return Tfue's user + up to 99 other
+            users which have display names that start with or match exactly
             to ``Tfue`` like ``Tfue_Faze dequan``.
-        platform: :class:`ProfileSearchPlatform`
+        platform: :class:`UserSearchPlatform`
             The platform you wish to search by.
 
             ..note::
@@ -1323,13 +1424,13 @@ class Client:
 
         Returns
         -------
-        List[:class:`ProfileSearchEntryUser`]
+        List[:class:`UserSearchEntry`]
             An ordered list of users that matched the prefix.
         """
-        if not isinstance(platform, ProfileSearchPlatform):
+        if not isinstance(platform, UserSearchPlatform):
             raise TypeError(
                 'The platform passed must be a constant from '
-                'fortnitepy.ProfileSearchPlatform'
+                'fortnitepy.UserSearchPlatform'
             )
 
         res = await self.http.user_search_by_prefix(
@@ -1338,19 +1439,21 @@ class Client:
         )
 
         user_ids = [d['accountId'] for d in res]
-        profiles = await self.fetch_profiles(user_ids, raw=True)
-        lookup = {p['id']: p for p in profiles}
+        users = await self.fetch_users(user_ids, raw=True)
+        lookup = {p['id']: p for p in users}
 
         entries = []
         for data in res:
-            profile_data = lookup.get(data['accountId'])
-            if profile_data is None:
+            user_data = lookup.get(data['accountId'])
+            if user_data is None:
                 continue
 
-            obj = ProfileSearchEntryUser(self, profile_data, data)
+            obj = UserSearchEntry(self, user_data, data)
             entries.append(obj)
 
         return entries
+
+    search_profiles = search_users
 
     async def search_sac_by_slug(self, slug: str) -> List[SacSearchEntryUser]:
         """|coro|
@@ -1376,25 +1479,28 @@ class Client:
         res = await self.http.payment_website_search_sac_by_slug(slug)
 
         user_ids = [e['id'] for e in res]
-        profiles = await self.fetch_profiles(
+        users = await self.fetch_users(
             list(user_ids),
             raw=True
         )
-        lookup = {p['id']: p for p in profiles}
+        lookup = {p['id']: p for p in users}
 
         entries = []
         for data in res:
-            profile_data = lookup.get(data['id'])
-            if profile_data is None:
+            user_data = lookup.get(data['id'])
+            if user_data is None:
                 continue
 
-            obj = SacSearchEntryUser(self, profile_data, data)
+            obj = SacSearchEntryUser(self, user_data, data)
             entries.append(obj)
 
         return entries
 
-    async def initialize_states(self) -> None:
     async def refresh_caches(self, priority: int = 0) -> None:
+        self._friends.clear()
+        self._pending_friends.clear()
+        self._blocked_users.clear()
+
         tasks = (
             self.http.friends_get_all(
                 include_pending=True,
@@ -1470,14 +1576,14 @@ class Client:
             )
 
             if try_cache:
-                return self._users.get(user_id, silent=False)
+                return self._users[user_id]
         except KeyError:
             pass
 
-        u = User(self, data)
+        user = User(self, data)
         if self.cache_users:
-            self._users.set(u.id, u)
-        return u
+            self._users[user.id] = user
+        return user
 
     def get_user(self, user_id: str) -> Optional[User]:
         """Tries to get a user from the user cache by the given user id.
@@ -1498,7 +1604,7 @@ class Client:
             if friend is not None:
                 user = User(self, friend.get_raw())
                 if self.cache_users:
-                    self._users.set(user.id, user)
+                    self._users[user.id] = user
         return user
 
     def store_friend(self, data: dict, *,
@@ -1510,15 +1616,15 @@ class Client:
                 data.get('id', data.get('account_id'))
             )
             if try_cache:
-                return self._friends.get(user_id, silent=False)
+                return self._friends[user_id]
         except KeyError:
             pass
 
-        f = Friend(self, data)
+        friend = Friend(self, data)
         if summary is not None:
-            f._update_summary(summary)
-        self._friends.set(f.id, f)
-        return f
+            friend._update_summary(summary)
+        self._friends[friend.id] = friend
+        return friend
 
     def get_friend(self, user_id: str) -> Optional[Friend]:
         """Tries to get a friend from the friend cache by the given user id.
@@ -1544,13 +1650,13 @@ class Client:
                 data.get('id', data.get('account_id'))
             )
             if try_cache:
-                return self._pending_friends.get(user_id, silent=False)
+                return self._pending_friends[user_id]
         except KeyError:
             pass
 
-        pf = IncomingPendingFriend(self, data)
-        self._pending_friends.set(pf.id, pf)
-        return pf
+        pending_friend = IncomingPendingFriend(self, data)
+        self._pending_friends[pending_friend.id] = pending_friend
+        return pending_friend
 
     def store_outgoing_pending_friend(self, data: dict, *,
                                       try_cache: bool = True
@@ -1561,13 +1667,13 @@ class Client:
                 data.get('id', data.get('account_id'))
             )
             if try_cache:
-                return self._pending_friends.get(user_id, silent=False)
+                return self._pending_friends[user_id]
         except KeyError:
             pass
 
-        pf = OutgoingPendingFriend(self, data)
-        self._pending_friends.set(pf.id, pf)
-        return pf
+        pending_friend = OutgoingPendingFriend(self, data)
+        self._pending_friends[pending_friend.id] = pending_friend
+        return pending_friend
 
     def get_pending_friend(self,
                            user_id: str
@@ -1589,6 +1695,46 @@ class Client:
         """  # noqa
         return self._pending_friends.get(user_id)
 
+    def get_incoming_pending_friend(self,
+                                    user_id: str
+                                    ) -> Optional[IncomingPendingFriend]:
+        """Tries to get an incoming pending friend from the pending friends
+        cache by the given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the incoming pending friend.
+
+        Returns
+        -------
+        Optional[:class:`IncomingPendingFriend`]
+            The incoming pending friend if found, else ``None``.
+        """
+        pending_friend = self.get_pending_friend(user_id)
+        if pending_friend.incoming:
+            return pending_friend
+
+    def get_outgoing_pending_friend(self,
+                                    user_id: str
+                                    ) -> Optional[OutgoingPendingFriend]:
+        """Tries to get an outgoing pending friend from the pending friends
+        cache by the given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the outgoing pending friend.
+
+        Returns
+        -------
+        Optional[:class:`OutgoingPendingFriend`]
+            The outgoing pending friend if found, else ``None``.
+        """
+        pending_friend = self.get_pending_friend(user_id)
+        if pending_friend.outgoing:
+            return pending_friend
+
     def store_blocked_user(self, data: dict, *,
                            try_cache: bool = True) -> BlockedUser:
         try:
@@ -1597,13 +1743,13 @@ class Client:
                 data.get('id', data.get('account_id'))
             )
             if try_cache:
-                return self._blocked_users.get(user_id, silent=False)
+                return self._blocked_users[user_id]
         except KeyError:
             pass
 
-        bu = BlockedUser(self, data)
-        self._blocked_users.set(bu.id, bu)
-        return bu
+        blocked_user = BlockedUser(self, data)
+        self._blocked_users[blocked_user.id] = blocked_user
+        return blocked_user
 
     def get_blocked_user(self, user_id: str) -> Optional[BlockedUser]:
         """Tries to get a blocked user from the blocked users cache by the
@@ -2031,9 +2177,16 @@ class Client:
         listeners.append((future, check))
         return asyncio.wait_for(future, timeout, loop=self.loop)
 
-    def _event_has_handlers(self, event: str) -> bool:
+    def _event_has_handler(self, event: str) -> bool:
         handlers = self._events.get(event.lower())
         return handlers is not None and len(handlers) > 0
+
+    def _event_has_destination(self, event):
+        if event in self._listeners:
+            return True
+        elif self._event_has_handler(event):
+            return True
+        return False
 
     def add_event_handler(self, event: str, coro: Awaitable[Any]) -> None:
         """Registers a coroutine as an event handler. You can register as many
@@ -2179,7 +2332,7 @@ class Client:
             end_time = end_time.value
 
         tasks = [
-            self.fetch_profile(user_id, cache=True),
+            self.fetch_user(user_id, cache=True),
             self.http.stats_get_v2(
                 user_id,
                 start_time=start_time,
@@ -2238,9 +2391,9 @@ class Client:
                     fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo')
                 ]
 
-                # get the profiles and create a list of their ids.
-                profiles = await self.fetch_profiles(['Ninja', 'Dark', 'DrLupo'])
-                user_ids = [u.id for u in profiles] + ['NonValidUserIdForTesting']
+                # get the users and create a list of their ids.
+                users = await self.fetch_users(['Ninja', 'Dark', 'DrLupo'])
+                user_ids = [u.id for u in users] + ['NonValidUserIdForTesting']
 
                 data = await self.fetch_multiple_br_stats(user_ids=user_ids, stats=stats)
                 for id, res in data.items():
@@ -2304,7 +2457,7 @@ class Client:
             end_time = end_time.value
 
         tasks = [
-            self.fetch_profiles(user_ids, cache=True),
+            self.fetch_users(user_ids, cache=True),
             self._multiple_stats_chunk_requester(
                 user_ids,
                 stats,
@@ -2546,14 +2699,21 @@ class Client:
             ]
             await party.meta.meta_ready_event.wait()
 
-            updated, deleted = party.meta.set_privacy(config['privacy'])
-
-            edit_updated, edit_deleted = await party._edit(
+            updated, deleted, cfg1 = party.meta.set_privacy(config['privacy'])
+            edit_updated, edit_deleted, cfg2 = await party._edit(
                 *party._default_config.meta
             )
 
+            # Filter out urn:epic:* properties that was set in party create
+            # payload.
+            default_schema = {
+                k: v for k, v in party.meta.schema.items()
+                if k.startswith('Default:')
+            }
+
             tasks.append(party.patch(
                 updated={
+                    **default_schema,
                     **updated,
                     **edit_updated,
                     **party.construct_squad_assignments(),
@@ -2561,6 +2721,7 @@ class Client:
                 },
                 deleted=[*deleted, *edit_deleted],
                 priority=priority,
+                config={**cfg1, **cfg2},
             ))
             await asyncio.gather(*tasks)
 
@@ -2576,8 +2737,70 @@ class Client:
     async def wait_until_party_ready(self) -> None:
         await self._join_party_lock.wait()
 
-    async def join_to_party(self, party_id: str, *,
-                            check_private: bool = True) -> ClientParty:
+    async def fetch_party(self, party_id: str) -> Party:
+        try:
+            data = await self.http.party_lookup(party_id)
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.social.party.party_not_found'
+            if exc.message_code == m:
+                raise NotFound('Could not find a party by the supplied id')
+
+            m = 'errors.com.epicgames.social.party.party_query_forbidden'
+            if exc.message_code == m:
+                raise Forbidden('You are not allowed to lookup this party.')
+
+            raise
+
+        party = Party(self, data)
+        await party._update_members(members=data['members'])
+
+        return party
+
+    async def _join_party(self, party_data: dict, *,
+                          event: str = 'party_member_join') -> ClientParty:
+        party = self.construct_party(party_data)
+        await party._update_members(party_data['members'])
+        self.party = party
+
+        def check(m):
+            if m.id != self.user.id:
+                return False
+            if party.id != m.party.id:
+                return False
+            return True
+
+        future = asyncio.ensure_future(
+            self.wait_for(event, check=check, timeout=5),
+            loop=self.loop
+        )
+
+        try:
+            await self.http.party_join_request(party.id)
+        except HTTPException as e:
+            if not future.cancelled():
+                future.cancel()
+
+            m = 'errors.com.epicgames.social.party.party_join_forbidden'  # noqa
+            if e.message_code == m:
+                raise Forbidden(
+                    'You are not allowed to join this party.'
+                )
+            raise
+
+        party_data = await self.http.party_lookup(party.id)
+        party = self.construct_party(party_data)
+        self.party = party
+        asyncio.ensure_future(party.join_chat(), loop=self.loop)
+        await party._update_members(party_data['members'])
+
+        try:
+            await future
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError('Party join timed out.')
+
+        return party
+
+    async def join_to_party(self, party_id: str) -> ClientParty:
         """|coro|
 
         Joins a party by the party id.
@@ -2586,28 +2809,30 @@ class Client:
         ----------
         party_id: :class:`str`
             The id of the party you wish to join.
-        check_private: :class:`bool`
-            | Whether or not to check if the party is private before joining.
-            | Defaults to ``True``.
 
         Raises
         ------
+        .. warning::
+
+            Because the client has to leave its current party before joining
+            a new one, a new party is created if some of these errors are
+            raised. Most of the time though this is not the case and the client
+            will remain in its current party.
         PartyError
             You are already a member of this party.
         NotFound
             The party was not found.
         Forbidden
-            You attempted to join a private party with ``check_party`` set to
-            ``True``.
-        Forbidden
-            You have no right to join this party. This exception is only
-            raised if ``check_party`` is set to ``False``.
+            You are not allowed to join this party because it's private
+            and you have not been a part of it before.
 
-            .. warning::
+            .. note::
 
-                Since the client has to leave its current party before joining
-                another one, a new party is automatically created if this
-                error is raised. Use ``check_private`` with caution.
+                If you have been a part of the party before but got
+                kicked, you are ineligible to join this party and this
+                error is raised.
+        HTTPException
+            An error occurred when requesting to join the party.
 
         Returns
         -------
@@ -2621,55 +2846,32 @@ class Client:
             try:
                 party_data = await self.http.party_lookup(party_id)
             except HTTPException as e:
-                if e.message_code == ('errors.com.epicgames.social.'
-                                      'party.party_not_found'):
+                m = 'errors.com.epicgames.social.party.party_not_found'
+                if e.message_code == m:
                     raise NotFound(
                         'Could not find a party with the id {0}'.format(
                             party_id
                         )
                     )
+
+                m = 'errors.com.epicgames.social.party.party_query_forbidden'  # noqa
+                if e.message_code == m:
+                    raise Forbidden(
+                        'You are not allowed to join this party.'
+                    )
+
                 raise
 
-            if check_private:
-                if party_data['config']['joinability'] == 'INVITE_AND_FORMER':
-                    raise Forbidden('You can\'t join a private party.')
-
-            await self.party._leave()
-            party = self.construct_party(party_data)
-            self.party = party
-
-            future = asyncio.ensure_future(self.wait_for(
-                'party_member_join',
-                check=lambda m: m.id == self.user.id and party.id == m.party.id
-            ), loop=self.loop)
-
             try:
-                await self.http.party_join_request(party_id)
-            except HTTPException as e:
-                if not future.cancelled():
-                    future.cancel()
-
-                await self._create_party()
-
-                if e.message_code == ('errors.com.epicgames.social.'
-                                      'party.party_join_forbidden'):
-                    raise Forbidden('Client has no right to join this party.')
+                await self.party._leave()
+                party = await self._join_party(party_data)
+                return party
+            except Exception:
+                await self._create_party(acquire=False)
                 raise
 
-            party_data = await self.http.party_lookup(party_id)
-            party = self.construct_party(party_data)
-            self.party = party
-            asyncio.ensure_future(party.join_chat(), loop=self.loop)
-            await party._update_members(party_data['members'])
-
-            try:
-                await future
-            except asyncio.TimeoutError:
-                pass
-
-            return party
-
-    async def set_status(self, status: str) -> None:
+    async def set_status(self, status: str, *,
+                         away: AwayStatus = AwayStatus.ONLINE) -> None:
         """|coro|
 
         Sends and sets the status. This status message will override all other
@@ -2679,6 +2881,8 @@ class Client:
         ----------
         status: :class:`str`
             The status you want to set.
+        away: :class:`AwayStatus`
+            The away status to use. Defaults to :attr:`AwayStatus.ONLINE`.
 
         Raises
         ------
@@ -2689,9 +2893,13 @@ class Client:
             raise TypeError('status must be a str')
 
         self.status = status
-        await self.xmpp.send_presence(status=status)
+        await self.xmpp.send_presence(
+            status=status,
+            show=away.value
+        )
 
     async def send_status(self, status: str, *,
+                          away: AwayStatus = AwayStatus.ONLINE,
                           to: Optional[JID] = None) -> None:
         """|coro|
 
@@ -2701,6 +2909,8 @@ class Client:
         ----------
         status: Union[:class:`str`, :class:`dict`]
             The status message in :class:`str` or full status in :class:`dict`.
+        away: :class:`AwayStatus`
+            The away status to use. Defaults to :attr:`AwayStatus.ONLINE`.
         to: Optional[:class:`aioxmpp.JID`]
             The JID of the user that should receive this status.
             *Defaults to None which means it will send to all friends.*
@@ -2710,7 +2920,11 @@ class Client:
         TypeError
             Status was an invalid type.
         """
-        await self.xmpp.send_presence(status=status, to=to)
+        await self.xmpp.send_presence(
+            status=status,
+            show=away.value,
+            to=to
+        )
 
     def set_avatar(self, avatar: Avatar) -> None:
         """Sets the client's avatar and updates it for all friends.

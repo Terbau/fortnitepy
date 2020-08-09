@@ -139,7 +139,7 @@ Enumerations
 	.. attribute:: SITTING_OUT
 
 
-.. class:: ProfileSearchPlatform
+.. class:: UserSearchPlatform
 	..attribute:: EPIC_GAMES
 
 		This represents all platforms that use epic games as account service like PC and Mobile.
@@ -791,10 +791,10 @@ BlockedUser
 	:members:
 	:inherited-members:
 
-ProfileSearchEntryUser
+UserSearchEntry
 ~~~~~~~~~~~
 
-.. autoclass:: ProfileSearchEntryUser()
+.. autoclass:: UserSearchEntry()
 	:members:
 	:inherited-members:
 
@@ -964,6 +964,12 @@ DefaultPartyMemberConfig
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: DefaultPartyMemberConfig()
+	:members:
+
+HTTPRetryConfig
+~~~~~~~~~~~~~~~
+
+.. autoclass:: HTTPRetryConfig()
 	:members:
 
 Avatar

@@ -82,6 +82,12 @@ class Avatar:
         return ('<Avatar asset={0.asset!r} '
                 'background_colors={0.background_colors!r}>'.format(self))
 
+    def __eq__(self, other):
+        return isinstance(other, Avatar) and other.to_dict() == self.to_dict()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def to_dict(self) -> Dict[str, Any]:
         """Converts it into a fortnite friendly dict.
 
