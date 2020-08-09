@@ -42,7 +42,7 @@ class MyClient(fortnitepy.Client):
 
     async def event_ready(self):
         print('Client is ready as {0.user.display_name}.'.format(self))
-        self.session = aiohttp.ClientSession(loop=self.loop)
+        self.session = aiohttp.ClientSession()
         self.session_event.set()
 
     async def event_friend_request(self, request):

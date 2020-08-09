@@ -77,7 +77,7 @@ class UserConverter(IDConverter):
         else:
             to_lookup = argument
 
-        result = await bot.fetch_profile(to_lookup, cache=True)
+        result = await bot.fetch_user(to_lookup, cache=True)
 
         if result is None:
             raise BadArgument('User "{}" not found'.format(argument))
@@ -102,7 +102,7 @@ class PartyMemberConverter(IDConverter):
 
         result = None
         if match is None:
-            for member in party.members.values():
+            for member in party._members.values():
                 if member.display_name.casefold() == argument.casefold():
                     result = member
                     break
@@ -135,7 +135,7 @@ class FriendConverter(IDConverter):
             user_id = match.group(1).lower()
             result = bot.get_friend(user_id)
         else:
-            for friend in bot.friends.values():
+            for friend in bot._friends.values():
                 if friend.display_name.casefold() == argument.casefold():
                     result = friend
                     break

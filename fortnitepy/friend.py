@@ -89,16 +89,20 @@ class FriendBase(UserBase):
     @property
     def incoming(self) -> bool:
         """:class:`bool`: ``True`` if this friend was the one to send the
-        friend request else ``False``.
+        friend request else ``False`. Aliased to ``inbound`` as well.
         """
         return self._direction == 'INBOUND'
+
+    inbound = incoming
 
     @property
     def outgoing(self) -> bool:
         """:class:`bool`: ``True`` if the bot was the one to send the friend
-        request else ``False``.
+        request else ``False``. Aliased to ``outbound`` as well.
         """
         return self._direction == 'OUTBOUND'
+
+    outbound = outgoing
 
     @property
     def created_at(self) -> datetime.datetime:

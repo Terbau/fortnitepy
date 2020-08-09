@@ -156,7 +156,18 @@ class DefaultPartyConfig:
     def _update_privacy(self, args: list) -> None:
         for arg in args:
             if isinstance(arg, PartyPrivacy):
-                self.update({'privacy': arg})
+                if arg.value['partyType'] == 'Private':
+                    include = {
+                        'discoverability': PartyDiscoverability.INVITED_ONLY.value,  # noqa
+                        'joinability': PartyJoinability.INVITE_AND_FORMER.value,  # noqa
+                    }
+                else:
+                    include = {
+                        'discoverability': PartyDiscoverability.ALL.value,
+                        'joinability': PartyJoinability.OPEN.value,
+                    }
+
+                self.update({'privacy': arg, **include})
                 break
 
     def update_meta(self, meta: List[functools.partial]) -> None:
@@ -192,16 +203,19 @@ class DefaultPartyMemberConfig:
     Parameters
     ----------
     cls: Type[:class:`ClientPartyMember`]
-        | The default party member object to use to represent the client as a
+        The default party member object to use to represent the client as a
         party member. Here you can specify all classes that inherits from
         :class:`ClientPartyMember`.
-        | The library has two out of the box objects that you can use:
-        | - :class:`ClientPartyMember` *(Default)*
-        | - :class:`JustChattingClientPartyMember`
+        The library has two out of the box objects that you can use:
+        - :class:`ClientPartyMember` *(Default)*
+        - :class:`JustChattingClientPartyMember`
     yield_leadership: :class:`bool`:
-        | Wether or not the client should promote another member automatically
+        Wether or not the client should promote another member automatically
         whenever there is a chance to.
-        | Defaults to ``False``
+        Defaults to ``False``
+    offline_ttl: :class:`int`
+        How long the client should stay in the party disconnected state before
+        expiring when the xmpp connection is lost. Defaults to ``30``.
     meta: List[:class:`functools.partial`]
         A list of coroutines in the form of partials. This config will be
         automatically equipped by the bot when joining new parties.
@@ -224,10 +238,14 @@ class DefaultPartyMemberConfig:
     yield_leadership: :class:`bool`
         Wether or not the client promotes another member automatically
         whenever there is a chance to.
+    offline_ttl: :class:`int`
+        How long the client will stay in the party disconnected state before
+        expiring when the xmpp connection is lost.
     """  # noqa
     def __init__(self, **kwargs: Any) -> None:
         self.cls = kwargs.get('cls', ClientPartyMember)
         self.yield_leadership = kwargs.get('yield_leadership', False)
+        self.offline_ttl = kwargs.get('offline_ttl', 30)
         self.meta = kwargs.get('meta', [])
 
     def update_meta(self, meta: List[functools.partial]) -> None:
@@ -253,25 +271,29 @@ class Patchable:
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def update_meta_config(self, data: dict) -> None:
+    def update_meta_config(self, data: dict, **kwargs) -> None:
         raise NotImplementedError
 
     async def do_patch(self, updated: Optional[dict] = None,
                        deleted: Optional[list] = None,
-                       overridden: Optional[dict] = None) -> None:
+                       overridden: Optional[dict] = None,
+                       **kwargs) -> None:
         raise NotImplementedError
 
     async def patch(self, updated: Optional[dict] = None,
                     deleted: Optional[list] = None,
-                    overridden: Optional[dict] = None) -> Any:
-
+                    overridden: Optional[dict] = None,
+                    **kwargs) -> Any:
         async with self.patch_lock:
             try:
                 await self.meta.meta_ready_event.wait()
                 while True:
                     try:
-                        _updated = updated or self.meta.get_schema(max=30)
-                        _deleted = deleted or self.meta.deleted_cache
+                        # If no updated is passed then just select the first
+                        # value to "update" as fortnite returns an error if
+                        # the update meta is empty.
+                        _updated = updated or self.meta.get_schema(max=1)
+                        _deleted = deleted or []
                         _overridden = overridden or {}
 
                         for val in _deleted:
@@ -283,7 +305,8 @@ class Patchable:
                         await self.do_patch(
                             updated=_updated,
                             deleted=_deleted,
-                            overridden=_overridden
+                            overridden=_overridden,
+                            **kwargs
                         )
                         self.revision += 1
                         return updated, deleted, overridden
@@ -295,7 +318,7 @@ class Patchable:
 
                         raise
             finally:
-                self.meta.deleted_cache = []
+                self._config_cache = {}
 
     async def _edit(self,
                     *coros: List[Union[Awaitable, functools.partial]]) -> None:
@@ -330,7 +353,7 @@ class Patchable:
             if value != new_value:
                 updated[prop] = new_value
 
-        return updated, deleted
+        return updated, deleted, self._config_cache
 
     async def edit(self,
                    *coros: List[Union[Awaitable, functools.partial]]
@@ -341,10 +364,11 @@ class Patchable:
                 raise TypeError('All arguments must be coroutines or a '
                                 'partials of coroutines')
 
-        updated, deleted = await self._edit(*coros)
+        updated, deleted, config = await self._edit(*coros)
         return await self.patch(
             updated=updated,
-            deleted=deleted
+            deleted=deleted,
+            config=config,
         )
 
     async def edit_and_keep(self,
@@ -365,12 +389,13 @@ class Patchable:
 
             new.append(coro)
 
-        default = self.update_meta_config(new)
+        updated, deleted, config = await self._edit(*new)
+        self.update_meta_config(new, config=config)
 
-        updated, deleted = await self._edit(*default)
         return await self.patch(
             updated=updated,
-            deleted=deleted
+            deleted=deleted,
+            config=config,
         )
 
 
@@ -442,8 +467,7 @@ class PartyMemberMeta(MetaBase):
         super().__init__()
         self.member = member
 
-        self.deleted_cache = []
-        self.meta_ready_event = asyncio.Event(loop=member.client.loop)
+        self.meta_ready_event = asyncio.Event()
 
         self.def_character = get_random_default_character()
         self.schema = {
@@ -541,8 +565,7 @@ class PartyMemberMeta(MetaBase):
         if member.id == client.user.id and isinstance(member,
                                                       ClientPartyMember):
             fut = asyncio.ensure_future(
-                member._edit(*member._default_config.meta),
-                loop=client.loop
+                member._edit(*member._default_config.meta)
             )
             fut.add_done_callback(lambda *args: self.meta_ready_event.set())
 
@@ -822,8 +845,7 @@ class PartyMeta(MetaBase):
         super().__init__()
         self.party = party
 
-        self.deleted_cache = []
-        self.meta_ready_event = asyncio.Event(loop=party.client.loop)
+        self.meta_ready_event = asyncio.Event()
 
         privacy = self.party.config['privacy']
         privacy_settings = {
@@ -964,6 +986,7 @@ class PartyMeta(MetaBase):
     def set_privacy(self, privacy: dict) -> Tuple[dict, list]:
         updated = {}
         deleted = []
+        config = {}
 
         p = self.get_prop('Default:PrivacySettings_j')
         if p:
@@ -1002,15 +1025,19 @@ class PartyMeta(MetaBase):
 
         if privacy['partyType'] == 'Private':
             updated['urn:epic:cfg:not-accepting-members-reason_i'] = 7
+            config['discoverability'] = PartyDiscoverability.INVITED_ONLY.value
+            config['joinability'] = PartyJoinability.INVITE_AND_FORMER.value
         else:
             deleted.append(
                 self.delete_prop('urn:epic:cfg:not-accepting-members-reason_i')
             )
+            config['discoverability'] = PartyDiscoverability.ALL.value
+            config['joinability'] = PartyJoinability.OPEN.value
 
         if self.party.edit_lock.locked():
-            self.deleted_cache.extend(deleted)
+            self.party._config_cache.update(config)
 
-        return updated, deleted
+        return updated, deleted, config
 
     def set_voicechat_implementation(self, value: str) -> Dict[str, str]:
         key = 'VoiceChat:implementation_s'
@@ -1082,6 +1109,29 @@ class PartyMemberBase(User):
         for Just Chattin' members.
         """
         return self.connection.get('yield_leadership', False)
+
+    @property
+    def offline_ttl(self) -> int:
+        """:class:`int`: The amount of time this member will stay in a zombie
+        mode before expiring.
+        """
+        return self.connection.get('offline_ttl', 30)
+
+    def is_zombie(self) -> bool:
+        """:class:`bool`: Whether or not this member is in a zombie mode meaning
+        their xmpp connection is disconnected and not responding.
+        """
+        return 'disconnected_at' in self.connection
+
+    @property
+    def zombie_since(self) -> Optional[datetime.datetime]:
+        """Optional[:class:`datetime.datetime`]: The utc datetime this member
+        went into a zombie state. ``None`` if this user is currently not a
+        zombie.
+        """
+        disconnected_at = self.connection.get('disconnected_at')
+        if disconnected_at is not None:
+            return self.client.from_iso(disconnected_at)
 
     def is_just_chatting(self) -> bool:
         """:class:`bool`: Whether or not the member is Just Chattin' through
@@ -1328,16 +1378,25 @@ class PartyMemberBase(User):
         """:class:`bool`: Whether or not this member is chatbanned."""
         return self.id in getattr(self.party, '_chatbanned_members', {})
 
+    def _update_connection(self, data: Optional[Union[list, dict]]) -> None:
+        if data:
+            if isinstance(data, list):
+                for connection in data:
+                    if 'disconnected_at' not in connection:
+                        data = connection
+                        break
+                else:
+                    data = data[0]
+
+        self.connection = data or {}
+
     def _update(self, data: dict) -> None:
         super()._update(data)
-        self.role = data.get('role')
+        self.update_role(data.get('role'))
         self.revision = data.get('revision', 0)
 
-        connections = data.get('connections')
-        if connections is not None:
-            self.connection = connections[0] if connections else {}
-        else:
-            self.connection = data.get('connection', {})
+        connections = data.get('connections', data.get('connection'))
+        self._update_connection(connections)
 
     def update(self, data: dict) -> None:
         if data['revision'] > self.revision:
@@ -1347,6 +1406,7 @@ class PartyMemberBase(User):
 
     def update_role(self, role: str) -> None:
         self.role = role
+        self._role_updated_at = datetime.datetime.utcnow()
 
     @staticmethod
     def create_variants(item: str = "AthenaCharacter", *,
@@ -1594,8 +1654,9 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         self.clear_emote_task = None
         self.clear_in_match_task = None
 
-        self.patch_lock = asyncio.Lock(loop=client.loop)
-        self.edit_lock = asyncio.Lock(loop=client.loop)
+        self._config_cache = {}
+        self.patch_lock = asyncio.Lock()
+        self.edit_lock = asyncio.Lock()
 
         super().__init__(client, party, data)
 
@@ -1606,7 +1667,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
 
     async def do_patch(self, updated: Optional[dict] = None,
                        deleted: Optional[list] = None,
-                       overridden: Optional[dict] = None) -> None:
+                       overridden: Optional[dict] = None,
+                       **kwargs) -> None:
         await self.client.http.party_update_member_meta(
             party_id=self.party.id,
             user_id=self.id,
@@ -1614,9 +1676,10 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             deleted_meta=deleted,
             overridden_meta=overridden,
             revision=self.revision,
+            **kwargs
         )
 
-    def update_meta_config(self, data: dict) -> None:
+    def update_meta_config(self, data: dict, **kwargs) -> None:
         # Incase the default party member config has been overridden, the
         # config used to make this obj should also be updated. This is
         # so you can still do hacky checks to see the default meta
@@ -1696,13 +1759,15 @@ class ClientPartyMember(PartyMemberBase, Patchable):
     def do_on_member_join_patch(self) -> None:
         async def patcher():
             try:
-                await self.patch()
+                # max=30 because 30 is the maximum amount of props that
+                # can be updated at once.
+                await self.patch(updated=self.meta.get_schema(max=30))
             except HTTPException as exc:
                 m = 'errors.com.epicgames.social.party.party_not_found'
                 if exc.message_code != m:
                     raise
 
-        asyncio.ensure_future(patcher(), loop=self.client.loop)
+        asyncio.ensure_future(patcher())
 
     async def leave(self) -> 'ClientParty':
         """|coro|
@@ -1719,6 +1784,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         :class:`ClientParty`
             The new party the client is connected to after leaving.
         """
+        self._cancel_clear_emote()
+
         async with self.client._leave_lock:
             try:
                 await self.client.http.party_leave(self.party.id)
@@ -2462,6 +2529,12 @@ class PartyBase:
     def __str__(self) -> str:
         return self.id
 
+    def __eq__(self, other):
+        return isinstance(other, PartyBase) and other._id == self._id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def client(self) -> 'Client':
         """:class:`Client`: The client."""
@@ -2473,9 +2546,9 @@ class PartyBase:
         return self._id
 
     @property
-    def members(self) -> Dict[str, PartyMember]:
+    def members(self) -> List[PartyMember]:
         """:class:`dict`: Mapping of the party's members."""
-        return self._members
+        return list(self._members.values())
 
     @property
     def member_count(self) -> int:
@@ -2490,7 +2563,7 @@ class PartyBase:
     @property
     def leader(self) -> PartyMember:
         """:class:`PartyMember`: The leader of the party."""
-        for member in self.members.values():
+        for member in self._members.values():
             if member.leader:
                 return member
 
@@ -2530,19 +2603,24 @@ class PartyBase:
         return self.meta.privacy
 
     def _add_member(self, member: PartyMember) -> None:
-        self.members[member.id] = member
+        self._members[member.id] = member
+
+    def _create_member(self, data: dict) -> PartyMember:
+        member = PartyMember(self.client, self, data)
+        self._add_member(member)
+        return member
 
     def _remove_member(self, user_id: str) -> PartyMember:
         if not isinstance(user_id, str):
             user_id = user_id.id
-        return self.members.pop(user_id)
+        return self._members.pop(user_id)
 
     def get_member(self, user_id: str) -> Optional[PartyMember]:
         """Optional[:class:`PartyMember`]: Attempts to get a party member
         from the member cache. Returns ``None`` if no user was found by the
         user id.
         """
-        return self.members.get(user_id)
+        return self._members.get(user_id)
 
     def _update(self, data: dict) -> None:
         try:
@@ -2578,6 +2656,22 @@ class PartyBase:
         if found:
             self.config['privacy'] = found
 
+        captain_id = data.get('captain_id')
+        if captain_id is not None:
+            leader = self.leader
+            if leader is not None and captain_id != leader.id:
+                delt = datetime.datetime.utcnow() - leader._role_updated_at
+                if delt.total_seconds() > 3:
+                    member = self.get_member(captain_id)
+                    if member is not None:
+                        self._update_roles(member)
+
+    def _update_roles(self, new_leader):
+        for member in self._members.values():
+            member.update_role(None)
+
+        new_leader.update_role('CAPTAIN')
+
     def _update_invites(self, invites: list) -> None:
         self.invites = invites
 
@@ -2589,39 +2683,67 @@ class PartyBase:
         self.sub_type = config['sub_type']
         self.config = {**self.client.default_party_config.config, **config}
 
-    async def _update_members(self, members: Optional[list] = None) -> None:
+    async def _update_members(self, members: Optional[list] = None,
+                              remove_missing: bool = True,
+                              priority: int = 0) -> None:
+        client = self.client
         if members is None:
-            data = await self.client.http.party_lookup(self.id)
+            data = await client.http.party_lookup(
+                self.id,
+                priority=priority
+            )
             members = data['members']
 
         def get_id(m):
             return m.get('account_id', m.get('accountId'))
 
-        profiles = await self.client.fetch_profiles(
-            [get_id(m) for m in members],
-            cache=True
-        )
-        profiles = {p.id: p for p in profiles}
+        raw_users = {}
+        user_ids = [get_id(m) for m in members]
+        for user_id in user_ids:
+            if user_id == client.user.id:
+                user = client.user
+            else:
+                user = client.get_user(user_id)
 
+            if user is not None:
+                raw_users[user.id] = user.get_raw()
+
+        user_ids = [uid for uid in user_ids if uid not in raw_users]
+
+        if user_ids:
+            data = await client.http.account_graphql_get_multiple_by_user_id(
+                user_ids,
+                priority=priority
+            )
+            for account_data in data['accounts']:
+                raw_users[account_data['id']] = account_data
+
+        result = []
         for raw in members:
             user_id = get_id(raw)
-            if user_id == self.client.user.id:
-                user = self.client.user
-            else:
-                user = profiles[user_id]
-            raw = {**raw, **(user.get_raw())}
 
-            member = PartyMember(self.client, self, raw)
-            self._add_member(member)
+            account_data = raw_users[user_id]
+            raw = {**raw, **account_data}
 
-        ids = profiles.keys()
-        to_remove = []
-        for m in self.members.values():
-            if m.id not in ids:
-                to_remove.append(m.id)
+            member = self._create_member(raw)
+            result.append(member)
 
-        for user_id in to_remove:
-            self._remove_member(user_id)
+            if member.id == client.user.id:
+                try:
+                    self._create_clientmember(raw)
+                except AttributeError:
+                    pass
+
+        if remove_missing:
+            to_remove = []
+            for m in self._members.values():
+                if m.id not in raw_users:
+                    to_remove.append(m.id)
+
+            for user_id in to_remove:
+                self._remove_member(user_id)
+
+        return result
 
 
 class Party(PartyBase):
@@ -2634,6 +2756,45 @@ class Party(PartyBase):
         return ('<Party id={0.id!r} leader={0.leader.id!r} '
                 'member_count={0.member_count}>'.format(self))
 
+    async def join(self) -> 'ClientParty':
+        """|coro|
+
+        Joins the party.
+
+        Raises
+        ------
+        .. warning::
+
+            Because the client has to leave its current party before joining
+            a new one, a new party is created if some of these errors are
+            raised. Most of the time though this is not the case and the client
+            will remain in its current party.
+        PartyError
+            You are already a member of this party.
+        NotFound
+            The party was not found.
+        Forbidden
+            You are not allowed to join this party because it's private
+            and you have not been a part of it before.
+
+            .. note::
+
+                If you have been a part of the party before but got
+                kicked, you are ineligible to join this party and this
+                error is raised.
+        HTTPException
+            An error occurred when requesting to join the party.
+
+        Returns
+        -------
+        :class:`ClientParty`
+            The party that was just joined.
+        """
+        if self.client.party.id == self.id:
+            raise PartyError('You are already a member of this party.')
+
+        return await self.client.join_party(self.id)
+
 
 class ClientParty(PartyBase, Patchable):
     """Represents ClientUser's party."""
@@ -2643,9 +2804,10 @@ class ClientParty(PartyBase, Patchable):
         self._me = None
         self._chatbanned_members = {}
 
-        self.patch_lock = asyncio.Lock(loop=client.loop)
-        self.edit_lock = asyncio.Lock(loop=client.loop)
+        self.patch_lock = asyncio.Lock()
+        self.edit_lock = asyncio.Lock()
 
+        self._config_cache = {}
         self._default_config = client.default_party_config
         self._update_revision(data.get('revision', 0))
 
@@ -2677,11 +2839,6 @@ class ClientParty(PartyBase, Patchable):
     def _add_clientmember(self, member: Type[ClientPartyMember]) -> None:
         self._me = member
 
-    def _create_member(self, data: dict) -> PartyMember:
-        member = PartyMember(self.client, self, data)
-        self._add_member(member)
-        return member
-
     def _create_clientmember(self, data: dict) -> Type[ClientPartyMember]:
         cls = self.client.default_party_member_config.cls
         member = cls(self.client, self, data)
@@ -2692,7 +2849,7 @@ class ClientParty(PartyBase, Patchable):
         if not isinstance(user_id, str):
             user_id = user_id.id
         self.update_presence()
-        return self.members.pop(user_id)
+        return self._members.pop(user_id)
 
     def construct_presence(self, text: Optional[str] = None) -> dict:
         perm = self.config['privacy']['presencePermission']
@@ -2744,7 +2901,7 @@ class ClientParty(PartyBase, Patchable):
                 },
                 'GamePlaylistName_s': self.meta.playlist_info[0],
                 'Event_PlayersAlive_s': '0',
-                'Event_PartySize_s': str(len(self.members)),
+                'Event_PartySize_s': str(len(self._members)),
                 'Event_PartyMaxSize_s': str(self.max_size),
             },
         }
@@ -2755,44 +2912,15 @@ class ClientParty(PartyBase, Patchable):
 
         if self.client.status is not False:
             self.last_raw_status = data
-            self.client.xmpp.set_presence(status=self.last_raw_status)
+            self.client.xmpp.set_presence(
+                status=self.last_raw_status,
+                show=self.client.away.value,
+            )
 
     def _update(self, data: dict) -> None:
+        super()._update(data)
         if self.revision < data['revision']:
             self.revision = data['revision']
-
-        try:
-            config = data['config']
-        except KeyError:
-            config = {
-                'joinability': data['party_privacy_type'],
-                'max_size': data['max_number_of_members'],
-                'sub_type': data['party_sub_type'],
-                'type': data['party_type'],
-                'invite_ttl_seconds': data['invite_ttl_seconds']
-            }
-
-        self._update_config({**self.config, **config})
-
-        self.meta.update(data['party_state_updated'], raw=True)
-        self.meta.remove(data['party_state_removed'])
-
-        privacy = self.meta.get_prop('Default:PrivacySettings_j')
-        c = privacy['PrivacySettings']
-        found = False
-        for d in PartyPrivacy:
-            p = d.value
-            if p['partyType'] != c['partyType']:
-                continue
-            if p['inviteRestriction'] != c['partyInviteRestriction']:
-                continue
-            if p['onlyLeaderFriendsCanJoin'] != c['bOnlyLeaderFriendsCanJoin']:
-                continue
-            found = p
-            break
-
-        if found:
-            self.config['privacy'] = found
 
         if self.client.status is not False:
             self.update_presence()
@@ -2800,54 +2928,11 @@ class ClientParty(PartyBase, Patchable):
     def _update_revision(self, revision: int) -> None:
         self.revision = revision
 
-    def _update_config(self, config: dict = {}) -> None:
-        self.join_confirmation = config['join_confirmation']
-        self.max_size = config['max_size']
-        self.invite_ttl_seconds = config.get('invite_ttl_seconds',
-                                             config['invite_ttl'])
-        self.sub_type = config['sub_type']
-        self.config = {**self.client.default_party_config.config, **config}
+    def _update_roles(self, new_leader):
+        super()._update_roles(new_leader)
 
-    async def _update_members(self, members: Optional[list] = None,
-                              remove_missing: bool = True) -> None:
-        if members is None:
-            data = await self.client.http.party_lookup(self.id)
-            members = data['members']
-
-        def get_id(m):
-            return m.get('account_id', m.get('accountId'))
-
-        profiles = await self.client.fetch_profiles(
-            [get_id(m) for m in members],
-            cache=True
-        )
-        profiles = {p.id: p for p in profiles}
-
-        result = []
-        for raw in members:
-            user_id = get_id(raw)
-            if user_id == self.client.user.id:
-                user = self.client.user
-            else:
-                user = profiles[user_id]
-            raw = {**raw, **(user.get_raw())}
-
-            member = self._create_member(raw)
-            result.append(member)
-
-            if member.id == self.client.user.id:
-                self._create_clientmember(raw)
-
-        if remove_missing:
-            to_remove = []
-            for m in self.members.values():
-                if m.id not in profiles:
-                    to_remove.append(m.id)
-
-            for user_id in to_remove:
-                self._remove_member(user_id)
-
-        return result
+        if new_leader.id == self.client.user.id:
+            self.client.party.me.update_role('CAPTAIN')
 
     async def join_chat(self) -> None:
         await self.client.xmpp.join_muc(self.id)
@@ -2863,7 +2948,7 @@ class ClientParty(PartyBase, Patchable):
         room = self.client.xmpp.muc_room
         for occupant in room.members:
             if occupant.direct_jid.localpart == user_id:
-                self._chatbanned_members[user_id] = self.members[user_id]
+                self._chatbanned_members[user_id] = self._members[user_id]
                 await room.ban(occupant, reason=reason)
                 break
         else:
@@ -2883,25 +2968,31 @@ class ClientParty(PartyBase, Patchable):
 
     async def do_patch(self, updated: Optional[dict] = None,
                        deleted: Optional[list] = None,
-                       overridden: Optional[dict] = None) -> None:
+                       overridden: Optional[dict] = None,
+                       **kwargs) -> None:
         await self.client.http.party_update_meta(
             party_id=self.id,
             updated_meta=updated,
             deleted_meta=deleted,
             overridden_meta=overridden,
-            config=self.config,
-            revision=self.revision
+            revision=self.revision,
+            **kwargs
         )
 
-    def update_meta_config(self, data: dict) -> None:
+    def update_meta_config(self, data: dict, config: dict = {}) -> None:
         # Incase the default party member config has been overridden, the
         # config used to make this obj should also be updated. This is
         # so you can still do hacky checks to see the default meta
         # properties.
         if self._default_config is not self.client.default_party_config:
             self._default_config.update_meta(data)
+            if config:
+                self._default_config.update(config)
 
         self.client.default_party_config.update_meta(data)
+        if config:
+            self._default_config.update(config)
+
         return self.client.default_party_config.meta
 
     async def edit(self,
@@ -2976,7 +3067,7 @@ class ClientParty(PartyBase, Patchable):
         taken_pos = set(new_positions.values())
         to_assign = []
 
-        for member in self.members.values():
+        for member in self._members.values():
             if member.id not in existing_ids:
                 to_assign.append(member)
 
@@ -2998,7 +3089,7 @@ class ClientParty(PartyBase, Patchable):
 
         for member_data in existing:
             user_id = member_data['memberId']
-            if user_id not in self.members:
+            if user_id not in self._members:
                 continue
 
             if user_id in new_positions:
@@ -3034,10 +3125,10 @@ class ClientParty(PartyBase, Patchable):
             return await self.patch(updated=prop)
 
     async def _invite(self, friend: Friend) -> None:
-        if friend.id in self.members:
+        if friend.id in self._members:
             raise PartyError('User is already in you party.')
 
-        if len(self.members) == self.max_size:
+        if len(self._members) == self.max_size:
             raise PartyError('Party is full')
 
         await self.client.http.party_send_invite(self.id, friend.id)
@@ -3114,25 +3205,34 @@ class ClientParty(PartyBase, Patchable):
         data = await self.client.http.party_lookup(self.id)
 
         user_ids = [r['sent_to'] for r in data['invites']]
-        users = await self.client.fetch_profiles(user_ids, cache=True)
+        users = await self.client.fetch_users(user_ids, cache=True)
 
         invites = []
         for i, raw in enumerate(data['invites']):
             invites.append(SentPartyInvitation(
                 self.client,
                 self,
-                self.members[raw['sent_by']],
+                self._members[raw['sent_by']],
                 users[i],
                 raw
             ))
 
         return invites
 
-    async def _leave(self, ignore_not_found: bool = True) -> None:
+    async def _leave(self, *,
+                     ignore_not_found: bool = True,
+                     priority: int = 0) -> None:
+        me = self.me
+        if me is not None:
+            me._cancel_clear_emote()
+
         await self.client.xmpp.leave_muc()
 
         try:
-            await self.client.http.party_leave(self.id)
+            await self.client.http.party_leave(
+                self.id,
+                priority=priority
+            )
         except HTTPException as e:
             m = 'errors.com.epicgames.social.party.party_not_found'
             if ignore_not_found and e.message_code == m:
@@ -3159,9 +3259,13 @@ class ClientParty(PartyBase, Patchable):
         if not isinstance(privacy, dict):
             privacy = privacy.value
 
-        updated, deleted = self.meta.set_privacy(privacy)
+        updated, deleted, config = self.meta.set_privacy(privacy)
         if not self.edit_lock.locked():
-            return await self.patch(updated=updated, deleted=deleted)
+            return await self.patch(
+                updated=updated,
+                deleted=deleted,
+                config=config,
+            )
 
     async def set_playlist(self, playlist: Optional[str] = None,
                            tournament: Optional[str] = None,
@@ -3270,6 +3374,44 @@ class ClientParty(PartyBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
+    async def set_max_size(self, size: int) -> None:
+        """|coro|
+
+        Sets a new max size of the party.
+
+        Parameters
+        ----------
+        size: :class:`int`
+            The size to set. Must be more than the current member count,
+            more than or equal to 1 or less than or equal to 16.
+
+        Raises
+        ------
+        Forbidden
+            The client is not the leader of the party.
+        PartyError
+            The new size was lower than the current member count.
+        PartyError
+            The new size was not <= 1 and <= 16.
+        """
+        if self.me is not None and not self.me.leader:
+            raise Forbidden('You have to be leader for this action to work.')
+
+        if size < self.member_count:
+            raise PartyError('New size is lower than current member count.')
+
+        if not 1 <= size <= 16:
+            raise PartyError('The new party size must be 1 <= size <= 16.')
+
+        config = {
+            'max_size': size
+        }
+
+        if not self.edit_lock.locked():
+            return await self.patch(config=config)
+        else:
+            self._config_cache.update(config)
+
 
 class ReceivedPartyInvitation:
     """Represents a received party invitation.
@@ -3306,6 +3448,13 @@ class ReceivedPartyInvitation:
                 'sender={0.sender!r} '
                 'created_at={0.created_at!r}>'.format(self))
 
+    def __eq__(self, other):
+        return (isinstance(other, ReceivedPartyInvitation)
+                and other.sender == self.sender.id)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     async def accept(self) -> None:
         """|coro|
 
@@ -3314,23 +3463,21 @@ class ReceivedPartyInvitation:
         .. warning::
 
             A bug within the fortnite services makes it not possible to join a
-            private party you have already been a part of before.
+            private party you have been kicked from.
 
         Raises
         ------
         Forbidden
-            You attempted to join a private party you've already been a part
-            of before.
+            You attempted to join a private party you've been kicked from.
         HTTPException
             Something went wrong when accepting the invitation.
         """
         if self.net_cl != self.client.net_cl and self.client.net_cl != '':
             raise PartyError('Incompatible net_cl')
 
-        await self.client.join_to_party(self.party.id, check_private=False)
+        await self.client.join_party(self.party.id)
         asyncio.ensure_future(
-            self.client.http.party_delete_ping(self.sender.id),
-            loop=self.client.loop
+            self.client.http.party_delete_ping(self.sender.id)
         )
 
     async def decline(self) -> None:
@@ -3382,6 +3529,13 @@ class SentPartyInvitation:
     def __repr__(self) -> str:
         return ('<SentPartyInvitation party={0.party!r} sender={0.sender!r} '
                 'created_at={0.created_at!r}>'.format(self))
+
+    def __eq__(self, other):
+        return (isinstance(other, SentPartyInvitation)
+                and other.sender.id == self.sender.id)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     async def cancel(self) -> None:
         """|coro|
@@ -3457,6 +3611,13 @@ class PartyJoinConfirmation:
     def __repr__(self) -> str:
         return ('<PartyJoinConfirmation party={0.party!r} user={0.user!r} '
                 'created_at={0.created_at!r}>'.format(self))
+
+    def __eq__(self, other):
+        return (isinstance(other, PartyJoinConfirmation)
+                and other.user.id == self.user.id)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     async def confirm(self) -> None:
         """|coro|

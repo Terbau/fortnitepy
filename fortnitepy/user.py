@@ -28,7 +28,7 @@ import logging
 
 from aioxmpp import JID
 from typing import TYPE_CHECKING, Any, List, Optional
-from .enums import ProfileSearchPlatform, ProfileSearchMatchType
+from .enums import UserSearchPlatform, UserSearchMatchType
 from .typedefs import DatetimeOrTimestamp
 
 if TYPE_CHECKING:
@@ -87,6 +87,12 @@ class ExternalAuth:
                 'external_display_name={0.external_display_name!r} '
                 'external_id={0.external_id!r}>'.format(self))
 
+    def __eq__(self, other):
+        return isinstance(other, ExternalAuth) and other.id == self.id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def get_raw(self) -> dict:
         return {
             'type': self.type,
@@ -108,6 +114,12 @@ class UserBase:
 
     def __str__(self) -> str:
         return self.display_name
+
+    def __eq__(self, other):
+        return isinstance(other, UserBase) and other._id == self._id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @property
     def display_name(self) -> str:
@@ -417,35 +429,35 @@ class BlockedUser(UserBase):
         await self.client.unblock_user(self.id)
 
 
-class ProfileSearchEntryUser(User):
-    """Represents a user entry in a profile search.
+class UserSearchEntry(User):
+    """Represents a user entry in a user search.
 
     Parameters
     ----------
-    matches: List[Tuple[:class:`str`, :class:`ProfileSearchPlatform`]]
+    matches: List[Tuple[:class:`str`, :class:`UserSearchPlatform`]]
         | A list of tuples containing the display name the user matched
         and the platform the display name is from.
-        | Example: ``[('Tfue', ProfileSearchPlatform.EPIC_GAMES)]``
-    match_type: :class:`ProfileSearchMatchType`
+        | Example: ``[('Tfue', UserSearchPlatform.EPIC_GAMES)]``
+    match_type: :class:`UserSearchMatchType`
         The type of match this user matched by.
     mutual_friend_count: :class:`int`
         The amount of **epic** mutual friends the client has with the user.
     """
     def __init__(self, client: 'Client',
-                 profile_data: dict,
+                 user_data: dict,
                  search_data: dict) -> None:
-        super().__init__(client, profile_data)
+        super().__init__(client, user_data)
 
-        self.matches = [(d['value'], ProfileSearchPlatform(d['platform']))
+        self.matches = [(d['value'], UserSearchPlatform(d['platform']))
                         for d in search_data['matches']]
-        self.match_type = ProfileSearchMatchType(search_data['matchType'])
+        self.match_type = UserSearchMatchType(search_data['matchType'])
         self.mutual_friend_count = search_data['epicMutuals']
 
     def __str__(self) -> str:
         return self.matches[0][0]
 
     def __repr__(self) -> str:
-        return ('<ProfileSearchEntryUser id={0.id!r} '
+        return ('<UserSearchEntry id={0.id!r} '
                 'display_name={0.display_name!r} '
                 'epicgames_account={0.epicgames_account!r}>'.format(self))
 
@@ -463,9 +475,9 @@ class SacSearchEntryUser(User):
         Wether or not the creator code is verified or not.
     """
     def __init__(self, client: 'Client',
-                 profile_data: dict,
+                 user_data: dict,
                  search_data: dict) -> None:
-        super().__init__(client, profile_data)
+        super().__init__(client, user_data)
 
         self.slug = search_data['slug']
         self.active = search_data['status'] == 'ACTIVE'

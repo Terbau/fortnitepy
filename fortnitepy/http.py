@@ -42,6 +42,81 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+GRAPHQL_HTML_ERROR_PATTERN = re.compile(r'<title>(.*)<\/title>')
+
+
+class HTTPRetryConfig:
+    """Config for how HTTPClient should handle retries.
+
+    .. warning::
+
+        Messing with these values could potentially make retries spammy.
+        Worst case scenario of this would be that either your ip or
+        your account could be limited due to high traffic. Change these
+        values with caution!
+
+    Parameters
+    ----------
+    max_retry_attempts: :class:`int`
+        The max amount of retry attempts for a request. Defaults to ``5``.
+
+        .. note::
+
+            This is ignored when handling capacity throttling.
+    max_wait_time: Optional[:class:`float`]
+        The max amount of seconds to wait for a request before
+        raising the original exception. This works by keeping track of the
+        total seconds that has been waited for the request regardless of
+        number of attempts. If ``None`` this is ignored. Defaults to ``65``.
+    handle_rate_limits: :class:`bool`
+        Whether or not the client should handle rate limit errors and wait
+        the received ``Retry-After`` before automatically retrying the request.
+        Defaults to ``True``.
+
+        .. note::
+
+            This option is only for throttling errors with a Retry-After value.
+    max_retry_after: :class:`float`
+        The max amount of seconds the client should handle. If a throttled
+        error with a higher Retry-After than this value is received, then
+        the original :exc:`HTTPException` is raised instead. *Only matters
+        when ``handle_rate_limits`` is ``True``*
+    other_requests_wait: :class:`bool`
+        Whether other requests to a rate limited endpoint should wait
+        for the rate limit to disappear before requesting. Defaults to
+        ``True``. *Only matters when ``handle_rate_limits`` is ``True``*
+    handle_capacity_throttling: :class:`bool`
+        Whether or not the client should automatically handle capacity
+        throttling errors. These occur when the prod server you
+        are requesting from has no available capacity to process a
+        request and therefore returns with a throttle error
+        without a Retry-After. Defaults to ``True``.
+    backoff_start: :class:`float`
+        The initial seconds to wait for the exponential backoff. Defaults
+        to ``1``. *Only matters when ``handle_capacity_throttling`` is
+        ``True``*
+    backoff_factor: :class:`float`
+        The multiplying factor used for the exponential backoff when a
+        request fails. Defaults to ``1.5``. *Only matters when
+        ``handle_capacity_throttling`` is ``True``*
+    backoff_cap: :class:`float`
+        The cap for the exponential backoff to avoid having
+        unrealistically high wait times. Defaults to ``20``. *Only matters
+        when ``handle_capacity_throttling`` is ``True``*
+    """
+    def __init__(self, **kwargs):
+        self.max_retry_attempts = kwargs.get('max_retry_attempts', 5)
+        self.max_wait_time = kwargs.get('max_wait_time', 65)
+
+        self.handle_rate_limits = kwargs.get('handle_rate_limits', True)
+        self.max_retry_after = kwargs.get('max_retry_after', 60)
+        self.other_requests_wait = kwargs.get('other_requests_wait', True)
+
+        self.handle_capacity_throttling = kwargs.get('handle_capacity_throttling', True)  # noqa
+        self.backoff_start = kwargs.get('backoff_start', 1)
+        self.backoff_factor = kwargs.get('backoff_factor', 1.5)
+        self.backoff_cap = kwargs.get('backoff_cap', 20)
+
 
 class GraphQLRequest:
     def __init__(self, query: str, *,
@@ -92,7 +167,7 @@ class Route:
         if self.BASE == '':
             raise ValueError('Route must have a base')
 
-        url = self.BASE + self.path
+        self.sanitized_url = url = self.BASE + self.path
         self.url = url.format(**self.params) if self.params else url
 
         if auth:
@@ -119,7 +194,7 @@ class LightswitchPublicService(Route):
     AUTH = 'IOS_ACCESS_TOKEN'
 
 
-class ProfileSearchService(Route):
+class UserSearchService(Route):
     BASE = 'https://user-search-service-prod.ol.epicgames.com'
     AUTH = 'FORTNITE_ACCESS_TOKEN'
 
@@ -176,12 +251,21 @@ class StatsproxyPublicService(Route):
 
 class HTTPClient:
     def __init__(self, client: 'Client', *,
-                 connector: aiohttp.BaseConnector = None) -> None:
+                 connector: aiohttp.BaseConnector = None,
+                 retry_config: Optional[HTTPRetryConfig] = None) -> None:
         self.client = client
         self.connector = connector
+        self.retry_config = retry_config or HTTPRetryConfig()
+
         self._jar = aiohttp.CookieJar()
         self.headers = {}
         self.device_id = self.client.auth.device_id
+        self._endpoint_events = {}
+
+        # How many refreshes (max_refresh_attempts) to attempt in
+        # a time window (refresh_attempt_window) before closing.
+        self.max_refresh_attempts = 3
+        self.refresh_attempt_window = 20
 
         self.create_connection()
 
@@ -229,7 +313,6 @@ class HTTPClient:
         self.__session = aiohttp.ClientSession(
             connector=self.connector,
             connector_owner=self.connector is None,
-            loop=self.client.loop,
             cookie_jar=self._jar
         )
 
@@ -295,14 +378,29 @@ class HTTPClient:
             return r
 
         if 'errorCode' in data:
-            raise HTTPException(r, data)
+            raise HTTPException(r, data, headers)
 
         if graphql is not None:
-
-            error_data = None
-            for child_data in data:
-                if 'errors' in child_data:
-                    error_data = child_data['errors']
+            if isinstance(data, str):
+                m = GRAPHQL_HTML_ERROR_PATTERN.search(data)
+                error_data = ({
+                    'serviceResponse': '',
+                    'message': 'Unknown reason' if m is None else m.group(1)
+                },)
+            elif isinstance(data, dict):
+                if data['status'] >= 400:
+                    message = data['message']
+                    error_data = ({
+                        'serviceResponse': json.dumps({
+                            'errorCode': message
+                        }),
+                        'message': message
+                    },)
+            else:
+                error_data = None
+                for child_data in data:
+                    if 'errors' in child_data:
+                        error_data = child_data['errors']
 
             if error_data is not None:
                 selected = error_data[0]
@@ -314,7 +412,7 @@ class HTTPClient:
                 else:
                     error_payload = json.loads(service_response)
 
-                raise HTTPException(r, {**obj, **error_payload})
+                raise HTTPException(r, {**obj, **error_payload}, headers)
 
             def get_payload(d):
                 return next(iter(d['data'].values()))
@@ -324,24 +422,92 @@ class HTTPClient:
             return [get_payload(d) for d in data]
         return data
 
+    def get_retry_after(self, exc):
+        retry_after = exc.response.headers.get('Retry-After')
+        if retry_after is not None:
+            return int(retry_after)
+
+        # For some reason graphql response headers doesn't contain
+        # rate limit headers so we have to get retry after from
+        # the message vars.
+        try:
+            return int(exc.message_vars[0])
+        except (ValueError, IndexError):
+            return None
+
     async def fn_request(self, method: str,
-                         route: Union[Route, List[Route]],
+                         route: Union[Route, str],
                          auth: Optional[str] = None,
                          graphql: Union[Route, List[Route]] = None,
+                         priority: int = 0,
                          **kwargs: Any) -> Any:
-        try:
-            return await self._fn_request(method, route, auth, graphql,
-                                          **kwargs)
-        except HTTPException as exc:
-            catch = (
-                'errors.com.epicgames.common.oauth.invalid_token',
-                ('errors.com.epicgames.common.authentication.'
-                 'token_verification_failed')
-            )
-            if exc.message_code in catch and not self.client._closing:
-                force_attempts = 3
+        cfg = self.retry_config
+        if isinstance(route, Route):
+            url = route.url
+            url_key = (method, route.sanitized_url)
+        else:
+            url = route
+            url_key = None
 
-                async with MaybeLock(self.client._reauth_lock):
+        tries = 0
+        total_slept = 0
+        backoff = cfg.backoff_start
+        while True:
+            sleep_time = 0
+            tries += 1
+
+            endpoint_event = self._endpoint_events.get(url_key)
+            if endpoint_event is not None:
+                log.debug('Waiting for {0:.2f}s before requesting {1} {2}.'.format(  # noqa
+                    endpoint_event.ends_at - time.time(),
+                    method,
+                    url,
+                ))
+                await endpoint_event.wait()
+
+            endpoint_event = None
+
+            lock = self.client._reauth_lock
+            if priority <= 0:
+                await lock.wait()
+                if lock.failed:
+                    raise asyncio.CancelledError(
+                        'Client is shutting down.'
+                    )
+
+            try:
+                return await self._fn_request(
+                    method,
+                    route,
+                    auth,
+                    graphql,
+                    **kwargs
+                )
+            except HTTPException as exc:
+                if self.client._closing:
+                    raise
+
+                if tries == cfg.max_retry_attempts + 1:
+                    raise
+
+                code = exc.message_code
+
+                if graphql:
+                    graphql_server_error = exc.raw.get('errorStatus') == 500
+                else:
+                    graphql_server_error = False
+
+                catch = (
+                    'errors.com.epicgames.common.oauth.invalid_token',
+                    'errors.com.epicgames.common.authentication.token_verification_failed',  # noqa
+                    'error.graphql.401',
+                )
+                if code in catch:
+                    _auth = auth or route.AUTH
+                    if exc.request_headers['Authorization'] != self.get_auth(_auth):  # noqa
+                        continue
+
+                    force_attempts = self.max_refresh_attempts
                     retry = True
 
                     def should_force():
@@ -353,40 +519,97 @@ class HTTPClient:
                         except IndexError:
                             return True
                         else:
-                            return time.time() - old > 20
+                            cur = time.time()
+                            return cur - old > self.refresh_attempt_window
 
-                    if should_force():
-                        try:
-                            await self.client.auth.do_refresh()
-                        except Exception:
-                            if self.client.can_restart():
-                                await self.client.restart()
+                    if priority > lock.priority - 1:
+                        async with MaybeLock(lock):
+                            if should_force():
+                                try:
+                                    await self.client.auth.do_refresh()
+                                except asyncio.CancelledError:
+                                    lock.failed = True
+                                    retry = False
+                                except Exception:
+                                    if self.client.can_restart():
+                                        await self.client.restart()
+                                    else:
+                                        lock.failed = True
+                                        retry = False
+                            else:
+                                retry = False
                     else:
-                        retry = False
+                        if lock.locked():
+                            await lock.wait()
+                            if lock.failed:
+                                raise asyncio.CancelledError(
+                                    'Client is shutting down.'
+                                )
+                        else:
+                            retry = False
 
                     if retry:
-                        return await self.fn_request(
-                            method,
-                            route,
-                            auth,
-                            graphql,
-                            **kwargs
-                        )
+                        continue
                     else:
-                        raise exc from None
+                        try:
+                            e = RuntimeError('Oauth token invalid.')
+                            e.__cause__ = exc
+                            self.client._exception_future.set_exception(e)
+                        except asyncio.InvalidStateError:
+                            pass
 
-            elif exc.message_code in ('errors.com.epicgames.common.'
-                                      'server_error',):
-                await asyncio.sleep(0.5)
-                return await self._fn_request(method, route, auth, graphql,
-                                              **kwargs)
+                        raise asyncio.CancelledError(
+                            'Client is shutting down.'
+                        )
 
-            elif exc.message_code in ('errors.com.epicgames.common.'
-                                      'concurrent_modification_error',):
-                return await self.fn_request(method, route, auth, graphql,
-                                             **kwargs)
+                elif code == 'errors.com.epicgames.common.throttled' or exc.status == 429:  # noqa
+                    retry_after = self.get_retry_after(exc)
+                    if retry_after is not None and cfg.handle_rate_limits:
+                        if retry_after <= cfg.max_retry_after:
+                            sleep_time = retry_after + 0.5
+                            if cfg.other_requests_wait and url_key is not None:
+                                if url_key not in self._endpoint_events:
+                                    endpoint_event = asyncio.Event()
+                                    endpoint_event.ends_at = time.time() + sleep_time  # noqa
+                                    self._endpoint_events[url_key] = endpoint_event  # noqa
+                    else:
+                        tries -= 1  # backoff tries shouldn't count
+                        if cfg.handle_capacity_throttling:
+                            backoff *= cfg.backoff_factor
+                            if backoff <= cfg.backoff_cap:
+                                sleep_time = backoff
 
-            raise
+                elif (code == 'errors.com.epicgames.common.concurrent_modification_error'  # noqa
+                        or code == 'errors.com.epicgames.common.server_error'
+                        or graphql_server_error):  # noqa
+                    sleep_time = 0.5 + (retry - 1) * 2
+
+                if sleep_time > 0:
+                    total_slept += sleep_time
+                    if cfg.max_wait_time and total_slept > cfg.max_wait_time:
+                        raise
+
+                    log.debug('Retrying {0} {1} in {2:.2f}s.'.format(
+                        method,
+                        url,
+                        sleep_time
+                    ))
+                    await asyncio.sleep(sleep_time)
+                    continue
+                raise
+
+            except aiohttp.ServerDisconnectedError:
+                await asyncio.sleep(0.5 + (retry - 1) * 2)
+                continue
+            except OSError as exc:
+                if exc.errno in (54, 10054):
+                    continue
+                raise
+
+            finally:
+                if endpoint_event is not None:
+                    del self._endpoint_events[url_key]
+                    endpoint_event.set()
 
     async def get(self, route: Union[Route, str],
                   auth: Optional[str] = None,
@@ -604,16 +827,17 @@ class HTTPClient:
             'platform': platform
         }
 
-        r = ProfileSearchService('/api/v1/search')
+        r = UserSearchService('/api/v1/search')
         return await self.get(r, params=params)
 
     ###################################
     #            Account              #
     ###################################
 
-    async def account_get_exchange_data(self, auth: str) -> dict:
+    async def account_get_exchange_data(self, auth: str,
+                                        **kwargs: Any) -> dict:
         r = AccountPublicService('/account/api/oauth/exchange')
-        return await self.get(r, auth=auth)
+        return await self.get(r, auth=auth, **kwargs)
 
     async def account_oauth_grant(self, **kwargs: Any) -> dict:
         r = AccountPublicService('/account/api/oauth/token')
@@ -662,13 +886,14 @@ class HTTPClient:
         return await self.delete(r, auth='bearer {0}'.format(token))
 
     async def account_sessions_kill(self, kill_type: str,
-                                    auth='IOS_ACCESS_TOKEN') -> Any:
+                                    auth='IOS_ACCESS_TOKEN',
+                                    **kwargs: Any) -> Any:
         params = {
             'killType': kill_type
         }
 
         r = AccountPublicService('/account/api/oauth/sessions/kill')
-        return await self.delete(r, params=params, auth=auth)
+        return await self.delete(r, params=params, auth=auth, **kwargs)
 
     async def account_get_by_display_name(self, display_name: str) -> dict:
         r = AccountPublicService(
@@ -678,12 +903,13 @@ class HTTPClient:
         return await self.get(r)
 
     async def account_get_by_user_id(self, user_id: str, *,
-                                     auth: Optional[str] = None) -> dict:
+                                     auth: Optional[str] = None,
+                                     **kwargs: Any) -> dict:
         r = AccountPublicService(
             '/account/api/public/account/{user_id}',
             user_id=user_id
         )
-        return await self.get(r, auth=auth)
+        return await self.get(r, auth=auth, **kwargs)
 
     async def account_get_by_email(self, email: str) -> dict:
         r = AccountPublicService(
@@ -692,12 +918,13 @@ class HTTPClient:
         )
         return await self.get(r, auth='IOS_ACCESS_TOKEN')
 
-    async def account_get_external_auths_by_id(self, user_id: str) -> list:
+    async def account_get_external_auths_by_id(self, user_id: str,
+                                               **kwargs: Any) -> list:
         r = AccountPublicService(
             '/account/api/public/account/{user_id}/externalAuths',
             user_id=user_id
         )
-        return await self.get(r)
+        return await self.get(r, **kwargs)
 
     async def account_get_multiple_by_user_id(self,
                                               user_ids: List[str]) -> list:
@@ -706,7 +933,8 @@ class HTTPClient:
         return await self.get(r, params=params)
 
     async def account_graphql_get_multiple_by_user_id(self,
-                                                      user_ids: List[str]
+                                                      user_ids: List[str],
+                                                      **kwargs: Any
                                                       ) -> dict:
         return await self.graphql_request(GraphQLRequest(
             query="""
@@ -732,7 +960,7 @@ class HTTPClient:
             variables={
                 'accountIds': user_ids
             }
-        ))
+        ), **kwargs)
 
     async def account_graphql_get_by_display_name(self,
                                                   display_name: str) -> dict:
@@ -758,7 +986,9 @@ class HTTPClient:
             }
         ))
 
-    async def account_graphql_get_clients_external_auths(self) -> dict:
+    async def account_graphql_get_clients_external_auths(self,
+                                                         **kwargs: Any
+                                                         ) -> dict:
         return await self.graphql_request(GraphQLRequest(
             query="""
             query AccountQuery {
@@ -774,21 +1004,22 @@ class HTTPClient:
                 }
             }
             """
-        ))
+        ), **kwargs)
 
     ###################################
     #          Eula Tracking          #
     ###################################
 
-    async def eulatracking_get_data(self) -> dict:
+    async def eulatracking_get_data(self, **kwargs: Any) -> dict:
         r = EulatrackingPublicService(
             '/eulatracking/api/public/agreements/fn/account/{client_id}',
             client_id=self.client.user.id
         )
-        return await self.get(r)
+        return await self.get(r, **kwargs)
 
     async def eulatracking_accept(self, version: int, *,
-                                  locale: str = 'en') -> Any:
+                                  locale: str = 'en',
+                                  **kwargs: Any) -> Any:
         params = {
             'locale': locale
         }
@@ -799,18 +1030,18 @@ class HTTPClient:
             version=version,
             client_id=self.client.user.id
         )
-        return await self.post(r, params=params)
+        return await self.post(r, params=params, **kwargs)
 
     ###################################
     #         Fortnite Public         #
     ###################################
 
-    async def fortnite_grant_access(self) -> Any:
+    async def fortnite_grant_access(self, **kwargs: Any) -> Any:
         r = FortnitePublicService(
             '/fortnite/api/game/v2/grant_access/{client_id}',
             client_id=self.client.user.id
         )
-        return await self.post(r, json={})
+        return await self.post(r, json={}, **kwargs)
 
     async def fortnite_get_store_catalog(self) -> dict:
         r = FortnitePublicService('/fortnite/api/storefront/v2/catalog')
@@ -833,14 +1064,15 @@ class HTTPClient:
     ###################################
 
     async def friends_get_all(self, *,
-                              include_pending: bool = False) -> list:
+                              include_pending: bool = False,
+                              **kwargs) -> list:
         params = {
             'includePending': include_pending
         }
 
         r = FriendsPublicService('/friends/api/public/friends/{client_id}',
                                  client_id=self.client.user.id)
-        return await self.get(r, params=params)
+        return await self.get(r, params=params, **kwargs)
 
     async def friends_add_or_accept(self, user_id: str) -> Any:
         r = FriendsPublicService(
@@ -900,10 +1132,10 @@ class HTTPClient:
         )
         return await self.delete(r)
 
-    async def friends_get_summary(self) -> dict:
+    async def friends_get_summary(self, **kwargs) -> dict:
         r = FriendsPublicService('/friends/api/v1/{client_id}/summary',
                                  client_id=self.client.user.id)
-        return await self.get(r)
+        return await self.get(r, **kwargs)
 
     async def friends_block(self, user_id: str) -> Any:
         r = FriendsPublicService(
@@ -933,10 +1165,10 @@ class HTTPClient:
     #            Presence             #
     ###################################
 
-    async def presence_get_last_online(self) -> dict:
+    async def presence_get_last_online(self, **kwargs) -> dict:
         r = PresencePublicService('/presence/api/v1/_/{client_id}/last-online',
                                   client_id=self.client.user.id)
-        return await self.get(r)
+        return await self.get(r, **kwargs)
 
     ###################################
     #              Stats              #
@@ -983,6 +1215,14 @@ class HTTPClient:
     ###################################
     #             Party               #
     ###################################
+
+    async def party_disconnect(self, party_id: str, user_id: str):
+        r = PartyService(
+            'party/api/v1/Fortnite/parties/{party_id}/members/{user_id}/disconnect',  # noqa
+            party_id=party_id,
+            user_id=user_id,
+        )
+        return await self.post(r)
 
     async def party_send_invite(self, party_id: str,
                                 user_id: str,
@@ -1078,7 +1318,7 @@ class HTTPClient:
         )
         return await self.delete(r)
 
-    async def party_leave(self, party_id: str) -> Any:
+    async def party_leave(self, party_id: str, **kwargs: Any) -> Any:
         conn_type = self.client.default_party_member_config.cls.CONN_TYPE
         payload = {
             'connection': {
@@ -1103,12 +1343,11 @@ class HTTPClient:
             party_id=party_id,
             client_id=self.client.user.id
         )
-        return await self.delete(r, json=payload)
+        return await self.delete(r, json=payload, **kwargs)
 
     async def party_join_request(self, party_id: str) -> Any:
         conf = self.client.default_party_member_config
         conn_type = conf.cls.CONN_TYPE
-        yield_leadership = conf.yield_leadership
         payload = {
             'connection': {
                 'id': str(self.client.xmpp.xmpp_client.local_jid),
@@ -1116,7 +1355,8 @@ class HTTPClient:
                     'urn:epic:conn:platform_s': self.client.platform.value,
                     'urn:epic:conn:type_s': conn_type,
                 },
-                'yield_leadership': yield_leadership,
+                'yield_leadership': conf.yield_leadership,
+                'offline_ttl': conf.offline_ttl,
             },
             'meta': {
                 'urn:epic:member:dn_s': self.client.user.display_name,
@@ -1144,15 +1384,15 @@ class HTTPClient:
         )
         return await self.post(r, json=payload)
 
-    async def party_lookup(self, party_id: str) -> dict:
+    async def party_lookup(self, party_id: str, **kwargs: Any) -> dict:
         r = PartyService('/party/api/v1/Fortnite/parties/{party_id}',
                          party_id=party_id)
-        return await self.get(r)
+        return await self.get(r, **kwargs)
 
-    async def party_lookup_user(self, user_id: str) -> dict:
+    async def party_lookup_user(self, user_id: str, **kwargs: Any) -> dict:
         r = PartyService('/party/api/v1/Fortnite/user/{user_id}',
                          user_id=user_id)
-        return await self.get(r)
+        return await self.get(r, **kwargs)
 
     async def party_lookup_ping(self, user_id: str) -> list:
         r = PartyService(
@@ -1163,10 +1403,9 @@ class HTTPClient:
         )
         return await self.get(r)
 
-    async def party_create(self, config: dict) -> dict:
+    async def party_create(self, config: dict, **kwargs: Any) -> dict:
         conf = self.client.default_party_member_config
         conn_type = conf.cls.CONN_TYPE
-        yield_leadership = conf.yield_leadership
 
         _chat_enabled = str(config['chat_enabled']).lower()
         payload = {
@@ -1182,7 +1421,8 @@ class HTTPClient:
                         'urn:epic:conn:platform_s': self.client.platform.value,
                         'urn:epic:conn:type_s': conn_type
                     },
-                    'yield_leadership': yield_leadership,
+                    'yield_leadership': conf.yield_leadership,
+                    'offline_ttl': conf.offline_ttl,
                 },
             },
             'meta': {
@@ -1199,7 +1439,7 @@ class HTTPClient:
         }
 
         r = PartyService('/party/api/v1/Fortnite/parties')
-        return await self.post(r, json=payload)
+        return await self.post(r, json=payload, **kwargs)
 
     async def party_update_member_meta(self, party_id: str,
                                        user_id: str,
@@ -1207,7 +1447,8 @@ class HTTPClient:
                                        deleted_meta: list,
                                        overridden_meta: dict,
                                        revision: int,
-                                       override={}) -> Any:
+                                       override: dict = {},
+                                       **kwargs: Any) -> Any:
         payload = {
             'delete': deleted_meta,
             'update': updated_meta,
@@ -1221,34 +1462,27 @@ class HTTPClient:
             party_id=party_id,
             user_id=user_id
         )
-        return await self.patch(r, json=payload)
+        return await self.patch(r, json=payload, **kwargs)
 
     async def party_update_meta(self, party_id: str,
                                 updated_meta: dict,
                                 deleted_meta: list,
                                 overridden_meta: dict,
-                                config: dict,
-                                revision: int) -> Any:
+                                revision: int,
+                                config: dict = {},
+                                **kwargs: Any) -> Any:
         payload = {
-            'config': {
-                'join_confirmation': config['join_confirmation'],
-                'joinability': config['joinability'],
-                'max_size': config['max_size']
-            },
             'meta': {
                 'delete': deleted_meta,
                 'update': updated_meta,
                 'override': overridden_meta
             },
-            'party_state_overridden': {},
-            'party_privacy_type': config['joinability'],
-            'party_type': config['type'],
-            'party_sub_type': config['sub_type'],
-            'max_number_of_members': config['max_size'],
-            'invite_ttl_seconds': config['invite_ttl_seconds'],
-            'revision': revision
+            'revision': revision,
         }
+
+        if config:
+            payload['config'] = config
 
         r = PartyService('/party/api/v1/Fortnite/parties/{party_id}',
                          party_id=party_id)
-        return await self.patch(r, json=payload)
+        return await self.patch(r, json=payload, **kwargs)

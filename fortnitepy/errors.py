@@ -122,7 +122,7 @@ class ValidationFailure(FortniteException):
 
     def __init__(self, data: dict) -> None:
         self.field_name = data['fieldName']
-        self.invalid_value = data['invalidValue']
+        self.invalid_value = data.get('invalidValue')
         self.message = data['errorMessage']
         self.message_code = data['errorCode']
         self.message_vars = data['messageVars']
@@ -141,6 +141,8 @@ class HTTPException(FortniteException):
         The status code of the HTTP request.
     raw: Union[:class:`str`, :class:`dict`]
         The raw message/data received from Fortnite services.
+    request_headers: :class:`dict`
+        The headers used for the request.
     message: :class:`str`
         The raw error message received from Fortnite services.
     message_code: :class:`str`
@@ -158,10 +160,13 @@ class HTTPException(FortniteException):
         ``None`` if the error was not raised a validation issue.
     """
 
-    def __init__(self, response: ClientResponse, message: dict) -> None:
+    def __init__(self, response: ClientResponse,
+                 message: dict,
+                 request_headers: dict) -> None:
         self.response = response
         self.status = response.status
         self.raw = message
+        self.request_headers = request_headers
 
         _err = message if isinstance(message, dict) else {}
         self.message = _err.get('errorMessage')

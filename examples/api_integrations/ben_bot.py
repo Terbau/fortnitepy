@@ -34,14 +34,14 @@ class MyClient(fortnitepy.Client):
                 **device_auth_details
             )
         )
-        self.session_event = asyncio.Event(loop=self.loop)
+        self.session_event = asyncio.Event()
         
     async def event_device_auth_generate(self, details, email):
         store_device_auth_details(email, details)
 
     async def event_ready(self):
         print('Client is ready as {0.user.display_name}.'.format(self))
-        self.session = aiohttp.ClientSession(loop=self.loop)
+        self.session = aiohttp.ClientSession()
         self.session_event.set()
 
     async def fetch_cosmetic_id(self, display_name):
