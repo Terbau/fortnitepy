@@ -71,7 +71,7 @@ def _cancel_tasks(loop: asyncio.AbstractEventLoop) -> None:
         task.cancel()
 
     loop.run_until_complete(
-        asyncio.gather(*tasks, loop=loop, return_exceptions=True)
+        asyncio.gather(*tasks, return_exceptions=True)
     )
     log.info('All tasks finished cancelling.')
 
@@ -142,10 +142,7 @@ async def _start_client(client: 'Client', *,
             else:
                 if error_after is not None:
                     if asyncio.iscoroutinefunction(after):
-                        asyncio.ensure_future(
-                            error_after(client, e),
-                            loop=loop
-                        )
+                        asyncio.ensure_future(error_after(client, e))
                     else:
                         error_after(client, e)
                     return
@@ -160,7 +157,7 @@ async def _start_client(client: 'Client', *,
 
         if after:
             if asyncio.iscoroutinefunction(after):
-                asyncio.ensure_future(after(client), loop=loop)
+                asyncio.ensure_future(after(client))
             else:
                 after(client)
 
@@ -242,7 +239,7 @@ async def start_multiple(clients: List['Client'], *,
 
         if all_ready_callback:
             if asyncio.iscoroutinefunction(all_ready_callback):
-                asyncio.ensure_future(all_ready_callback(), loop=loop)
+                asyncio.ensure_future(all_ready_callback())
             else:
                 all_ready_callback()
 
@@ -382,7 +379,7 @@ def run_multiple(clients: List['Client'], *,
             all_ready_callback=all_ready_callback,
         )
 
-    future = asyncio.ensure_future(runner(), loop=loop)
+    future = asyncio.ensure_future(runner())
     future.add_done_callback(close)
 
     try:
@@ -508,11 +505,11 @@ class Client:
         self._blocked_users = {}
         self._presences = {}
         self._exception_future = self.loop.create_future()
-        self._ready_event = asyncio.Event(loop=self.loop)
+        self._ready_event = asyncio.Event()
         self._closed_event = asyncio.Event()
-        self._leave_lock = asyncio.Lock(loop=self.loop)
-        self._join_party_lock = LockEvent(loop=self.loop)
-        self._reauth_lock = LockEvent(loop=self.loop)
+        self._leave_lock = asyncio.Lock()
+        self._join_party_lock = LockEvent()
+        self._reauth_lock = LockEvent()
         self._reauth_lock.failed = False
         self._refresh_task = None
         self._start_runner_task = None
@@ -695,7 +692,7 @@ class Client:
         except NotImplementedError:
             pass
 
-        future = asyncio.ensure_future(runner(), loop=loop)
+        future = asyncio.ensure_future(runner())
         future.add_done_callback(stopper)
 
         try:
@@ -826,10 +823,7 @@ class Client:
         data['extraExternalAuths'] = extra_ext_data
         self.user = ClientUser(self, data)
 
-        state_fut = asyncio.ensure_future(
-            self.refresh_caches(priority=priority),
-            loop=self.loop
-        )
+        state_fut = asyncio.ensure_future(self.refresh_caches(priority=priority))
 
         if self.auth.eula_check_needed() and self.accept_eula:
             await self.auth.accept_eula(
@@ -962,7 +956,7 @@ class Client:
             self._refresh_times.append(time.time())
             ios_refresh_token = self.auth.ios_refresh_token
 
-            asyncio.ensure_future(self.recover_events(), loop=self.loop)
+            asyncio.ensure_future(self.recover_events())
             await self._close(
                 close_http=False,
                 dispatch_close=False,
@@ -2039,7 +2033,7 @@ class Client:
     def _dispatcher(self, coro: Awaitable,
                     *args: Any,
                     **kwargs: Any) -> asyncio.Future:
-        return asyncio.ensure_future(coro(*args, **kwargs), loop=self.loop)
+        return asyncio.ensure_future(coro(*args, **kwargs))
 
     def dispatch_event(self, event: str,
                        *args: Any,
@@ -2175,7 +2169,7 @@ class Client:
             self._listeners[ev] = listeners
 
         listeners.append((future, check))
-        return asyncio.wait_for(future, timeout, loop=self.loop)
+        return asyncio.wait_for(future, timeout)
 
     def _event_has_handler(self, event: str) -> bool:
         handlers = self._events.get(event.lower())
@@ -2771,7 +2765,6 @@ class Client:
 
         future = asyncio.ensure_future(
             self.wait_for(event, check=check, timeout=5),
-            loop=self.loop
         )
 
         try:
@@ -2790,7 +2783,7 @@ class Client:
         party_data = await self.http.party_lookup(party.id)
         party = self.construct_party(party_data)
         self.party = party
-        asyncio.ensure_future(party.join_chat(), loop=self.loop)
+        asyncio.ensure_future(party.join_chat())
         await party._update_members(party_data['members'])
 
         try:

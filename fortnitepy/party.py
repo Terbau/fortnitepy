@@ -467,7 +467,7 @@ class PartyMemberMeta(MetaBase):
         super().__init__()
         self.member = member
 
-        self.meta_ready_event = asyncio.Event(loop=member.client.loop)
+        self.meta_ready_event = asyncio.Event()
 
         self.def_character = get_random_default_character()
         self.schema = {
@@ -565,8 +565,7 @@ class PartyMemberMeta(MetaBase):
         if member.id == client.user.id and isinstance(member,
                                                       ClientPartyMember):
             fut = asyncio.ensure_future(
-                member._edit(*member._default_config.meta),
-                loop=client.loop
+                member._edit(*member._default_config.meta)
             )
             fut.add_done_callback(lambda *args: self.meta_ready_event.set())
 
@@ -846,7 +845,7 @@ class PartyMeta(MetaBase):
         super().__init__()
         self.party = party
 
-        self.meta_ready_event = asyncio.Event(loop=party.client.loop)
+        self.meta_ready_event = asyncio.Event()
 
         privacy = self.party.config['privacy']
         privacy_settings = {
@@ -1656,8 +1655,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         self.clear_in_match_task = None
 
         self._config_cache = {}
-        self.patch_lock = asyncio.Lock(loop=client.loop)
-        self.edit_lock = asyncio.Lock(loop=client.loop)
+        self.patch_lock = asyncio.Lock()
+        self.edit_lock = asyncio.Lock()
 
         super().__init__(client, party, data)
 
@@ -1768,7 +1767,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 if exc.message_code != m:
                     raise
 
-        asyncio.ensure_future(patcher(), loop=self.client.loop)
+        asyncio.ensure_future(patcher())
 
     async def leave(self) -> 'ClientParty':
         """|coro|
@@ -2805,8 +2804,8 @@ class ClientParty(PartyBase, Patchable):
         self._me = None
         self._chatbanned_members = {}
 
-        self.patch_lock = asyncio.Lock(loop=client.loop)
-        self.edit_lock = asyncio.Lock(loop=client.loop)
+        self.patch_lock = asyncio.Lock()
+        self.edit_lock = asyncio.Lock()
 
         self._config_cache = {}
         self._default_config = client.default_party_config
@@ -3478,8 +3477,7 @@ class ReceivedPartyInvitation:
 
         await self.client.join_to_party(self.party.id)
         asyncio.ensure_future(
-            self.client.http.party_delete_ping(self.sender.id),
-            loop=self.client.loop
+            self.client.http.party_delete_ping(self.sender.id)
         )
 
     async def decline(self) -> None:

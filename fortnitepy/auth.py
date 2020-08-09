@@ -51,7 +51,7 @@ class Auth:
     def initialize(self, client: 'Client') -> None:
         self.client = client
         self.device_id = getattr(self, 'device_id', None) or uuid.uuid4().hex
-        self._refresh_event = asyncio.Event(loop=self.client.loop)
+        self._refresh_event = asyncio.Event()
         self._refresh_lock = asyncio.Lock()
         self.refresh_i = 0
 

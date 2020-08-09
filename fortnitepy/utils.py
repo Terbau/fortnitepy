@@ -27,8 +27,8 @@ class MaybeLock:
 
 
 class LockEvent(asyncio.Lock):
-    def __init__(self, loop=None) -> None:
-        super().__init__(loop=loop)
+    def __init__(self) -> None:
+        super().__init__()
 
         self._event = asyncio.Event()
         self._event.set()

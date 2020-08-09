@@ -313,7 +313,6 @@ class HTTPClient:
         self.__session = aiohttp.ClientSession(
             connector=self.connector,
             connector_owner=self.connector is None,
-            loop=self.client.loop,
             cookie_jar=self._jar
         )
 

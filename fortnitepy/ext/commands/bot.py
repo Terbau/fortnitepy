@@ -798,7 +798,6 @@ class Bot(GroupMixin, Client):
         while pending:
             done, pending = await asyncio.wait(
                 pending,
-                loop=self.loop,
                 return_when=asyncio.FIRST_COMPLETED,
                 timeout=timeout
             )
@@ -827,7 +826,7 @@ class Bot(GroupMixin, Client):
                 futures,
                 ctx,
                 error
-            ), loop=self.loop)
+            ))
         else:
             self._print_error(ctx, error)
 

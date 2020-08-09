@@ -309,7 +309,7 @@ class WebsocketTransport:
 
     def flush(self) -> None:
         if self._buffer:
-            asyncio.ensure_future(self.send(self._buffer), loop=self.loop)
+            asyncio.ensure_future(self.send(self._buffer))
 
         self._buffer = b''
 
@@ -425,7 +425,7 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
                       ) -> Tuple[WebsocketTransport,
                                  WebsocketXMLStream,
                                  aioxmpp.nonza.StreamFeatures]:
-        features_future = asyncio.Future(loop=loop)
+        features_future = asyncio.Future()
 
         stream = WebsocketXMLStream(
             to=domain,
@@ -753,10 +753,7 @@ class XMPPClient:
 
         yielding = party.me._default_config.yield_leadership
         if party.me and party.me.leader and not yielding:
-            fut = asyncio.ensure_future(
-                party.refresh_squad_assignments(),
-                loop=self.client.loop
-            )
+            fut = asyncio.ensure_future(party.refresh_squad_assignments())
 
         try:
             if member.id == self.client.user.id:
@@ -1307,8 +1304,7 @@ class XMPPClient:
                 aioxmpp.MessageType.CHAT,
                 None,
                 lambda m: asyncio.ensure_future(
-                    self.process_chat_message(m),
-                    loop=self.client.loop
+                    self.process_chat_message(m)
                 ),
             )
 
@@ -1368,14 +1364,10 @@ class XMPPClient:
         self.setup_callbacks()
 
         future = self.client.loop.create_future()
-        self._task = asyncio.ensure_future(self._run(future),
-                                           loop=self.client.loop)
+        self._task = asyncio.ensure_future(self._run(future))
         await future
 
-        self._ping_task = asyncio.ensure_future(
-            self.loop_ping(),
-            loop=self.client.loop
-        )
+        self._ping_task = asyncio.ensure_future(self.loop_ping())
 
     async def close(self) -> None:
         log.debug('Attempting to close xmpp client')
@@ -1458,7 +1450,7 @@ class XMPPClient:
         room.on_leave.connect(self.muc_on_leave)
         self.muc_room = room
 
-        asyncio.ensure_future(fut, loop=self.client.loop)
+        asyncio.ensure_future(fut)
         await self.client.wait_for('muc_enter')
 
     async def leave_muc(self) -> None:
