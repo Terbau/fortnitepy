@@ -77,7 +77,7 @@ Added
     - :class:`User`
     - :class:`BlockedUser`
     - :class:`UserSearchEntry`
-    - :class:`SacSearchUser`
+    - :class:`SacSearchEntryUser`
     - :class:`User`
     - :class:`Friend`
     - :class:`IncomingPendingFriend`

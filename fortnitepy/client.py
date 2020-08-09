@@ -823,7 +823,9 @@ class Client:
         data['extraExternalAuths'] = extra_ext_data
         self.user = ClientUser(self, data)
 
-        state_fut = asyncio.ensure_future(self.refresh_caches(priority=priority))
+        state_fut = asyncio.ensure_future(
+            self.refresh_caches(priority=priority)
+        )
 
         if self.auth.eula_check_needed() and self.accept_eula:
             await self.auth.accept_eula(
@@ -2732,6 +2734,27 @@ class Client:
         await self._join_party_lock.wait()
 
     async def fetch_party(self, party_id: str) -> Party:
+        """|coro|
+
+        Fetches a party by its id.
+
+        Parameters
+        ----------
+        party_id: :class:`str`
+            The id of the party.
+
+        Raises
+        ------
+        NotFound
+            The party you looked up was not found.
+        Forbidden
+            You are not allowed to look up this party.
+
+        Returns
+        -------
+        :class:`Party`
+            The party that was fetched.
+        """
         try:
             data = await self.http.party_lookup(party_id)
         except HTTPException as exc:
@@ -2864,7 +2887,7 @@ class Client:
                 raise
 
     async def set_presence(self, status: str, *,
-                         away: AwayStatus = AwayStatus.ONLINE) -> None:
+                           away: AwayStatus = AwayStatus.ONLINE) -> None:
         """|coro|
 
         Sends and sets the status. This status message will override all other
@@ -2892,8 +2915,8 @@ class Client:
         )
 
     async def send_presence(self, status: str, *,
-                          away: AwayStatus = AwayStatus.ONLINE,
-                          to: Optional[JID] = None) -> None:
+                            away: AwayStatus = AwayStatus.ONLINE,
+                            to: Optional[JID] = None) -> None:
         """|coro|
 
         Sends this status to all or one single friend.
