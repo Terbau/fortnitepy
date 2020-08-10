@@ -6,6 +6,23 @@ Changelog
 Detailed version changes.
 
 
+v3.0.1
+------
+
+Quick hotpatch.
+
+Changes
+~~~~~~~
+
+- (**Breaking**) :meth:`Client.fetch_party()` now returns ``None`` instead of raising an error if not found.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed :func:`event_party_member_kick()` (oops).
+- Fixed a small race condition issue regarding party reconnect.
+
+
 v3.0.0
 ------
 
