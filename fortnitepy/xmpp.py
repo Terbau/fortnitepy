@@ -807,7 +807,6 @@ class XMPPClient:
 
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_KICKED')  # noqa
     async def event_party_member_kicked(self, ctx: EventContext) -> None:
-        return
         body = ctx.body
 
         user_id = body.get('account_id')
@@ -1244,15 +1243,15 @@ class XMPPClient:
             )
             if data['current']:
                 party_data = data['current'][0]
-                try:
-                    async with self.client._join_party_lock:
+                async with self.client._join_party_lock:
+                    try:
                         await self.client._join_party(
                             party_data,
                             event='party_member_reconnect'
                         )
-                except Exception:
-                    await self.client._create_party(acquire=True)
-                    raise
+                    except Exception:
+                        await self.client._create_party(acquire=False)
+                        raise
             else:
                 await self.client._create_party()
 

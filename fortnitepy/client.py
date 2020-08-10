@@ -2745,22 +2745,20 @@ class Client:
 
         Raises
         ------
-        NotFound
-            The party you looked up was not found.
         Forbidden
             You are not allowed to look up this party.
 
         Returns
         -------
-        :class:`Party`
-            The party that was fetched.
+        Optional[:class:`Party`]
+            The party that was fetched. ``None`` if not found.
         """
         try:
             data = await self.http.party_lookup(party_id)
         except HTTPException as exc:
             m = 'errors.com.epicgames.social.party.party_not_found'
             if exc.message_code == m:
-                raise NotFound('Could not find a party by the supplied id')
+                return None
 
             m = 'errors.com.epicgames.social.party.party_query_forbidden'
             if exc.message_code == m:
