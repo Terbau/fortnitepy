@@ -546,7 +546,7 @@ class Client:
             return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%SZ')
 
     @staticmethod
-    def to_iso(dt: str) -> datetime.datetime:
+    def to_iso(dt: datetime.datetime) -> str:
         """Converts a :class:`datetime.datetime`
         object to an iso formatted string
 
@@ -823,7 +823,9 @@ class Client:
         data['extraExternalAuths'] = extra_ext_data
         self.user = ClientUser(self, data)
 
-        state_fut = asyncio.ensure_future(self.refresh_caches(priority=priority))
+        state_fut = asyncio.ensure_future(
+            self.refresh_caches(priority=priority)
+        )
 
         if self.auth.eula_check_needed() and self.accept_eula:
             await self.auth.accept_eula(
@@ -2732,12 +2734,31 @@ class Client:
         await self._join_party_lock.wait()
 
     async def fetch_party(self, party_id: str) -> Party:
+        """|coro|
+
+        Fetches a party by its id.
+
+        Parameters
+        ----------
+        party_id: :class:`str`
+            The id of the party.
+
+        Raises
+        ------
+        Forbidden
+            You are not allowed to look up this party.
+
+        Returns
+        -------
+        Optional[:class:`Party`]
+            The party that was fetched. ``None`` if not found.
+        """
         try:
             data = await self.http.party_lookup(party_id)
         except HTTPException as exc:
             m = 'errors.com.epicgames.social.party.party_not_found'
             if exc.message_code == m:
-                raise NotFound('Could not find a party by the supplied id')
+                return None
 
             m = 'errors.com.epicgames.social.party.party_query_forbidden'
             if exc.message_code == m:
@@ -2864,7 +2885,7 @@ class Client:
                 raise
 
     async def set_presence(self, status: str, *,
-                         away: AwayStatus = AwayStatus.ONLINE) -> None:
+                           away: AwayStatus = AwayStatus.ONLINE) -> None:
         """|coro|
 
         Sends and sets the status. This status message will override all other
@@ -2892,8 +2913,8 @@ class Client:
         )
 
     async def send_presence(self, status: str, *,
-                          away: AwayStatus = AwayStatus.ONLINE,
-                          to: Optional[JID] = None) -> None:
+                            away: AwayStatus = AwayStatus.ONLINE,
+                            to: Optional[JID] = None) -> None:
         """|coro|
 
         Sends this status to all or one single friend.

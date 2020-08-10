@@ -19,7 +19,6 @@ Changed
 - (**Breaking**) The access attribute for caches now return a copied list of the caches values. This affects these attributes:
     - :attr:`Client.friends`
     - :attr:`Client.pending_friends`
-    - :attr:`Client.users`
     - :attr:`Client.blocked_users`
     - :attr:`Client.presences`
     - :attr:`Party.members`
@@ -77,7 +76,7 @@ Added
     - :class:`User`
     - :class:`BlockedUser`
     - :class:`UserSearchEntry`
-    - :class:`SacSearchUser`
+    - :class:`SacSearchEntryUser`
     - :class:`User`
     - :class:`Friend`
     - :class:`IncomingPendingFriend`
