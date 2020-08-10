@@ -371,6 +371,11 @@ class HTTPClient:
 
         kwargs['headers'] = headers
 
+        try:
+            del kwargs['config']
+        except KeyError:
+            pass
+
         raw = kwargs.pop('raw', False)
         r, data = await self.request(method, url, **kwargs)
 
