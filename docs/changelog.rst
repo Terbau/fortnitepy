@@ -6,6 +6,17 @@ Changelog
 Detailed version changes.
 
 
+v3.0.2
+------
+
+Another quick hotpatch.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed `TypeError: _request() got an unexpected keyword argument 'config'`.
+
+
 v3.0.1
 ------
 
