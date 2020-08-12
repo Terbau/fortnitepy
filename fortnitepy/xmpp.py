@@ -1232,35 +1232,11 @@ class XMPPClient:
                 except asyncio.TimeoutError:
                     pass
 
-        async def party_reconnect():
-            now = datetime.datetime.utcnow()
-            secs = (now - self._last_disconnected_at).total_seconds()
-            if secs >= self.client.default_party_member_config.offline_ttl:
-                return await self.client._create_party()
-
-            data = await self.client.http.party_lookup_user(
-                self.client.user.id
-            )
-            if data['current']:
-                party_data = data['current'][0]
-                async with self.client._join_party_lock:
-                    try:
-                        await self.client._join_party(
-                            party_data,
-                            event='party_member_reconnect'
-                        )
-                    except Exception:
-                        await self.client._create_party(acquire=False)
-                        raise
-            else:
-                await self.client._create_party()
-
         if self._is_suspended:
             self.client.dispatch_event('xmpp_session_reconnect')
-            self.client.loop.create_task(party_reconnect())
+            self.client.loop.create_task(self.client._reconnect_to_party())
 
         self._is_suspended = False
-
         self.client.loop.create_task(on_establish())
 
     def on_stream_suspended(self, reason):
@@ -1282,7 +1258,6 @@ class XMPPClient:
         if self.client.party is not None:
             self._last_known_party_id = self.client.party.id
 
-        self._last_disconnected_at = datetime.datetime.utcnow()
         self._is_suspended = True
         self.client.dispatch_event('xmpp_session_lost')
 
@@ -1292,6 +1267,7 @@ class XMPPClient:
             if task is not None and not task.cancelled():
                 task.cancel()
 
+        self._last_disconnected_at = datetime.datetime.utcnow()
         self.client.dispatch_event('xmpp_session_close')
 
     def setup_callbacks(self, messages: bool = True) -> None:

@@ -231,18 +231,9 @@ class Auth:
         try:
             if not forced:
                 await self._refresh_lock.acquire()
-                await self.client._join_party_lock.acquire()
 
             log.debug('Refreshing session')
             self.client._refresh_times.append(time.time())
-
-            if self.client.party is not None and not forced:
-                try:
-                    await self.client.party._leave(
-                        priority=reauth_lock.priority
-                    )
-                except HTTPException:
-                    pass
 
             try:
                 data = await self.grant_refresh_token(
@@ -282,9 +273,7 @@ class Auth:
                 await self.client.xmpp.close()
                 await self.client.xmpp.run()
 
-                await self.client._create_party(
-                    priority=reauth_lock.priority
-                )
+                await self.client._reconnect_to_party()
             except AttributeError:
                 pass
 
@@ -295,7 +284,6 @@ class Auth:
         finally:
             if not forced:
                 self._refresh_lock.release()
-                self.client._join_party_lock.release()
 
     async def run_refresh(self) -> None:
         self._refresh_event.set()

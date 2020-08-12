@@ -2638,6 +2638,29 @@ class Client:
 
         return data['entries']
 
+    async def _reconnect_to_party(self):
+        now = datetime.datetime.utcnow()
+        secs = (now - self.xmpp._last_disconnected_at).total_seconds()
+        if secs >= self.default_party_member_config.offline_ttl:
+            return await self._create_party()
+
+        data = await self.http.party_lookup_user(
+            self.user.id
+        )
+        if data['current']:
+            party_data = data['current'][0]
+            async with self._join_party_lock:
+                try:
+                    await self._join_party(
+                        party_data,
+                        event='party_member_reconnect'
+                    )
+                except Exception:
+                    await self._create_party(acquire=False)
+                    raise
+        else:
+            await self._create_party()
+
     async def _create_party(self,
                             config: Optional[dict] = None,
                             acquire: bool = True,
