@@ -2547,7 +2547,8 @@ class PartyBase:
 
     @property
     def members(self) -> List[PartyMember]:
-        """:class:`dict`: Mapping of the party's members."""
+        """List[:class:`PartyMember`]: A copied list of the members
+        currently in this party."""
         return list(self._members.values())
 
     @property
