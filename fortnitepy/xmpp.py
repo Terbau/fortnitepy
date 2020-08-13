@@ -456,6 +456,27 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
         return transport, stream, await features_future
 
 
+# Were just patching this method to suppress an exception
+# which is raised on stream error.
+def _patched_done_handler(self, task):
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        pass
+    except Exception as err:
+        try:
+            if self._sm_enabled:
+                self._xmlstream.abort()
+            else:
+                self._xmlstream.close()
+        except Exception:
+            pass
+        self.on_failure(err)
+
+
+aioxmpp.stream.StanzaStream._done_handler = _patched_done_handler
+
+
 class XMPPClient:
     def __init__(self, client: 'Client', ws_connector=None) -> None:
         self.client = client
