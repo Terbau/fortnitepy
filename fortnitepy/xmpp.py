@@ -479,12 +479,18 @@ class XMPPClient:
         ))
 
     def _remove_illegal_characters(self, chars: str) -> str:
+        fixed = []
         for c in chars:
+            try:
+                aioxmpp.stringprep.resourceprep(c)
+            except ValueError:
+                continue
+
             if is_RandALCat(c):
-                chars = chars.replace(c, '')
-            if ord(c) in (0,):
-                chars = chars.replace(c, '')
-        return chars
+                continue
+
+            fixed.append(c)
+        return ''.join(fixed)
 
     def _create_invite(self, from_id: str, data: dict) -> dict:
         sent_at = self.client.from_iso(data['sent'])
@@ -1411,7 +1417,7 @@ class XMPPClient:
         muc_jid = aioxmpp.JID.fromstr(
             'Party-{}@muc.prod.ol.epicgames.com'.format(party_id)
         )
-        nick = '{0}:{0}:{1}'.format(
+        nick = '{0}:{1}:{2}'.format(
             self._remove_illegal_characters(self.client.user.display_name),
             self.client.user.id,
             self.xmpp_client.local_jid.resource
