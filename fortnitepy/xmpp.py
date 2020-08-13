@@ -870,18 +870,6 @@ class XMPPClient:
         body = ctx.body
         user_id = body.get('account_id')
 
-        # Dont continue processing for old connections
-        data = await self.client.http.party_lookup(self.client.party.id)
-        for member_data in data['members']:
-            if member_data['account_id'] == user_id:
-                connections = member_data['connections']
-                if len(connections) == 1:
-                    break
-
-                for connection in connections:
-                    if 'disconnected_at' not in connection:
-                        return
-
         if user_id != self.client.user.id:
             await self.client._join_party_lock.wait()
 
@@ -896,6 +884,18 @@ class XMPPClient:
         member = party.get_member(user_id)
         if member is None:
             return
+
+        # Dont continue processing for old connections
+        data = await self.client.http.party_lookup(party.id)
+        for member_data in data['members']:
+            if member_data['account_id'] == user_id:
+                connections = member_data['connections']
+                if len(connections) == 1:
+                    break
+
+                for connection in connections:
+                    if 'disconnected_at' not in connection:
+                        return
 
         member._update_connection(body.get('connection'))
         self.client.dispatch_event('party_member_zombie', member)
