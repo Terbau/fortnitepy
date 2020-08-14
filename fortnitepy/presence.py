@@ -49,18 +49,30 @@ class PresenceGameplayStats:
         The friend these stats belong to.
     state: :class:`str`
         The state.
+
+        .. note::
+
+            It's not really known what value this property might
+            hold. This is pretty much always an empty string.
     playlist: :class:`str`
         The playlist.
+
+        .. note::
+
+            The playlist from the gameplay stats property usually
+            isn't updated. Consider using :attr:`Presence.playlist` instead
+            as that seems to always be the correct playlist.
     players_alive: :class:`int`
         The amount of players alive in the current game.
-    num_kills: :class:`int`
-        The amount of kills the friend currently has.
+    kills: :class:`int`
+        The amount of kills the friend currently has. Aliased to ``num_kills``
+        as well for legacy reasons.
     fell_to_death: :class:`bool`
         ``True`` if friend fell to death in its current game, else ``False``
     """
 
-    __slots__ = ('friend', 'state', 'playlist', 'players_alive', 'num_kills',
-                 'fell_to_death')
+    __slots__ = ('friend', 'state', 'playlist', 'players_alive', 'kills',
+                 'num_kills', 'fell_to_death')
 
     def __init__(self, friend: 'Friend',
                  data: str,
@@ -70,9 +82,11 @@ class PresenceGameplayStats:
         self.playlist = data.get('playlist')
         self.players_alive = players_alive
 
-        self.num_kills = data.get('numKills')
-        if self.num_kills is not None:
-            self.num_kills = int(self.num_kills)
+        self.kills = data.get('numKills')
+        if self.kills is not None:
+            self.kills = int(self.kills)
+
+        self.num_kills = self.kills
 
         self.fell_to_death = True if data.get('bFellToDeath') else False
 
