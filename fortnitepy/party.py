@@ -292,7 +292,8 @@ class Patchable:
                         # If no updated is passed then just select the first
                         # value to "update" as fortnite returns an error if
                         # the update meta is empty.
-                        _updated = updated or self.meta.get_schema(max=1)
+                        max_ = kwargs.pop('max', 1)
+                        _updated = updated or self.meta.get_schema(max=max_)
                         _deleted = deleted or []
                         _overridden = overridden or {}
 
@@ -1761,7 +1762,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             try:
                 # max=30 because 30 is the maximum amount of props that
                 # can be updated at once.
-                await self.patch(updated=self.meta.get_schema(max=30))
+                await self.patch(max=30)
             except HTTPException as exc:
                 m = 'errors.com.epicgames.social.party.party_not_found'
                 if exc.message_code != m:
