@@ -1110,15 +1110,33 @@ class GroupMixin:
     all_commands: :class:`dict`
         A mapping of command name to :class:`.Command` or subclass
         objects.
-    case_insensitive: :class:`bool`
-        Whether the commands should be case insensitive. Defaults to ``False``.
+    case_insensitive: Optional[:class:`bool`]
+        The passed value telling if the commands should be case
+        insensitive. Defaults to ``None``. Use
+        :attr:`~.GroupMixin.qualified_case_insensitive` to check if the command
+        truly is case insensitive.
     """
 
     def __init__(self, *args: list, **kwargs: dict) -> None:
-        case_ins = kwargs.get('case_insensitive', False)
+        super().__init__(*args, **kwargs)
+        case_ins = kwargs.get('case_insensitive')
         self.all_commands = _CaseInsensitiveDict() if case_ins else {}
         self.case_insensitive = case_ins
-        super().__init__(*args, **kwargs)
+
+    @property
+    def qualified_case_insensitive(self) -> Optional[bool]:
+        """:class:`bool`: The qualified case insensitive. This means that the
+        it will never return ``None`` as it checks inherited values. Could
+        be ``None`` but only if the bot is not ultimately registered to the bot
+        yet.
+        """
+        if self.case_insensitive is not None:
+            return self.case_insensitive
+
+        parent = getattr(self, 'parent', None)
+        if parent is not None:
+            return self.parent.case_insensitive
+        return self.instance.case_insensitive
 
     @property
     def commands(self) -> Set[Command]:
@@ -1132,6 +1150,19 @@ class GroupMixin:
             if isinstance(command, GroupMixin):
                 command.recursively_remove_all_commands()
             self.remove_command(command.name)
+
+    def recursively_make_case_insensitive(self) -> None:
+        new_commands = _CaseInsensitiveDict()
+        to_make = []
+        for key, value in self.all_commands.items():
+            new_commands[key] = value
+
+            if isinstance(value, GroupMixin):
+                to_make.append(value)
+
+        self.all_commands = new_commands
+        for mixin in to_make:
+            mixin.recursively_make_case_insensitive()
 
     def add_command(self, command: Command) -> None:
         """Adds a :class:`.Command` or its subclasses into the internal list
@@ -1152,7 +1183,6 @@ class GroupMixin:
         TypeError
             If the command passed is not a subclass of :class:`.Command`.
         """
-
         if not isinstance(command, Command):
             raise TypeError(
                 'Command passed must be a subclassed instance of Command'
@@ -1165,6 +1195,11 @@ class GroupMixin:
             raise errors.CommandError(
                 'Command {0.name} is already registered.'.format(command)
             )
+
+        if isinstance(command, GroupMixin):
+            if command.case_insensitive is None:
+                if command.qualified_case_insensitive:
+                    command.recursively_make_case_insensitive()
 
         self.all_commands[command.name] = command
         for alias in command.aliases:
@@ -1302,7 +1337,8 @@ class Group(GroupMixin, Command):
         will be executed. Defaults to ``False``.
     case_insensitive: Optional[:class:`bool`]
         Indicates if the group's commands should be case insensitive.
-        Defaults to ``False``.
+        Defaults to ``None`` which means it inherits the parents or bots
+        value.
     """
 
     def __init__(self, *args: list, **attrs: dict) -> None:

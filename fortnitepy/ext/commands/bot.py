@@ -104,6 +104,7 @@ class Bot(GroupMixin, Client):
                  help_command: Optional[HelpCommand] = _default,
                  description: Optional[str] = None,
                  **kwargs: Any) -> None:
+        kwargs['case_insensitive'] = kwargs.get('case_insensitive', False)
         super().__init__(auth, **kwargs)
 
         self.command_prefix = command_prefix
@@ -142,11 +143,12 @@ class Bot(GroupMixin, Client):
             if isinstance(obj, _BaseCommand):
                 obj.instance = self
 
-                try:
-                    self.add_command(obj)
-                except CommandError:
-                    traceback.print_exc()
-                    continue
+                if obj.parent is None:
+                    try:
+                        self.add_command(obj)
+                    except CommandError:
+                        traceback.print_exc()
+                        continue
 
         super().register_methods()
 

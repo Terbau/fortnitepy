@@ -284,6 +284,7 @@ class Cog(metaclass=CogMeta):
 
         for index, command in enumerate(self.__cog_commands__):
             command.cog = self
+            command.instance = bot
             if command.parent is None:
                 try:
                     bot.add_command(command)
