@@ -2648,7 +2648,8 @@ class Client:
         Returns
         -------
         Optional[:class:`int`]
-            The users battlepass level. 
+            The users battlepass level. ``None`` is returned if the user has
+            not played any real matches this season.
 
             .. note::
 

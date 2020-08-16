@@ -236,7 +236,7 @@ class UserBase:
 
         Returns
         -------
-        :class:`float`
+        Optional[:class:`int`]
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
 
