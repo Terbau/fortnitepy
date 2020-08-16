@@ -156,7 +156,10 @@ class Bot(GroupMixin, Client):
                     close_http: bool = True,
                     dispatch_close: bool = True) -> None:
         if dispatch_close:
-            await self.dispatch_and_wait_event('close')
+            await asyncio.gather(
+                self.dispatch_and_wait_event('before_close'),
+                self.dispatch_and_wait_event('close'),
+            )
 
         for extension in tuple(self.__extensions):
             try:
