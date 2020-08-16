@@ -31,7 +31,7 @@ Bug Fixes
 
 - :func:`event_before_close()` now does not break the logout if an error was raised in the callback.
 - Fixed fetching battlepass levels for season 13.
-- Fixed an issue where :exc:`HTTPException`s could hypothetically in some rare cases be incorrect.
+- Fixed an issue where :exc:`HTTPException`\s could hypothetically in some rare cases be incorrect.
 - Fixed exponential backoff retries not working because of a typo (oops).
 - Fixed a race condition that caused the clients party member to not always equip its default meta.
 - Silenced a noisy error raised by aioxmpp on connection lost.
