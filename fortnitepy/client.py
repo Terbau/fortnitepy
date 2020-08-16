@@ -2573,11 +2573,18 @@ class Client:
 
         Returns
         -------
-        Dict[:class:`str`, :class:`float`]
+        Dict[:class:`str`, Optional[:class:`int`]]
             Users battlepass level mapped to their account id. Returns ``None``
             if no battlepass level was found. If a user has career board set
             to private, he/she will not appear in the result. Therefore you
             should never expect a user to be included.
+
+            .. note::
+
+                To get a users real level you need to divide the result by
+                100. The decimals are the percent progress
+                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
+                ``Level 208 and 63% on the way to 209.``
         """  # noqa
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
@@ -2590,15 +2597,20 @@ class Client:
         elif isinstance(end_time, SeasonEndTimestamp):
             end_time = end_time.value
 
+        if (end_time is None
+                or end_time >= SeasonStartTimestamp.SEASON_13.value):
+            stat = 's13_social_bp_level'
+        else:
+            stat = 's11_social_bp_level'
+
         data = await self._multiple_stats_chunk_requester(
             users,
-            ('s11_social_bp_level',),
+            (stat,),
             start_time=start_time,
             end_time=end_time
         )
 
-        return {e['accountId']: e['stats'].get('s11_social_bp_level', None)
-                for e in data}
+        return {e['accountId']: e['stats'].get(stat, None) for e in data}
 
     async def fetch_battlepass_level(self, user_id: str, *,
                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
@@ -2635,8 +2647,15 @@ class Client:
 
         Returns
         -------
-        :class:`float`
-            The users battlepass level.
+        Optional[:class:`int`]
+            The users battlepass level. 
+
+            .. note::
+
+                To get a users real level you need to divide the result by
+                100. The decimals are the percent progress
+                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
+                ``Level 208 and 63% on the way to 209.``
         """  # noqa
         data = await self.fetch_multiple_battlepass_levels(
             (user_id,),
