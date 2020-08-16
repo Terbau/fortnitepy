@@ -6,6 +6,40 @@ Changelog
 Detailed version changes.
 
 
+v3.1.0
+------
+
+Changed
+~~~~~~~
+
+- Renamed ``event_close()`` -> :func:`event_before_close()`. This isn't a breaking change though as it still exists under ``event_close()``.
+- Renamed ``PresenceGameplayStats.num_kills`` -> :attr:`PresenceGameplayStats.kills` but an alias still exist under the old name.
+- The client now reconnects to its last known party on auth refresh.
+- [:ref:`Ext Commands <fortnitepy_ext_commands>`] :class:`ext.commands.Group` now inherits ``case_insensitive`` if not explicitly specified.
+
+Added
+~~~~~
+
+- Added :func:`event_before_start()`.
+- Added ``before_start`` and ``before_close`` kwargs to :func:`run_multiple()`.
+- Added :meth:`Friend.wait_until_online()`.
+- Added :meth:`Friend.wait_until_offline()`.
+- [:ref:`Ext Commands <fortnitepy_ext_commands>`] Added :attr:`ext.commands.GroupMixin.qualified_case_insensitive` to get the defining ``case_insensitive`` value.
+
+Bug Fixes
+~~~~~~~~~
+
+- :func:`event_before_close()` now does not break the logout if an error was raised in the callback.
+- Fixed fetching battlepass levels for season 13.
+- Fixed an issue where :exc:`HTTPException`s could hypothetically in some rare cases be incorrect.
+- Fixed exponential backoff retries not working because of a typo (oops).
+- Fixed a race condition that caused the clients party member to not always equip its default meta.
+- Silenced a noisy error raised by aioxmpp on connection lost.
+- Fixed a crash on start caused by the special unallowed characters in the clients display name (for good this time).
+- Fixed an error raised in the processing of :func:`event_party_member_zombie()` if the client was not fully started.
+- The client now has a correct multi user chat nick (not that it really matters).
+
+
 v3.0.2
 ------
 
