@@ -189,6 +189,7 @@ async def start_multiple(clients: List['Client'], *,
                          ready_callback: Optional[MaybeCoro] = None,
                          error_callback: Optional[MaybeCoro] = None,
                          all_ready_callback: Optional[MaybeCoro] = None,
+                         before_start: Optional[Awaitable] = None,
                          before_close: Optional[Awaitable] = None
                          ) -> None:
     """|coro|
@@ -227,6 +228,12 @@ async def start_multiple(clients: List['Client'], *,
         have finished logging in, regardless if one of the clients failed
         logging in. That means that the callback is always called when all
         clients are either logged in or raised an error.
+    before_start: Optional[Awaitable]
+        An async callback that is called when just before the clients are
+        beginning to start. This must be a coroutine as all the clients
+        wait to start until this callback is finished processing so you
+        can do heavy start stuff like opening database connections, sessions
+        etc.
     before_close: Optional[Awaitable]
         An async callback that is called when the clients are beginning to
         close. This must be a coroutine as all the clients wait to close until
@@ -270,6 +277,7 @@ async def start_multiple(clients: List['Client'], *,
 
     asyncio.ensure_future(all_ready_callback_runner())
 
+    _before_start = _before_event(before_start)
     _before_close = _before_event(before_close)
 
     tasks = {}
@@ -281,6 +289,8 @@ async def start_multiple(clients: List['Client'], *,
             error_after=error_callback
         ))
 
+        if before_start is not None:
+            client.add_event_handler('before_start', _before_start)
         if before_close is not None:
             client.add_event_handler('before_close', _before_close)
 
@@ -329,6 +339,7 @@ def run_multiple(clients: List['Client'], *,
                  ready_callback: Optional[MaybeCoro] = None,
                  error_callback: Optional[MaybeCoro] = None,
                  all_ready_callback: Optional[MaybeCoro] = None,
+                 before_start: Optional[Awaitable] = None,
                  before_close: Optional[Awaitable] = None
                  ) -> None:
     """This function sets up a loop and then calls :func:`start_multiple()`
@@ -368,6 +379,12 @@ def run_multiple(clients: List['Client'], *,
         have finished logging in, regardless if one of the clients failed
         logging in. That means that the callback is always called when all
         clients are either logged in or raised an error.
+    before_start: Optional[Awaitable]
+        An async callback that is called when just before the clients are
+        beginning to start. This must be a coroutine as all the clients
+        wait to start until this callback is finished processing so you
+        can do heavy start stuff like opening database connections, sessions
+        etc.
     before_close: Optional[Awaitable]
         An async callback that is called when the clients are beginning to
         close. This must be a coroutine as all the clients wait to close until
@@ -414,6 +431,7 @@ def run_multiple(clients: List['Client'], *,
             ready_callback=ready_callback,
             error_callback=error_callback,
             all_ready_callback=all_ready_callback,
+            before_start=before_start,
             before_close=before_close,
         )
 
@@ -788,15 +806,18 @@ class Client:
         HTTPException
             A request error occured while logging in.
         """
-        _started_while_restarting = self._restarting
-        pri = self._reauth_lock.priority if _started_while_restarting else 0
-
-        self._closed_event.clear()
 
         if self._first_start:
             self.register_methods()
             self._first_start = False
 
+        if dispatch_ready:
+            await self.dispatch_and_wait_event('before_start')
+
+        _started_while_restarting = self._restarting
+        pri = self._reauth_lock.priority if _started_while_restarting else 0
+
+        self._closed_event.clear()
         self._check_party_confirmation()
 
         if self._closed:
