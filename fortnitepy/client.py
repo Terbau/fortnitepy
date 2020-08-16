@@ -169,7 +169,8 @@ async def start_multiple(clients: List['Client'], *,
                          shutdown_on_error: bool = True,
                          ready_callback: Optional[MaybeCoro] = None,
                          error_callback: Optional[MaybeCoro] = None,
-                         all_ready_callback: Optional[MaybeCoro] = None
+                         all_ready_callback: Optional[MaybeCoro] = None,
+                         close_callback: Optional[Awaitable] = None
                          ) -> None:
     """|coro|
 
@@ -207,6 +208,11 @@ async def start_multiple(clients: List['Client'], *,
         have finished logging in, regardless if one of the clients failed
         logging in. That means that the callback is always called when all
         clients are either logged in or raised an error.
+    close_callback: Optional[Awaitable]
+        An async callback that is called when the clients are beginning to
+        close. This must be a coroutine as all the clients wait to close until
+        this callback is finished processing so you can do heavy close stuff
+        like closing database connections, sessions etc.
 
     Raises
     ------
@@ -245,6 +251,19 @@ async def start_multiple(clients: List['Client'], *,
 
     asyncio.ensure_future(all_ready_callback_runner())
 
+    is_closing = False
+    closed_event = asyncio.Event()
+
+    async def close_waiter():
+        nonlocal is_closing
+
+        if not is_closing:
+            is_closing = True
+            await close_callback()
+            closed_event.set()
+        else:
+            await closed_event.wait()
+
     tasks = {}
     for i, client in enumerate(clients, 1):
         tasks[client] = loop.create_task(_start_client(
@@ -253,6 +272,9 @@ async def start_multiple(clients: List['Client'], *,
             after=ready_callback,
             error_after=error_callback
         ))
+
+        if close_callback is not None:
+            client.add_event_handler('close', close_waiter)
 
         # sleeping between starting to avoid throttling
         if i < len(clients):
@@ -298,7 +320,9 @@ def run_multiple(clients: List['Client'], *,
                  shutdown_on_error: bool = True,
                  ready_callback: Optional[MaybeCoro] = None,
                  error_callback: Optional[MaybeCoro] = None,
-                 all_ready_callback: Optional[MaybeCoro] = None) -> None:
+                 all_ready_callback: Optional[MaybeCoro] = None,
+                 close_callback: Optional[Awaitable] = None
+                 ) -> None:
     """This function sets up a loop and then calls :func:`start_multiple()`
     for you. If you already have a running event loop, you should start
     the clients with :func:`start_multiple()`. On shutdown, all clients
@@ -336,6 +360,11 @@ def run_multiple(clients: List['Client'], *,
         have finished logging in, regardless if one of the clients failed
         logging in. That means that the callback is always called when all
         clients are either logged in or raised an error.
+    close_callback: Optional[Awaitable]
+        An async callback that is called when the clients are beginning to
+        close. This must be a coroutine as all the clients wait to close until
+        this callback is finished processing so you can do heavy close stuff
+        like closing database connections, sessions etc.
 
     Raises
     ------
@@ -377,6 +406,7 @@ def run_multiple(clients: List['Client'], *,
             ready_callback=ready_callback,
             error_callback=error_callback,
             all_ready_callback=all_ready_callback,
+            close_callback=close_callback,
         )
 
     future = asyncio.ensure_future(runner())
