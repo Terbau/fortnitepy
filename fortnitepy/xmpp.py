@@ -952,6 +952,9 @@ class XMPPClient:
             return
 
         member._update_connection(body.get('connection'))
+        if member.id == self.client.user.id:
+            party.update_presence()
+
         self.client.dispatch_event('party_member_reconnect', member)
 
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_NEW_CAPTAIN')  # noqa
