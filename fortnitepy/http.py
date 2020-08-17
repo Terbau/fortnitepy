@@ -406,6 +406,7 @@ class HTTPClient:
                 for child_data in data:
                     if 'errors' in child_data:
                         error_data = child_data['errors']
+                        break
 
             if error_data is not None:
                 selected = error_data[0]
@@ -416,6 +417,14 @@ class HTTPClient:
                     error_payload = {}
                 else:
                     error_payload = json.loads(service_response)
+
+                if not isinstance(error_payload, dict):
+                    raise TypeError(
+                        'error payload was invalid type: {0} - {1}'.format(
+                            type(error_payload).__name__,
+                            repr(error_payload)
+                        )
+                    )
 
                 raise HTTPException(r, {**obj, **error_payload}, headers)
 
@@ -587,7 +596,7 @@ class HTTPClient:
                 elif (code == 'errors.com.epicgames.common.concurrent_modification_error'  # noqa
                         or code == 'errors.com.epicgames.common.server_error'
                         or graphql_server_error):  # noqa
-                    sleep_time = 0.5 + (retry - 1) * 2
+                    sleep_time = 0.5 + (tries - 1) * 2
 
                 if sleep_time > 0:
                     total_slept += sleep_time
@@ -604,7 +613,7 @@ class HTTPClient:
                 raise
 
             except aiohttp.ServerDisconnectedError:
-                await asyncio.sleep(0.5 + (retry - 1) * 2)
+                await asyncio.sleep(0.5 + (tries - 1) * 2)
                 continue
             except OSError as exc:
                 if exc.errno in (54, 10054):

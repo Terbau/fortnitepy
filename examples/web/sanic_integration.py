@@ -79,7 +79,7 @@ async def event_ready():
     server = await coro
 
 @bot.event
-async def event_close():
+async def event_before_close():
     global server
 
     if server is not None:

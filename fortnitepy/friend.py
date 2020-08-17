@@ -248,6 +248,39 @@ class Friend(FriendBase):
             return False
         return pres.available
 
+    def _online_check(self, available):
+        def check(b, a):
+            if a.friend.id != self.id:
+                return False
+            return a.available is available
+        return check
+
+    async def wait_until_online(self) -> None:
+        """|coro|
+
+        Waits until this friend comes online. Returns instantly if already
+        online.
+        """
+        pres = self.last_presence
+        if pres is None or pres.available is False:
+            pres = await self.client.wait_for(
+                'friend_presence',
+                check=self._online_check(available=True)
+            )
+
+    async def wait_until_offline(self) -> None:
+        """|coro|
+
+        Waits until this friend goes offline. Returns instantly if already
+        offline.
+        """
+        pres = self.last_presence
+        if pres is not None and pres.available is not False:
+            pres = await self.client.wait_for(
+                'friend_presence',
+                check=self._online_check(available=False)
+            )
+
     async def fetch_last_logout(self) -> Optional[datetime.datetime]:
         """|coro|
 

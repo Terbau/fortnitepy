@@ -164,12 +164,33 @@ async def _start_client(client: 'Client', *,
         await pending.pop()
 
 
+def _before_event(callback):
+    event = asyncio.Event()
+    is_processing = False
+
+    async def processor():
+        nonlocal is_processing
+
+        if not is_processing:
+            is_processing = True
+            try:
+                await callback()
+            finally:
+                event.set()
+        else:
+            await event.wait()
+
+    return processor
+
+
 async def start_multiple(clients: List['Client'], *,
                          gap_timeout: float = 0.2,
                          shutdown_on_error: bool = True,
                          ready_callback: Optional[MaybeCoro] = None,
                          error_callback: Optional[MaybeCoro] = None,
-                         all_ready_callback: Optional[MaybeCoro] = None
+                         all_ready_callback: Optional[MaybeCoro] = None,
+                         before_start: Optional[Awaitable] = None,
+                         before_close: Optional[Awaitable] = None
                          ) -> None:
     """|coro|
 
@@ -207,6 +228,17 @@ async def start_multiple(clients: List['Client'], *,
         have finished logging in, regardless if one of the clients failed
         logging in. That means that the callback is always called when all
         clients are either logged in or raised an error.
+    before_start: Optional[Awaitable]
+        An async callback that is called when just before the clients are
+        beginning to start. This must be a coroutine as all the clients
+        wait to start until this callback is finished processing so you
+        can do heavy start stuff like opening database connections, sessions
+        etc.
+    before_close: Optional[Awaitable]
+        An async callback that is called when the clients are beginning to
+        close. This must be a coroutine as all the clients wait to close until
+        this callback is finished processing so you can do heavy close stuff
+        like closing database connections, sessions etc.
 
     Raises
     ------
@@ -245,6 +277,9 @@ async def start_multiple(clients: List['Client'], *,
 
     asyncio.ensure_future(all_ready_callback_runner())
 
+    _before_start = _before_event(before_start)
+    _before_close = _before_event(before_close)
+
     tasks = {}
     for i, client in enumerate(clients, 1):
         tasks[client] = loop.create_task(_start_client(
@@ -253,6 +288,11 @@ async def start_multiple(clients: List['Client'], *,
             after=ready_callback,
             error_after=error_callback
         ))
+
+        if before_start is not None:
+            client.add_event_handler('before_start', _before_start)
+        if before_close is not None:
+            client.add_event_handler('before_close', _before_close)
 
         # sleeping between starting to avoid throttling
         if i < len(clients):
@@ -298,7 +338,10 @@ def run_multiple(clients: List['Client'], *,
                  shutdown_on_error: bool = True,
                  ready_callback: Optional[MaybeCoro] = None,
                  error_callback: Optional[MaybeCoro] = None,
-                 all_ready_callback: Optional[MaybeCoro] = None) -> None:
+                 all_ready_callback: Optional[MaybeCoro] = None,
+                 before_start: Optional[Awaitable] = None,
+                 before_close: Optional[Awaitable] = None
+                 ) -> None:
     """This function sets up a loop and then calls :func:`start_multiple()`
     for you. If you already have a running event loop, you should start
     the clients with :func:`start_multiple()`. On shutdown, all clients
@@ -336,6 +379,17 @@ def run_multiple(clients: List['Client'], *,
         have finished logging in, regardless if one of the clients failed
         logging in. That means that the callback is always called when all
         clients are either logged in or raised an error.
+    before_start: Optional[Awaitable]
+        An async callback that is called when just before the clients are
+        beginning to start. This must be a coroutine as all the clients
+        wait to start until this callback is finished processing so you
+        can do heavy start stuff like opening database connections, sessions
+        etc.
+    before_close: Optional[Awaitable]
+        An async callback that is called when the clients are beginning to
+        close. This must be a coroutine as all the clients wait to close until
+        this callback is finished processing so you can do heavy close stuff
+        like closing database connections, sessions etc.
 
     Raises
     ------
@@ -377,6 +431,8 @@ def run_multiple(clients: List['Client'], *,
             ready_callback=ready_callback,
             error_callback=error_callback,
             all_ready_callback=all_ready_callback,
+            before_start=before_start,
+            before_close=before_close,
         )
 
     future = asyncio.ensure_future(runner())
@@ -750,15 +806,18 @@ class Client:
         HTTPException
             A request error occured while logging in.
         """
-        _started_while_restarting = self._restarting
-        pri = self._reauth_lock.priority if _started_while_restarting else 0
-
-        self._closed_event.clear()
 
         if self._first_start:
             self.register_methods()
             self._first_start = False
 
+        if dispatch_ready:
+            await self.dispatch_and_wait_event('before_start')
+
+        _started_while_restarting = self._restarting
+        pri = self._reauth_lock.priority if _started_while_restarting else 0
+
+        self._closed_event.clear()
         self._check_party_confirmation()
 
         if self._closed:
@@ -922,7 +981,10 @@ class Client:
             An error occured while logging out.
         """
         if dispatch_close:
-            await self.dispatch_and_wait_event('close')
+            await asyncio.gather(
+                self.dispatch_and_wait_event('before_close'),
+                self.dispatch_and_wait_event('close'),
+            )
 
         await self._close(
             close_http=close_http,
@@ -2029,8 +2091,11 @@ class Client:
                                       **kwargs: Any) -> None:
         coros = self._events.get(event, [])
         tasks = [coro() for coro in coros]
-        if len(tasks) > 0:
-            await asyncio.gather(*tasks)
+        if tasks:
+            await asyncio.wait(
+                tasks,
+                return_when=asyncio.ALL_COMPLETED
+            )
 
     def _dispatcher(self, coro: Awaitable,
                     *args: Any,
@@ -2508,11 +2573,18 @@ class Client:
 
         Returns
         -------
-        Dict[:class:`str`, :class:`float`]
+        Dict[:class:`str`, Optional[:class:`int`]]
             Users battlepass level mapped to their account id. Returns ``None``
             if no battlepass level was found. If a user has career board set
             to private, he/she will not appear in the result. Therefore you
             should never expect a user to be included.
+
+            .. note::
+
+                To get a users real level you need to divide the result by
+                100. The decimals are the percent progress
+                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
+                ``Level 208 and 63% on the way to 209.``
         """  # noqa
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
@@ -2525,15 +2597,20 @@ class Client:
         elif isinstance(end_time, SeasonEndTimestamp):
             end_time = end_time.value
 
+        if (end_time is None
+                or end_time >= SeasonStartTimestamp.SEASON_13.value):
+            stat = 's13_social_bp_level'
+        else:
+            stat = 's11_social_bp_level'
+
         data = await self._multiple_stats_chunk_requester(
             users,
-            ('s11_social_bp_level',),
+            (stat,),
             start_time=start_time,
             end_time=end_time
         )
 
-        return {e['accountId']: e['stats'].get('s11_social_bp_level', None)
-                for e in data}
+        return {e['accountId']: e['stats'].get(stat, None) for e in data}
 
     async def fetch_battlepass_level(self, user_id: str, *,
                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
@@ -2570,8 +2647,16 @@ class Client:
 
         Returns
         -------
-        :class:`float`
-            The users battlepass level.
+        Optional[:class:`int`]
+            The users battlepass level. ``None`` is returned if the user has
+            not played any real matches this season.
+
+            .. note::
+
+                To get a users real level you need to divide the result by
+                100. The decimals are the percent progress
+                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
+                ``Level 208 and 63% on the way to 209.``
         """  # noqa
         data = await self.fetch_multiple_battlepass_levels(
             (user_id,),
@@ -2637,6 +2722,29 @@ class Client:
             raise ValueError('{0} is not a valid stat'.format(stat))
 
         return data['entries']
+
+    async def _reconnect_to_party(self):
+        now = datetime.datetime.utcnow()
+        secs = (now - self.xmpp._last_disconnected_at).total_seconds()
+        if secs >= self.default_party_member_config.offline_ttl:
+            return await self._create_party()
+
+        data = await self.http.party_lookup_user(
+            self.user.id
+        )
+        if data['current']:
+            party_data = data['current'][0]
+            async with self._join_party_lock:
+                try:
+                    await self._join_party(
+                        party_data,
+                        event='party_member_reconnect'
+                    )
+                except Exception:
+                    await self._create_party(acquire=False)
+                    raise
+        else:
+            await self._create_party()
 
     async def _create_party(self,
                             config: Optional[dict] = None,

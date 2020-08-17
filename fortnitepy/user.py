@@ -236,9 +236,16 @@ class UserBase:
 
         Returns
         -------
-        :class:`float`
+        Optional[:class:`int`]
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
+
+            .. note::
+
+                To get a users real level you need to divide the result by
+                100. The decimals are the percent progress
+                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
+                ``Level 208 and 63% on the way to 209.``
         """  # noqa
         return await self.client.fetch_battlepass_level(
             self.id,

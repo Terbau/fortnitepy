@@ -117,7 +117,7 @@ class MyClient(fortnitepy.Client):
             print('An error occured while starting sub clients. Closing gracefully.')
             await self.close()
 
-    async def event_close(self):
+    async def event_before_close(self):
         await fortnitepy.close_multiple(list(self.instances.values()))
         print('Successfully logged out of all sub accounts.')
 

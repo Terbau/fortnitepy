@@ -456,6 +456,27 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
         return transport, stream, await features_future
 
 
+# Were just patching this method to suppress an exception
+# which is raised on stream error.
+def _patched_done_handler(self, task):
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        pass
+    except Exception as err:
+        try:
+            if self._sm_enabled:
+                self._xmlstream.abort()
+            else:
+                self._xmlstream.close()
+        except Exception:
+            pass
+        self.on_failure(err)
+
+
+aioxmpp.stream.StanzaStream._done_handler = _patched_done_handler
+
+
 class XMPPClient:
     def __init__(self, client: 'Client', ws_connector=None) -> None:
         self.client = client
@@ -479,12 +500,18 @@ class XMPPClient:
         ))
 
     def _remove_illegal_characters(self, chars: str) -> str:
+        fixed = []
         for c in chars:
+            try:
+                aioxmpp.stringprep.resourceprep(c)
+            except ValueError:
+                continue
+
             if is_RandALCat(c):
-                chars = chars.replace(c, '')
-            if ord(c) in (0,):
-                chars = chars.replace(c, '')
-        return chars
+                continue
+
+            fixed.append(c)
+        return ''.join(fixed)
 
     def _create_invite(self, from_id: str, data: dict) -> dict:
         sent_at = self.client.from_iso(data['sent'])
@@ -843,18 +870,6 @@ class XMPPClient:
         body = ctx.body
         user_id = body.get('account_id')
 
-        # Dont continue processing for old connections
-        data = await self.client.http.party_lookup(self.client.party.id)
-        for member_data in data['members']:
-            if member_data['account_id'] == user_id:
-                connections = member_data['connections']
-                if len(connections) == 1:
-                    break
-
-                for connection in connections:
-                    if 'disconnected_at' not in connection:
-                        return
-
         if user_id != self.client.user.id:
             await self.client._join_party_lock.wait()
 
@@ -869,6 +884,18 @@ class XMPPClient:
         member = party.get_member(user_id)
         if member is None:
             return
+
+        # Dont continue processing for old connections
+        data = await self.client.http.party_lookup(party.id)
+        for member_data in data['members']:
+            if member_data['account_id'] == user_id:
+                connections = member_data['connections']
+                if len(connections) == 1:
+                    break
+
+                for connection in connections:
+                    if 'disconnected_at' not in connection:
+                        return
 
         member._update_connection(body.get('connection'))
         self.client.dispatch_event('party_member_zombie', member)
@@ -925,6 +952,9 @@ class XMPPClient:
             return
 
         member._update_connection(body.get('connection'))
+        if member.id == self.client.user.id:
+            party.update_presence()
+
         self.client.dispatch_event('party_member_reconnect', member)
 
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_NEW_CAPTAIN')  # noqa
@@ -1232,35 +1262,11 @@ class XMPPClient:
                 except asyncio.TimeoutError:
                     pass
 
-        async def party_reconnect():
-            now = datetime.datetime.utcnow()
-            secs = (now - self._last_disconnected_at).total_seconds()
-            if secs >= self.client.default_party_member_config.offline_ttl:
-                return await self.client._create_party()
-
-            data = await self.client.http.party_lookup_user(
-                self.client.user.id
-            )
-            if data['current']:
-                party_data = data['current'][0]
-                async with self.client._join_party_lock:
-                    try:
-                        await self.client._join_party(
-                            party_data,
-                            event='party_member_reconnect'
-                        )
-                    except Exception:
-                        await self.client._create_party(acquire=False)
-                        raise
-            else:
-                await self.client._create_party()
-
         if self._is_suspended:
             self.client.dispatch_event('xmpp_session_reconnect')
-            self.client.loop.create_task(party_reconnect())
+            self.client.loop.create_task(self.client._reconnect_to_party())
 
         self._is_suspended = False
-
         self.client.loop.create_task(on_establish())
 
     def on_stream_suspended(self, reason):
@@ -1282,7 +1288,6 @@ class XMPPClient:
         if self.client.party is not None:
             self._last_known_party_id = self.client.party.id
 
-        self._last_disconnected_at = datetime.datetime.utcnow()
         self._is_suspended = True
         self.client.dispatch_event('xmpp_session_lost')
 
@@ -1292,6 +1297,7 @@ class XMPPClient:
             if task is not None and not task.cancelled():
                 task.cancel()
 
+        self._last_disconnected_at = datetime.datetime.utcnow()
         self.client.dispatch_event('xmpp_session_close')
 
     def setup_callbacks(self, messages: bool = True) -> None:
@@ -1435,7 +1441,7 @@ class XMPPClient:
         muc_jid = aioxmpp.JID.fromstr(
             'Party-{}@muc.prod.ol.epicgames.com'.format(party_id)
         )
-        nick = '{0}:{0}:{1}'.format(
+        nick = '{0}:{1}:{2}'.format(
             self._remove_illegal_characters(self.client.user.display_name),
             self.client.user.id,
             self.xmpp_client.local_jid.resource

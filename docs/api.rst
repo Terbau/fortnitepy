@@ -237,13 +237,25 @@ this decorator if you are in a subclass of :class:`Client`.
 
         This event is not called when the client starts in :class:`Client.close()`.
 
-.. function:: event_close()
+.. function:: event_before_start()
 
-	This event is called when the client is beginning to log out. 
+	This event is called and waited for before the client starts.
 
 	.. warning::
 
-        This event is not called when the client logs out in :class:`Client.close()`.
+        This event is not called when the client starts in :class:`Client.restart()`.
+
+	.. note::
+
+		This event behaves differently from the other events. The client will wait until the event handlers for this event is finished processing before actually closing. This makes it so you are able to do heavy and/or time consuming operations before the client fully logs out. This unfortunately also means that this event is not compatible with :meth:`Client.wait_for()`.
+
+.. function:: event_before_close()
+
+	This event is called when the client is beginning to log out. This event also exists under the name ``event_close()`` for legacy reasons.
+
+	.. warning::
+
+        This event is not called when the client logs out in :class:`Client.restart()`.
 
 	.. note::
 
