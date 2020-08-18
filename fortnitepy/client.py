@@ -2597,20 +2597,26 @@ class Client:
         elif isinstance(end_time, SeasonEndTimestamp):
             end_time = end_time.value
 
+        fallback = 's11_social_bp_level'
         if (end_time is None
                 or end_time >= SeasonStartTimestamp.SEASON_13.value):
             stat = 's13_social_bp_level'
         else:
-            stat = 's11_social_bp_level'
+            stat = fallback
 
         data = await self._multiple_stats_chunk_requester(
             users,
-            (stat,),
+            ('s11_social_bp_level', 's13_social_bp_level'),
             start_time=start_time,
             end_time=end_time
         )
 
-        return {e['accountId']: e['stats'].get(stat, None) for e in data}
+        def get_stat(stats):
+            if stat == 's13_social_bp_level':
+                return stats.get(stat, stats.get(fallback, None))
+            return stats.get(stat, None)
+
+        return {e['accountId']: get_stat(e['stats'])for e in data}
 
     async def fetch_battlepass_level(self, user_id: str, *,
                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
