@@ -2616,7 +2616,7 @@ class Client:
                 return stats.get(stat, stats.get(fallback, None))
             return stats.get(stat, None)
 
-        return {e['accountId']: get_stat(e['stats'])for e in data}
+        return {e['accountId']: get_stat(e['stats']) for e in data}
 
     async def fetch_battlepass_level(self, user_id: str, *,
                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
