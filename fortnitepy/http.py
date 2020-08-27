@@ -511,7 +511,7 @@ class HTTPClient:
                 if self.client._closing:
                     raise
 
-                if tries == cfg.max_retry_attempts + 1:
+                if tries >= cfg.max_retry_attempts:
                     raise
 
                 code = exc.message_code
