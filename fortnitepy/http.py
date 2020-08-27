@@ -42,7 +42,10 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-GRAPHQL_HTML_ERROR_PATTERN = re.compile(r'<title>(.*)<\/title>')
+GRAPHQL_HTML_ERROR_PATTERN = re.compile(
+    r'<title>((\d+).*)<\/title>',
+    re.MULTILINE
+)
 
 
 class HTTPRetryConfig:
@@ -392,6 +395,11 @@ class HTTPClient:
                     'serviceResponse': '',
                     'message': 'Unknown reason' if m is None else m.group(1)
                 },)
+                if m is not None:
+                    error_data['serviceResponse'] = json.dumps({
+                        'errorStatus': int(m.group(2))
+                    })
+
             elif isinstance(data, dict):
                 if data['status'] >= 400:
                     message = data['message']
@@ -418,13 +426,15 @@ class HTTPClient:
                 else:
                     error_payload = json.loads(service_response)
 
-                if not isinstance(error_payload, dict):
-                    raise TypeError(
-                        'error payload was invalid type: {0} - {1}'.format(
-                            type(error_payload).__name__,
-                            repr(error_payload)
-                        )
-                    )
+                if isinstance(error_payload, str):
+                    m = GRAPHQL_HTML_ERROR_PATTERN.search(error_payload)
+                    message = 'Unknown reason' if m is None else m.group(1)
+                    error_payload = {
+                        'errorMessage': message,
+                    }
+
+                    if m is not None:
+                        error_payload['errorStatus'] = int(m.group(2))
 
                 raise HTTPException(r, {**obj, **error_payload}, headers)
 
@@ -507,9 +517,9 @@ class HTTPClient:
                 code = exc.message_code
 
                 if graphql:
-                    graphql_server_error = exc.raw.get('errorStatus') == 500
+                    gql_server_error = exc.raw.get('errorStatus') in {500, 502}
                 else:
-                    graphql_server_error = False
+                    gql_server_error = False
 
                 catch = (
                     'errors.com.epicgames.common.oauth.invalid_token',
@@ -595,7 +605,7 @@ class HTTPClient:
 
                 elif (code == 'errors.com.epicgames.common.concurrent_modification_error'  # noqa
                         or code == 'errors.com.epicgames.common.server_error'
-                        or graphql_server_error):  # noqa
+                        or gql_server_error):  # noqa
                     sleep_time = 0.5 + (tries - 1) * 2
 
                 if sleep_time > 0:
