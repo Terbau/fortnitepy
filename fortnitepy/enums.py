@@ -185,6 +185,7 @@ class SeasonStartTimestamp(Enum):
     SEASON_11 = 1571097601
     SEASON_12 = 1582156801
     SEASON_13 = 1592352001
+    SEASON_14 = 1598486401
 
 
 class SeasonEndTimestamp(Enum):
@@ -200,6 +201,7 @@ class SeasonEndTimestamp(Enum):
     SEASON_10 = 1570924800
     SEASON_11 = 1582156800
     SEASON_12 = 1592352000
+    SEASON_13 = 1598486400
 
 
 class KairosBackgroundColorPreset(Enum):
