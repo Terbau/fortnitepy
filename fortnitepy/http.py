@@ -284,10 +284,6 @@ class HTTPClient:
     def user_agent(self) -> str:
         return 'Fortnite/{0.client.build} {0.client.os}'.format(self)
 
-    @property
-    def session(self) -> aiohttp.ClientSession:
-        return self.__session
-
     def get_auth(self, auth: str) -> str:
         u_auth = auth.upper()
 
