@@ -26,7 +26,6 @@ SOFTWARE.
 
 import json
 import asyncio
-import random
 import aioxmpp
 import re
 import functools
@@ -45,10 +44,6 @@ from .utils import MaybeLock
 
 if TYPE_CHECKING:
     from .client import Client
-
-
-def get_random_default_character() -> str:
-    return (random.choice(list(DefaultCharactersChapter2))).name
 
 
 class DefaultPartyConfig:
@@ -470,7 +465,7 @@ class PartyMemberMeta(MetaBase):
 
         self.meta_ready_event = asyncio.Event()
 
-        self.def_character = get_random_default_character()
+        self.def_character = DefaultCharactersChapter2.get_random_name()
         self.schema = {
             'Default:Location_s': 'PreLobby',
             'Default:CampaignHero_j': json.dumps({
