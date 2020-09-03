@@ -42,7 +42,8 @@ from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
                    UserSearchEntry)
 from .friend import Friend, IncomingPendingFriend, OutgoingPendingFriend
 from .enums import (Platform, Region, UserSearchPlatform, AwayStatus,
-                    SeasonStartTimestamp, SeasonEndTimestamp)
+                    SeasonStartTimestamp, SeasonEndTimestamp,
+                    BattlePassStat)
 from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, ClientParty,
                     Party)
 from .stats import StatsV2
@@ -2540,6 +2541,7 @@ class Client:
 
     async def fetch_multiple_battlepass_levels(self,
                                                users: List[str],
+                                               season: int,
                                                *,
                                                start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                                end_time: Optional[DatetimeOrTimestamp] = None  # noqa
@@ -2552,6 +2554,8 @@ class Client:
         ----------
         users: List[:class:`str`]
             List of user ids.
+        season: :class:`int`
+            The season number to request the battlepass levels for.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
@@ -2561,11 +2565,6 @@ class Client:
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
 
-        .. note::
-
-            If neither start_time nor end_time is ``None`` (default), then
-            the battlepass level from the current season is fetched.
-
         Raises
         ------
         HTTPException
@@ -2573,7 +2572,7 @@ class Client:
 
         Returns
         -------
-        Dict[:class:`str`, Optional[:class:`int`]]
+        Dict[:class:`str`, Optional[:class:`float`]]
             Users battlepass level mapped to their account id. Returns ``None``
             if no battlepass level was found. If a user has career board set
             to private, he/she will not appear in the result. Therefore you
@@ -2581,10 +2580,8 @@ class Client:
 
             .. note::
 
-                To get a users real level you need to divide the result by
-                100. The decimals are the percent progress
-                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
-                ``Level 208 and 63% on the way to 209.``
+                The decimals are the percent progress to the next level.
+                E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
         """  # noqa
         epoch = datetime.datetime.utcfromtimestamp(0)
         if isinstance(start_time, datetime.datetime):
@@ -2597,28 +2594,32 @@ class Client:
         elif isinstance(end_time, SeasonEndTimestamp):
             end_time = end_time.value
 
-        fallback = 's11_social_bp_level'
-        if (end_time is None
-                or end_time >= SeasonStartTimestamp.SEASON_13.value):
-            stat = 's13_social_bp_level'
-        else:
-            stat = fallback
+        if end_time is not None:
+            t = getattr(SeasonStartTimestamp, 'SEASON_{}'.format(season)).value
+            if end_time < t:
+                raise ValueError(
+                    'end_time can\'t be lower than the seasons start timestamp'
+                )
 
+        info = getattr(BattlePassStat, 'SEASON_{}'.format(season)).value
+        stats = info[0] if isinstance(info[0], tuple) else (info[0],)
         data = await self._multiple_stats_chunk_requester(
             users,
-            ('s11_social_bp_level', 's13_social_bp_level'),
+            stats,
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time if end_time is not None else info[1]
         )
 
-        def get_stat(stats):
-            if stat == 's13_social_bp_level':
-                return stats.get(stat, stats.get(fallback, None))
-            return stats.get(stat, None)
+        def get_stat(user_data):
+            for stat in stats:
+                value = user_data.get(stat)
+                if value is not None:
+                    return value / 100
 
         return {e['accountId']: get_stat(e['stats']) for e in data}
 
     async def fetch_battlepass_level(self, user_id: str, *,
+                                     season: int,
                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                      end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                      ) -> float:
@@ -2630,6 +2631,8 @@ class Client:
         ----------
         user_id: :class:`str`
             The user id to fetch the battlepass level for.
+        season: :class:`int`
+            The season number to request the battlepass level for.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
@@ -2638,11 +2641,6 @@ class Client:
             The UTC end time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-
-        .. note::
-
-            If neither start_time nor end_time is ``None`` (default), then
-            the battlepass level from the current season is fetched.
 
         Raises
         ------
@@ -2653,19 +2651,18 @@ class Client:
 
         Returns
         -------
-        Optional[:class:`int`]
+        Optional[:class:`float`]
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
 
             .. note::
 
-                To get a users real level you need to divide the result by
-                100. The decimals are the percent progress
-                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
-                ``Level 208 and 63% on the way to 209.``
+                The decimals are the percent progress to the next level.
+                E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
         """  # noqa
         data = await self.fetch_multiple_battlepass_levels(
             (user_id,),
+            season=season,
             start_time=start_time,
             end_time=end_time
         )

@@ -206,6 +206,7 @@ class UserBase:
         )
 
     async def fetch_battlepass_level(self, *,
+                                     season: int,
                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                      end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                      ) -> float:
@@ -215,6 +216,8 @@ class UserBase:
 
         Parameters
         ----------
+        season: :class:`int`
+            The season number to request the battlepass level for.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
@@ -224,11 +227,6 @@ class UserBase:
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
 
-        .. note::
-
-            If neither start_time nor end_time is ``None`` (default), then
-            the battlepass level from the current season is fetched.
-
         Raises
         ------
         HTTPException
@@ -236,19 +234,18 @@ class UserBase:
 
         Returns
         -------
-        Optional[:class:`int`]
+        Optional[:class:`float`]
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
 
             .. note::
 
-                To get a users real level you need to divide the result by
-                100. The decimals are the percent progress
-                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
-                ``Level 208 and 63% on the way to 209.``
+                The decimals are the percent progress to the next level.
+                E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
         """  # noqa
         return await self.client.fetch_battlepass_level(
             self.id,
+            season=season,
             start_time=start_time,
             end_time=end_time
         )
