@@ -465,6 +465,9 @@ class HTTPClient:
                          graphql: Union[Route, List[Route]] = None,
                          priority: int = 0,
                          **kwargs: Any) -> Any:
+        if self.client.is_closed():
+            raise RuntimeError('Client is closed.')
+
         cfg = self.retry_config
         if isinstance(route, Route):
             url = route.url

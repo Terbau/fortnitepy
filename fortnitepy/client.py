@@ -945,8 +945,8 @@ class Client:
         self._ready_event.clear()
 
         if close_http:
-            await self.http.close()
             self._closed = True
+            await self.http.close()
 
         if self.auth.refresh_loop_running():
             self._refresh_task.cancel()
