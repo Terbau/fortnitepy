@@ -34,7 +34,7 @@ import datetime
 
 from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
                     Awaitable, Type)
-from enum import Enum
+from .enums import Enum
 
 from .errors import PartyError, Forbidden, HTTPException, NotFound
 from .user import User

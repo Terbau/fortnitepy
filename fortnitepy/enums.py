@@ -25,8 +25,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from enum import Enum
-from aioxmpp import PresenceShow
+import random
+import types
+
+from typing import Optional, Any
+from enum import Enum as OriginalEnum
+
+
+class Enum(OriginalEnum):
+    @classmethod
+    def get_random_member(cls) -> Optional[Any]:
+        try:
+            return cls[random.choice(cls._member_names_)]
+        except IndexError:
+            pass
+
+    @classmethod
+    def get_random_name(cls) -> Optional[Any]:
+        member = cls.get_random_member()
+        if member is not None:
+            return member.name
+
+    @classmethod
+    def get_random_value(cls) -> Optional[Any]:
+        member = cls.get_random_member()
+        if member is not None:
+            return member.value
 
 
 class PartyPrivacy(Enum):

@@ -1,7 +1,7 @@
 import time
 import asyncio
 
-from enum import Enum
+from fortnitepy.enums import Enum
 from collections import deque
 from typing import Any, Optional
 
