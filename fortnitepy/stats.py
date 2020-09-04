@@ -293,6 +293,10 @@ class StatsCollection(_StatsBase):
 
         self._name = None
 
+    def __repr__(self) -> str:
+        return ('<StatsCollection user={0.user!r} start_time={0.start_time!r} '
+                'end_time={0.end_time!r}>'.format(self))
+
     def parse(self) -> None:
         result = {}
 
