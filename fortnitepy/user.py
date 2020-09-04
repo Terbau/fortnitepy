@@ -458,6 +458,40 @@ class User(UserBase):
         """
         await self.client.block_user(self.id)
 
+    async def add(self) -> None:
+        """|coro|
+
+        Sends a friendship request to this user or adds them if they
+        have already sent one to the client.
+
+        Raises
+        ------
+        NotFound
+            The specified user does not exist.
+        DuplicateFriendship
+            The client is already friends with this user.
+        FriendshipRequestAlreadySent
+            The client has already sent a friendship request that has not been
+            handled yet by the user.
+        MaxFriendshipsExceeded
+            The client has hit the max amount of friendships a user can
+            have at a time. For most accounts this limit is set to ``1000``
+            but it could be higher for others.
+        InviteeMaxFriendshipsExceeded
+            The user you attempted to add has hit the max amount of friendships
+            a user can have at a time.
+        InviteeMaxFriendshipRequestsExceeded
+            The user you attempted to add has hit the max amount of friendship
+            requests a user can have at a time. This is usually ``700`` total
+            requests.
+        Forbidden
+            The client is not allowed to send friendship requests to the user
+            because of the users settings.
+        HTTPException
+            An error occured while requesting to add this friend.
+        """
+        await self.client.add_friend(self.id)
+
 
 class BlockedUser(UserBase):
     """Represents a blocked user from Fortnite"""
