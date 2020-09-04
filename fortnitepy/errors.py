@@ -104,6 +104,28 @@ class FriendshipRequestAlreadySent(FortniteException):
     pass
 
 
+class MaxFriendshipsExceeded(FortniteException):
+    """This excepttion is raised if the client has hit the limit for
+    friendships.
+    """
+    pass
+
+
+class InviteeMaxFriendshipsExceeded(FortniteException):
+    """This exception is raised if the user you attempted to add has
+    hit the limit for friendships.
+    """
+    pass
+
+
+class InviteeMaxFriendshipRequestsExceeded(FortniteException):
+    """This exception is raised if the user you attempted to add has
+    hit the limit for the amount of friendship requests a user can have
+    at a time.
+    """
+    pass
+
+
 class ValidationFailure(FortniteException):
     """Represents a validation failure returned.
 

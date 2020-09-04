@@ -1061,3 +1061,9 @@ Exceptions
 .. autoexception:: DuplicateFriendship
 
 .. autoexception:: FriendshipRequestAlreadySent
+
+.. autoexception:: MaxFriendshipsExceeded
+
+.. autoexception:: InviteeMaxFriendshipsExceeded
+
+.. autoexception:: InviteeMaxFriendshipRequestsExceeded

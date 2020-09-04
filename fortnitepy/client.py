@@ -35,7 +35,9 @@ from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List, Tuple
 
 from .errors import (PartyError, HTTPException, NotFound, Forbidden,
-                     DuplicateFriendship, FriendshipRequestAlreadySent)
+                     DuplicateFriendship, FriendshipRequestAlreadySent,
+                     MaxFriendshipsExceeded, InviteeMaxFriendshipsExceeded,
+                     InviteeMaxFriendshipRequestsExceeded)
 from .xmpp import XMPPClient
 from .http import HTTPClient
 from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
@@ -1986,6 +1988,17 @@ class Client:
         FriendshipRequestAlreadySent
             The client has already sent a friendship request that has not been
             handled yet by the user.
+        MaxFriendshipsExceeded
+            The client has hit the max amount of friendships a user can
+            have at a time. For most accounts this limit is set to ``1000``
+            but it could be higher for others.
+        InviteeMaxFriendshipsExceeded
+            The user you attempted to add has hit the max amount of friendships
+            a user can have at a time.
+        InviteeMaxFriendshipRequestsExceeded
+            The user you attempted to add has hit the max amount of friendship
+            requests a user can have at a time. This is usually ``700`` total
+            requests.
         Forbidden
             The client is not allowed to send friendship requests to the user
             because of the users settings.
@@ -2007,6 +2020,24 @@ class Client:
             if exc.message_code == m:
                 raise FriendshipRequestAlreadySent(
                     'A friendship request already exists for this user.'
+                )
+
+            m = 'errors.com.epicgames.friends.inviter_friendships_limit_exceeded'  # noqa
+            if exc.message_code == m:
+                raise MaxFriendshipsExceeded(
+                    'The client has hit the friendships limit.'
+                )
+
+            m = 'errors.com.epicgames.friends.invitee_friendships_limit_exceeded'  # noqa
+            if exc.message_code == m:
+                raise InviteeMaxFriendshipsExceeded(
+                    'The user has hit the friendships limit.'
+                )
+
+            m = 'errors.com.epicgames.friends.incoming_friendships_limit_exceeded'  # noqa
+            if exc.message_code == m:
+                raise InviteeMaxFriendshipRequestsExceeded(
+                    'The user has hit the incoming friendship requests limit.'
                 )
 
             m = ('errors.com.epicgames.friends.'
