@@ -2404,7 +2404,7 @@ class Client:
 
         tasks = []
         for chunk in chunks:
-            tasks.append(self.http.stats_get_mutliple_v2(
+            tasks.append(self.http.stats_get_multiple_v2(
                 chunk,
                 stats,
                 start_time=start_time,

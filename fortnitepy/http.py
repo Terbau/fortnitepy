@@ -1290,7 +1290,7 @@ class HTTPClient:
         )
         return await self.get(r, params=params)
 
-    async def stats_get_mutliple_v2(self, ids: List[str], stats: List[str], *,
+    async def stats_get_multiple_v2(self, ids: List[str], stats: List[str], *,
                                     start_time: Optional[int] = None,
                                     end_time: Optional[int] = None) -> list:
         payload = {
