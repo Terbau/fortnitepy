@@ -10,6 +10,8 @@ The following section outlines the API of fortnitepy's command extension module.
 Bot
 ----
 
+.. attributetable:: fortnitepy.ext.commands.Bot
+
 .. autoclass:: fortnitepy.ext.commands.Bot
     :members:
     :inherited-members:
@@ -70,17 +72,38 @@ are custom to the command extension module.
 Command
 --------
 
+command()
+~~~~~~~~~
+
 .. autofunction:: fortnitepy.ext.commands.command
 
+group()
+~~~~~~~
+
 .. autofunction:: fortnitepy.ext.commands.group
+
+Command
+~~~~~~~
+
+.. attributetable:: fortnitepy.ext.commands.Command
 
 .. autoclass:: fortnitepy.ext.commands.Command
     :members:
     :special-members: __call__
 
+Group
+~~~~~
+
+.. attributetable:: fortnitepy.ext.commands.Group
+
 .. autoclass:: fortnitepy.ext.commands.Group
     :members:
     :inherited-members:
+
+GroupMixin
+~~~~~~~~~~
+
+.. attributetable:: fortnitepy.ext.commands.GroupMixin
 
 .. autoclass:: fortnitepy.ext.commands.GroupMixin
     :members:
@@ -90,8 +113,18 @@ Command
 Cogs
 ------
 
+Cog
+~~~
+
+.. attributetable:: fortnitepy.ext.commands.Cog
+
 .. autoclass:: fortnitepy.ext.commands.Cog
     :members:
+
+CogMeta
+~~~~~~~
+
+.. attributetable:: fortnitepy.ext.commands.CogMeta
 
 .. autoclass:: fortnitepy.ext.commands.CogMeta
     :members:
@@ -101,12 +134,27 @@ Cogs
 Help Commands
 -----------------
 
+HelpCommand
+~~~~~~~~~~~
+
+.. attributetable:: fortnitepy.ext.commands.HelpCommand
+
 .. autoclass:: fortnitepy.ext.commands.HelpCommand
     :members:
+
+FortniteHelpCommand
+~~~~~~~~~~~~~~~~~~~
+
+.. attributetable:: fortnitepy.ext.commands.FortniteHelpCommand
 
 .. autoclass:: fortnitepy.ext.commands.FortniteHelpCommand
     :members:
     :exclude-members: send_bot_help, send_cog_help, send_group_help, send_command_help, prepare_help_command
+
+Paginator
+~~~~~~~~~
+
+.. attributetable:: fortnitepy.ext.commands.Paginator
 
 .. autoclass:: fortnitepy.ext.commands.Paginator
     :members:
@@ -153,6 +201,8 @@ Checks
 
 Context
 --------
+
+.. attributetable:: fortnitepy.ext.commands.Context
 
 .. autoclass:: fortnitepy.ext.commands.Context
     :members:

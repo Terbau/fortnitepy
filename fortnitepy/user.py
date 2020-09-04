@@ -250,7 +250,7 @@ class UserBase:
         if self.id not in res:
             raise Forbidden('User has opted out of public leaderboards.')
 
-        return res[self.id]     
+        return res[self.id]
 
     async def fetch_battlepass_level(self, *,
                                      season: int,

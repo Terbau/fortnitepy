@@ -33,6 +33,8 @@ how you can set up this auth with file storage for the preferred login which is 
 Client
 ------
 
+.. attributetable:: Client
+
 .. autoclass:: Client
     :members:
 
@@ -811,6 +813,8 @@ Fortnite Models
 ClientUser
 ~~~~~~~~~~
 
+.. attributetable:: ClientUser
+
 .. autoclass:: ClientUser()
 	:members:
 	:inherited-members:
@@ -818,11 +822,15 @@ ClientUser
 ExternalAuth
 ~~~~~~~~~~~~
 
+.. attributetable:: ExternalAuth
+
 .. autoclass:: ExternalAuth()
 	:members:
 
 User
 ~~~~
+
+.. attributetable:: User
 
 .. autoclass:: User()
 	:members:
@@ -831,12 +839,16 @@ User
 BlockedUser
 ~~~~~~~~~~~
 
+.. attributetable:: BlockedUser
+
 .. autoclass:: BlockedUser()
 	:members:
 	:inherited-members:
 
 UserSearchEntry
 ~~~~~~~~~~~
+
+.. attributetable:: UserSearchEntry
 
 .. autoclass:: UserSearchEntry()
 	:members:
@@ -845,12 +857,16 @@ UserSearchEntry
 SacSearchEntryUser
 ~~~~~~~~~~~
 
+.. attributetable:: SacSearchEntryUser
+
 .. autoclass:: SacSearchEntryUser()
 	:members:
 	:inherited-members:
 
 Friend
 ~~~~~~
+
+.. attributetable:: Friend
 
 .. autoclass:: Friend()
 	:members:
@@ -859,12 +875,16 @@ Friend
 IncomingPendingFriend
 ~~~~~~~~~~~~~
 
+.. attributetable:: IncomingPendingFriend
+
 .. autoclass:: IncomingPendingFriend()
 	:members:
 	:inherited-members:
 
 OutgoingPendingFriend
 ~~~~~~~~~~~~~
+
+.. attributetable:: OutgoingPendingFriend
 
 .. autoclass:: OutgoingPendingFriend()
 	:members:
@@ -873,12 +893,16 @@ OutgoingPendingFriend
 FriendMessage
 ~~~~~~~~~~~~~
 
+.. attributetable:: FriendMessage
+
 .. autoclass:: FriendMessage()
 	:members:
 	:inherited-members:
 
 PartyMessage
 ~~~~~~~~~~~~
+
+.. attributetable:: PartyMessage
 
 .. autoclass:: PartyMessage()
 	:members:
@@ -887,12 +911,16 @@ PartyMessage
 PartyMember
 ~~~~~~~~~~~
 
+.. attributetable:: PartyMember
+
 .. autoclass:: PartyMember()
 	:members:
 	:inherited-members:
 
 ClientPartyMember
 ~~~~~~~~~~~~~~~~~
+
+.. attributetable:: ClientPartyMember
 
 .. autoclass:: ClientPartyMember()
 	:members:
@@ -901,11 +929,15 @@ ClientPartyMember
 JustChattingClientPartyMember
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. attributetable:: JustChattingClientPartyMember
+
 .. autoclass:: JustChattingClientPartyMember
 	:members:
 
 Party
 ~~~~~
+
+.. attributetable:: Party
 
 .. autoclass:: Party()
 	:members:
@@ -914,6 +946,8 @@ Party
 ClientParty
 ~~~~~~~~~~~
 
+.. attributetable:: ClientParty
+
 .. autoclass:: ClientParty()
 	:members:
 	:inherited-members:
@@ -921,11 +955,15 @@ ClientParty
 ReceivedPartyInvitation
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+.. attributetable:: ReceivedPartyInvitation
+
 .. autoclass:: ReceivedPartyInvitation()
 	:members:
 
 SentPartyInvitation
 ~~~~~~~~~~~~~~~~~~~
+
+.. attributetable:: SentPartyInvitation
 
 .. autoclass:: SentPartyInvitation()
 	:members:
@@ -933,11 +971,15 @@ SentPartyInvitation
 PartyJoinConfirmation
 ~~~~~~~~~~~~~~~~~~~~~
 
+.. attributetable:: PartyJoinConfirmation
+
 .. autoclass:: PartyJoinConfirmation()
 	:members:
 
 Presence
 ~~~~~~~~
+
+.. attributetable:: Presence
 
 .. autoclass:: Presence()
 	:members:
@@ -945,11 +987,15 @@ Presence
 PresenceParty
 ~~~~~~~~~~~~~
 
+.. attributetable:: PresenceParty
+
 .. autoclass:: PresenceParty()
 	:members:
 
 PresenceGameplayStats
 ~~~~~~~~~~~~~~~~~~~~~
+
+.. attributetable:: PresenceGameplayStats
 
 .. autoclass:: PresenceGameplayStats()
 	:members:
@@ -957,11 +1003,15 @@ PresenceGameplayStats
 StatsV2
 ~~~~~~~
 
+.. attributetable:: StatsV2
+
 .. autoclass:: StatsV2()
 	:members:
 
 StatsCollection
 ~~~~~~~~~~~~~~~
+
+.. attributetable:: StatsCollection
 
 .. autoclass:: StatsCollection()
 	:members:
@@ -969,17 +1019,23 @@ StatsCollection
 BattleRoyaleNewsPost
 ~~~~~~~~~~~~~~~~~~~~
 
+.. attributetable:: BattleRoyaleNewsPost
+
 .. autoclass:: BattleRoyaleNewsPost()
 	:members:
 
 Store
 ~~~~~
 
+.. attributetable:: Store
+
 .. autoclass:: Store()
 	:members:
 
 FeaturedStoreItem
 ~~~~~~~~~~~~~~~~~
+
+.. attributetable:: FeaturedStoreItem
 
 .. autoclass:: FeaturedStoreItem()
 	:members:
@@ -988,12 +1044,16 @@ FeaturedStoreItem
 DailyStoreItem
 ~~~~~~~~~~~~~~
 
+.. attributetable:: DailyStoreItem
+
 .. autoclass:: DailyStoreItem()
 	:members:
 	:inherited-members:
 
 Playlist
 ~~~~~~~~
+
+.. attributetable:: Playlist
 
 .. autoclass:: Playlist()
 	:members:
@@ -1007,11 +1067,15 @@ Data classes used as data containers in the library.
 DefaultPartyConfig
 ~~~~~~~~~~~~~~~~~~
 
+.. attributetable:: DefaultPartyConfig
+
 .. autoclass:: DefaultPartyConfig()
 	:members:
 
 DefaultPartyMemberConfig
 ~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. attributetable:: DefaultPartyMemberConfig
 
 .. autoclass:: DefaultPartyMemberConfig()
 	:members:
@@ -1025,11 +1089,15 @@ HTTPRetryConfig
 Route
 ~~~~~
 
+.. attributetable:: Route
+
 .. autoclass:: Route()
 	:members:
 
 Avatar
 ~~~~~~
+
+.. attributetable:: Avatar
 
 .. autoclass:: Avatar()
 	:members:
