@@ -452,9 +452,6 @@ class HTTPClient:
         if raw:
             return r
 
-        if 'errorCode' in data:
-            raise HTTPException(r, data, headers)
-
         if graphql is not None:
             if isinstance(data, str):
                 m = GRAPHQL_HTML_ERROR_PATTERN.search(data)
@@ -503,7 +500,7 @@ class HTTPClient:
                     if m is not None:
                         error_payload['errorStatus'] = int(m.group(2))
 
-                raise HTTPException(r, {**obj, **error_payload}, headers)
+                raise HTTPException(r, route, {**obj, **error_payload}, headers)
 
             def get_payload(d):
                 return next(iter(d['data'].values()))
@@ -511,6 +508,16 @@ class HTTPClient:
             if len(data) == 1:
                 return get_payload(data[0])
             return [get_payload(d) for d in data]
+
+        if 'errorCode' in data or r.status >= 400:
+            if isinstance(data, str):
+                data = {
+                    'errorMessage': data if data else 'Unknown {}'.format(
+                        r.status
+                    )
+                }
+            raise HTTPException(r, route, data, headers)
+
         return data
 
     def get_retry_after(self, exc):
