@@ -500,7 +500,12 @@ class HTTPClient:
                     if m is not None:
                         error_payload['errorStatus'] = int(m.group(2))
 
-                raise HTTPException(r, route, {**obj, **error_payload}, headers)
+                raise HTTPException(
+                    r,
+                    route,
+                    {**obj, **error_payload},
+                    headers
+                )
 
             def get_payload(d):
                 return next(iter(d['data'].values()))

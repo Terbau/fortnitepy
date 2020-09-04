@@ -25,10 +25,7 @@ SOFTWARE.
 """
 
 from aiohttp import ClientResponse
-from typing import TYPE_CHECKING, Union
-
-if TYPE_CHECKING:
-    from .http import Route
+from typing import Union
 
 
 class FortniteException(Exception):
