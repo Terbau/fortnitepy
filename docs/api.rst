@@ -217,6 +217,12 @@ Enumerations
 	.. attribute:: LIME
 	.. attribute:: INDIGO
 
+.. class:: StatsCollectionType
+
+	An enumeration for stats collection types.
+
+	.. attribute:: FISH
+
 .. _fortnitepy-api-events:
 
 Event Reference
@@ -952,6 +958,12 @@ StatsV2
 ~~~~~~~
 
 .. autoclass:: StatsV2()
+	:members:
+
+StatsCollection
+~~~~~~~~~~~~~~~
+
+.. autoclass:: StatsCollection()
 	:members:
 
 BattleRoyaleNewsPost

@@ -250,3 +250,6 @@ class KairosBackgroundColorPreset(Enum):
     LIME         = ["#DFFF73","#86CF13","#404B07"]
     INDIGO       = ["#B35EEF","#4D1397","#2E0A5D"]
 
+
+class StatsCollectionType(Enum):
+    FISH = 'collection_fish'

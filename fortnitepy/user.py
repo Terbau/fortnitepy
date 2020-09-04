@@ -28,12 +28,13 @@ import logging
 
 from aioxmpp import JID
 from typing import TYPE_CHECKING, Any, List, Optional
-from .enums import UserSearchPlatform, UserSearchMatchType
+from .enums import UserSearchPlatform, UserSearchMatchType, StatsCollectionType
 from .typedefs import DatetimeOrTimestamp
+from .errors import Forbidden
 
 if TYPE_CHECKING:
     from .client import Client
-    from .stats import StatsV2
+    from .stats import StatsV2, StatsCollection
 
 log = logging.getLogger(__name__)
 
@@ -187,9 +188,9 @@ class UserBase:
         Raises
         ------
         Forbidden
-            | The user has chosen to be hidden from public stats by disabling
+            The user has chosen to be hidden from public stats by disabling
             the fortnite setting below.
-            |  ``Settings`` -> ``Account and Privacy`` -> ``Show on career
+            ``Settings`` -> ``Account and Privacy`` -> ``Show on career
             leaderboard``
         HTTPException
             An error occured while requesting.
@@ -204,6 +205,52 @@ class UserBase:
             start_time=start_time,
             end_time=end_time
         )
+
+    async def fetch_br_stats_collection(self, collection: StatsCollectionType,
+                                        start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                        end_time: Optional[DatetimeOrTimestamp] = None  # noqa)
+                                        ) -> 'StatsCollection':
+        """|coro|
+
+        Fetches a stats collections for this user.
+
+        Parameters
+        ----------
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
+            The UTC start time of the time period to get stats from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
+            The UTC end time of the time period to get stats from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+
+        Raises
+        ------
+        Forbidden
+            The user has chosen to be hidden from public stats by disabling
+            the fortnite setting below.
+            ``Settings`` -> ``Account and Privacy`` -> ``Show on career
+            leaderboard``
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        :class:`StatsCollection`
+            An object representing the stats collection for this user.
+        """  # noqa
+        res = await self.client.fetch_multiple_br_stats_collections(
+            user_ids=(self.id,),
+            collection=collection,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        if self.id not in res:
+            raise Forbidden('User has opted out of public leaderboards.')
+
+        return res[self.id]     
 
     async def fetch_battlepass_level(self, *,
                                      season: int,

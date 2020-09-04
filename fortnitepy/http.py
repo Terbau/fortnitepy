@@ -1291,6 +1291,7 @@ class HTTPClient:
         return await self.get(r, params=params)
 
     async def stats_get_multiple_v2(self, ids: List[str], stats: List[str], *,
+                                    category: Optional[str] = None,
                                     start_time: Optional[int] = None,
                                     end_time: Optional[int] = None) -> list:
         payload = {
@@ -1298,13 +1299,18 @@ class HTTPClient:
             'owners': ids,
             'stats': stats
         }
+
+        params = {}
+        if category is not None:
+            params['category'] = 'collection_fish'
+
         if start_time:
             payload['startDate'] = start_time
         if end_time:
             payload['endDate'] = end_time
 
         r = StatsproxyPublicService('/statsproxy/api/statsv2/query')
-        return await self.post(r, json=payload)
+        return await self.post(r, json=payload, params=params)
 
     async def stats_get_leaderboard_v2(self, stat: str) -> dict:
         r = StatsproxyPublicService(

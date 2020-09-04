@@ -39,35 +39,61 @@ skips = (
 )
 
 
-class StatsV2:
-    """Represents a users Battle Royale stats on Fortnite.
-
-    Attributes
-    ----------
-    user: :class:`User`
-        The user these stats belongs to.
-    start_time: :class:`datetime.datetime`
-        The UTC start time of the stats retrieved.
-    end_time: :class:`datetime`
-        The UTC end time of the stats retrieved.
-    """
-
-    __slots__ = ('raw', 'user', '_stats', '_platform_specific_combined_stats',
-                 '_combined_stats', 'start_time', 'end_time')
+class _StatsBase:
+    __slots__ = ('raw', '_user', '_stats', '_start_time', '_end_time')
 
     def __init__(self, user: User, data: dict) -> None:
         self.raw = data
-        self.user = user
-
+        self._user = user
         self._stats = None
-        self._platform_specific_combined_stats = None
-        self._combined_stats = None
-        self.start_time = datetime.datetime.utcfromtimestamp(data['startTime'])
+
+        self._start_time = datetime.datetime.utcfromtimestamp(data['startTime'])  # noqa
 
         if data['endTime'] == 9223372036854775807:
-            self.end_time = datetime.datetime.utcnow()
+            self._end_time = datetime.datetime.utcnow()
         else:
-            self.end_time = datetime.datetime.utcfromtimestamp(data['endTime'])
+            self._end_time = datetime.datetime.utcfromtimestamp(data['endTime'])  # noqa
+
+    @property
+    def user(self) -> User:
+        """:class:`User`: The user these stats belongs to."""
+        return self._user
+
+    @property
+    def start_time(self) -> datetime.datetime:
+        """:class:`datetime.datetime`: The UTC start time of
+        the stats retrieved.
+        """
+        return self._start_time
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """:class:`datetime.datetime`: The UTC end time of the
+        stats retrieved.
+        """
+        return self._end_time
+
+    def parse(self) -> None:
+        raise NotImplementedError
+
+    def get_stats(self) -> dict:
+        if self._stats is None:
+            self.parse()
+
+        return self._stats
+
+
+class StatsV2(_StatsBase):
+    """Represents a users Battle Royale stats on Fortnite."""
+
+    __slots__ = _StatsBase.__slots__ + ('_combined_stats',
+                                        '_platform_specific_combined_stats')
+
+    def __init__(self, user: User, data: dict) -> None:
+        super().__init__(user, data)
+
+        self._platform_specific_combined_stats = None
+        self._combined_stats = None
 
     def __repr__(self) -> str:
         return ('<StatsV2 user={0.user!r} start_time={0.start_time!r} '
@@ -152,7 +178,7 @@ class StatsV2:
             winper = 100
         return float(format(winper, '.2f'))
 
-    def _parse(self) -> None:
+    def parse(self) -> None:
         result = {}
         for fullname, stat in self.raw['stats'].items():
             if fullname in skips:
@@ -226,10 +252,7 @@ class StatsV2:
             Mapping of the users stats. All stats are mapped to their
             respective gamemodes.
         """
-        if self._stats is None:
-            self._parse()
-
-        return self._stats
+        return super().get_stats()
 
     def get_combined_stats(self, platforms: bool = True) -> dict:
         """Gets combined stats for this user.
@@ -258,3 +281,46 @@ class StatsV2:
                 self._construct_combined_stats()
 
             return self._combined_stats
+
+
+class StatsCollection(_StatsBase):
+    """Represents a users Battle Royale stats collection on Fortnite."""
+
+    __slots__ = _StatsBase.__slots__ + ('_name',)
+
+    def __init__(self, user: User, data: dict) -> None:
+        super().__init__(user, data)
+
+        self._name = None
+
+    def parse(self) -> None:
+        result = {}
+
+        # stat example: br_collection_fish_flopper_orange_length_s14
+        for stat, value in self.raw['stats'].items():
+            split = stat.split('_')
+            name = '_'.join(split[3:-1])
+            self._name = '_'.join(split[1:3])
+
+            result[name] = value
+
+        self._stats = result
+
+    @property
+    def name(self) -> str:
+        """:class:`str`: The collection name."""
+        if self._stats is None:
+            self.parse()
+
+        return self._name
+
+    def get_stats(self) -> dict:
+        """Gets the stats collection for this user. This function returns the
+        users collection.
+
+        Returns
+        -------
+        :class:`dict`
+            Mapping of the users collection.
+        """
+        return super().get_stats()

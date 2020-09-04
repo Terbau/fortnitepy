@@ -32,7 +32,7 @@ import logging
 import time
 
 from aioxmpp import JID
-from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
+from typing import Union, Optional, Any, Awaitable, Callable, Dict, List, Tuple
 
 from .errors import (PartyError, HTTPException, NotFound, Forbidden,
                      DuplicateFriendship, FriendshipRequestAlreadySent)
@@ -43,10 +43,10 @@ from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
 from .friend import Friend, IncomingPendingFriend, OutgoingPendingFriend
 from .enums import (Platform, Region, UserSearchPlatform, AwayStatus,
                     SeasonStartTimestamp, SeasonEndTimestamp,
-                    BattlePassStat)
+                    BattlePassStat, StatsCollectionType)
 from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, ClientParty,
                     Party)
-from .stats import StatsV2
+from .stats import StatsV2, StatsCollection, _StatsBase
 from .store import Store
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
@@ -2332,6 +2332,22 @@ class Client:
             return coro
         return pred(event_or_coro) if is_coro else pred
 
+    def _process_stats_times(self, start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                             end_time: Optional[DatetimeOrTimestamp] = None
+                             ) -> Tuple[Optional[int], Optional[int]]:
+        epoch = datetime.datetime.utcfromtimestamp(0)
+        if isinstance(start_time, datetime.datetime):
+            start_time = int((start_time - epoch).total_seconds())
+        elif isinstance(start_time, SeasonStartTimestamp):
+            start_time = start_time.value
+
+        if isinstance(end_time, datetime.datetime):
+            end_time = int((end_time - epoch).total_seconds())
+        elif isinstance(end_time, SeasonEndTimestamp):
+            end_time = end_time.value
+
+        return start_time, end_time
+
     async def fetch_br_stats(self, user_id: str, *,
                              start_time: Optional[DatetimeOrTimestamp] = None,
                              end_time: Optional[DatetimeOrTimestamp] = None
@@ -2369,16 +2385,7 @@ class Client:
             An object representing the stats for this user. If the user was
             not found ``None`` is returned.
         """  # noqa
-        epoch = datetime.datetime.utcfromtimestamp(0)
-        if isinstance(start_time, datetime.datetime):
-            start_time = int((start_time - epoch).total_seconds())
-        elif isinstance(start_time, SeasonStartTimestamp):
-            start_time = start_time.value
-
-        if isinstance(end_time, datetime.datetime):
-            end_time = int((end_time - epoch).total_seconds())
-        elif isinstance(end_time, SeasonEndTimestamp):
-            end_time = end_time.value
+        start_time, end_time = self._process_stats_times(start_time, end_time)
 
         tasks = [
             self.fetch_user(user_id, cache=True),
@@ -2395,8 +2402,8 @@ class Client:
 
         return StatsV2(*results) if results[0] is not None else None
 
-    async def _multiple_stats_chunk_requester(self, user_ids: List[str],
-                                              stats: List[str],
+    async def _multiple_stats_chunk_requester(self, user_ids: List[str], stats: List[str], *,  # noqa
+                                              collection: Optional[str] = None,
                                               start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                               end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                               ) -> List[dict]:
@@ -2407,6 +2414,7 @@ class Client:
             tasks.append(self.http.stats_get_multiple_v2(
                 chunk,
                 stats,
+                category=collection,
                 start_time=start_time,
                 end_time=end_time
             ))
@@ -2414,12 +2422,44 @@ class Client:
         results = await asyncio.gather(*tasks)
         return [item for sub in results for item in sub]
 
+    async def _fetch_multiple_br_stats(self, cls: _StatsBase,
+                                       user_ids: List[str],
+                                       stats: List[str],
+                                       *,
+                                       collection: Optional[str] = None,  # noqa
+                                       start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                       end_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                       ) -> Dict[str, StatsV2]:
+        start_time, end_time = self._process_stats_times(start_time, end_time)
+
+        tasks = [
+            self.fetch_users(user_ids, cache=True),
+            self._multiple_stats_chunk_requester(
+                user_ids,
+                stats,
+                collection=collection,
+                start_time=start_time,
+                end_time=end_time
+            )
+        ]
+        results = await asyncio.gather(*tasks)
+        if len(results[0]) > 0 and isinstance(results[0][0], dict):
+            results = results[::-1]
+
+        res = {}
+        for udata in results[1]:
+            r = [x for x in results[0] if x.id == udata['accountId']]
+            user = r[0] if len(r) != 0 else None
+            res[udata['accountId']] = (cls(user, udata)
+                                       if user is not None else None)
+        return res
+
     async def fetch_multiple_br_stats(self, user_ids: List[str],
                                       stats: List[str],
                                       *,
                                       start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                       end_time: Optional[DatetimeOrTimestamp] = None  # noqa
-                                      ) -> Dict[str, StatsV2]:
+                                      ) -> Dict[str, Optional[StatsV2]]:
         """|coro|
 
         Gets Battle Royale stats for multiple users at the same time.
@@ -2441,7 +2481,7 @@ class Client:
                 ]
 
                 # get the users and create a list of their ids.
-                users = await self.fetch_users(['Ninja', 'Dark', 'DrLupo'])
+                users = await self.fetch_users(['Ninja', 'DrLupo'])
                 user_ids = [u.id for u in users] + ['NonValidUserIdForTesting']
 
                 data = await self.fetch_multiple_br_stats(user_ids=user_ids, stats=stats)
@@ -2489,41 +2529,80 @@ class Client:
 
         Returns
         -------
-        Dict[:class:`str`, :class:`StatsV2`]
+        Dict[:class:`str`, Optional[:class:`StatsV2`]]
             A mapping where :class:`StatsV2` is bound to its owners id. If a
             userid was not found then the value bound to that userid will be
             ``None``.
+
+            .. note::
+
+                If a users stats is missing in the returned mapping it means
+                that the user has opted out of public leaderboards and that
+                the client therefore does not have permissions to requests
+                their stats.
         """  # noqa
-        epoch = datetime.datetime.utcfromtimestamp(0)
-        if isinstance(start_time, datetime.datetime):
-            start_time = int((start_time - epoch).total_seconds())
-        elif isinstance(start_time, SeasonStartTimestamp):
-            start_time = start_time.value
+        res = await self._fetch_multiple_br_stats(
+            cls=StatsV2,
+            user_ids=user_ids,
+            stats=stats,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        return res
 
-        if isinstance(end_time, datetime.datetime):
-            end_time = int((end_time - epoch).total_seconds())
-        elif isinstance(end_time, SeasonEndTimestamp):
-            end_time = end_time.value
+    async def fetch_multiple_br_stats_collections(self, user_ids: List[str],
+                                                  collection: Optional[StatsCollectionType] = None,  # noqa
+                                                  *,
+                                                  start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                                  end_time: Optional[DatetimeOrTimestamp] = None  # noqa
+                                                  ) -> Dict[str, Optional[StatsCollection]]:  # noqa
+        """|coro|
 
-        tasks = [
-            self.fetch_users(user_ids, cache=True),
-            self._multiple_stats_chunk_requester(
-                user_ids,
-                stats,
-                start_time=start_time,
-                end_time=end_time
-            )
-        ]
-        results = await asyncio.gather(*tasks)
-        if len(results[0]) > 0 and isinstance(results[0][0], dict):
-            results = results[::-1]
+        Gets Battle Royale stats collections for multiple users at the same time.
 
-        res = {}
-        for udata in results[1]:
-            r = [x for x in results[0] if x.id == udata['accountId']]
-            user = r[0] if len(r) != 0 else None
-            res[udata['accountId']] = (StatsV2(user, udata)
-                                       if user is not None else None)
+        Parameters
+        ----------
+        user_ids: List[:class:`str`]
+            A list of ids you are requesting the stats for.
+        collection: :class:`StatsCollectionType`
+            The collection to receive. Collections are predefined
+            stats that it attempts to request. 
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
+            The UTC start time of the time period to get stats from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
+            The UTC end time of the time period to get stats from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        Dict[:class:`str`, Optional[:class:`StatsCollection`]]
+            A mapping where :class:`StatsCollection` is bound to its owners id. If a
+            userid was not found then the value bound to that userid will be
+            ``None``.
+
+            .. note::
+
+                If a users stats is missing in the returned mapping it means
+                that the user has opted out of public leaderboards and that
+                the client therefore does not have permissions to requests
+                their stats.
+        """  # noqa
+        res = await self._fetch_multiple_br_stats(
+            cls=StatsCollection,
+            user_ids=user_ids,
+            stats=[],
+            collection=collection.value,
+            start_time=start_time,
+            end_time=end_time,
+        )
         return res
 
     async def fetch_multiple_battlepass_levels(self,
@@ -2569,17 +2648,15 @@ class Client:
 
                 The decimals are the percent progress to the next level.
                 E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
-        """  # noqa
-        epoch = datetime.datetime.utcfromtimestamp(0)
-        if isinstance(start_time, datetime.datetime):
-            start_time = int((start_time - epoch).total_seconds())
-        elif isinstance(start_time, SeasonStartTimestamp):
-            start_time = start_time.value
 
-        if isinstance(end_time, datetime.datetime):
-            end_time = int((end_time - epoch).total_seconds())
-        elif isinstance(end_time, SeasonEndTimestamp):
-            end_time = end_time.value
+            .. note::
+
+                If a users battlepass level is missing in the returned mapping it means
+                that the user has opted out of public leaderboards and that
+                the client therefore does not have permissions to requests
+                their stats.
+        """  # noqa
+        start_time, end_time = self._process_stats_times(start_time, end_time)
 
         if end_time is not None:
             t = getattr(SeasonStartTimestamp, 'SEASON_{}'.format(season)).value
