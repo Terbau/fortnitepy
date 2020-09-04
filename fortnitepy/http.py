@@ -42,7 +42,10 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-GRAPHQL_HTML_ERROR_PATTERN = re.compile(r'<title>(.*)<\/title>')
+GRAPHQL_HTML_ERROR_PATTERN = re.compile(
+    r'<title>((\d+).*)<\/title>',
+    re.MULTILINE
+)
 
 
 class HTTPRetryConfig:
@@ -154,6 +157,74 @@ class GraphQLRequest:
 
 
 class Route:
+    """Represents a route to use for a http request. This should
+    be subclassed by new routes and the class attributes ``BASE`` and
+    optionally ``AUTH`` should be overridden.
+
+    .. warning::
+
+        Usually there is no reason to subclass and implement routes
+        yourself as most of them are already implemented. Take a look
+        at http.py if you're interested in knowing all of the predefined
+        routes.
+
+    Available authentication placeholders:
+    - `IOS_BASIC_TOKEN`
+    - `FORTNITE_BASIC_TOKEN`
+    - `IOS_ACCESS_TOKEN`
+    - `FORTNITE_ACCESS_TOKEN`
+
+    Example usage: ::
+
+        class SocialBanPublicService(fortnitepy.Route):
+            BASE = 'https://social-ban-public-service-prod.ol.epicgames.com'
+            AUTH = 'FORTNITE_ACCESS_TOKEN'
+
+        route = SocialBanPublicService(
+            '/socialban/api/public/v1/{user_id}',
+            user_id='c7af4984a77a498b83d8b16d475d76bc'
+        )
+        resp = await client.http.get(route)
+
+        # resp would look something like this:
+        # {
+        #     "bans" : [],
+        #     "warnings" : []
+        # }
+
+    Parameters
+    ----------
+    path: :class:`path`
+        The path to used for the request.
+
+        .. warning::
+
+            You should always use name
+            formatting for arguments and instead of using `.format()`on the
+            path, you should pass the format kwargs as kwargs to the route.
+            This might seem counterintuitive but it is important to ensure
+            rate limit retry reliability.
+    auth: Optional[:class:`str`]
+        The authentication to use for the request. If ``None`` the default
+        auth specified for the route is used.
+    **params: Any
+        The variables to format the path with passed alongside their name.
+
+    Attributes
+    ----------
+    path: :class:`str`
+        The requests path.
+    params: Dict[:class:`str`, Any]
+        A mapping of the params passed.
+    base: :class:`str`
+        The base of the request url.
+    auth: Optional[:class:`str`]
+        The auth placeholder.
+    url: :class:`str`
+        The formatted url.
+    sanitized_url: :class:`str`
+        The yet to be formatted url.
+    """
     BASE = ''
     AUTH = None
 
@@ -172,6 +243,9 @@ class Route:
 
         if auth:
             self.AUTH = auth
+
+        self.base = self.BASE
+        self.auth = self.AUTH
 
 
 class EpicGamesGraphQL(Route):
@@ -281,10 +355,6 @@ class HTTPClient:
     def user_agent(self) -> str:
         return 'Fortnite/{0.client.build} {0.client.os}'.format(self)
 
-    @property
-    def session(self) -> aiohttp.ClientSession:
-        return self.__session
-
     def get_auth(self, auth: str) -> str:
         u_auth = auth.upper()
 
@@ -382,9 +452,6 @@ class HTTPClient:
         if raw:
             return r
 
-        if 'errorCode' in data:
-            raise HTTPException(r, data, headers)
-
         if graphql is not None:
             if isinstance(data, str):
                 m = GRAPHQL_HTML_ERROR_PATTERN.search(data)
@@ -392,6 +459,11 @@ class HTTPClient:
                     'serviceResponse': '',
                     'message': 'Unknown reason' if m is None else m.group(1)
                 },)
+                if m is not None:
+                    error_data['serviceResponse'] = json.dumps({
+                        'errorStatus': int(m.group(2))
+                    })
+
             elif isinstance(data, dict):
                 if data['status'] >= 400:
                     message = data['message']
@@ -418,15 +490,22 @@ class HTTPClient:
                 else:
                     error_payload = json.loads(service_response)
 
-                if not isinstance(error_payload, dict):
-                    raise TypeError(
-                        'error payload was invalid type: {0} - {1}'.format(
-                            type(error_payload).__name__,
-                            repr(error_payload)
-                        )
-                    )
+                if isinstance(error_payload, str):
+                    m = GRAPHQL_HTML_ERROR_PATTERN.search(error_payload)
+                    message = 'Unknown reason' if m is None else m.group(1)
+                    error_payload = {
+                        'errorMessage': message,
+                    }
 
-                raise HTTPException(r, {**obj, **error_payload}, headers)
+                    if m is not None:
+                        error_payload['errorStatus'] = int(m.group(2))
+
+                raise HTTPException(
+                    r,
+                    route,
+                    {**obj, **error_payload},
+                    headers
+                )
 
             def get_payload(d):
                 return next(iter(d['data'].values()))
@@ -434,6 +513,16 @@ class HTTPClient:
             if len(data) == 1:
                 return get_payload(data[0])
             return [get_payload(d) for d in data]
+
+        if 'errorCode' in data or r.status >= 400:
+            if isinstance(data, str):
+                data = {
+                    'errorMessage': data if data else 'Unknown {}'.format(
+                        r.status
+                    )
+                }
+            raise HTTPException(r, route, data, headers)
+
         return data
 
     def get_retry_after(self, exc):
@@ -455,6 +544,9 @@ class HTTPClient:
                          graphql: Union[Route, List[Route]] = None,
                          priority: int = 0,
                          **kwargs: Any) -> Any:
+        if self.client.is_closed():
+            raise RuntimeError('Client is closed.')
+
         cfg = self.retry_config
         if isinstance(route, Route):
             url = route.url
@@ -501,15 +593,15 @@ class HTTPClient:
                 if self.client._closing:
                     raise
 
-                if tries == cfg.max_retry_attempts + 1:
+                if tries >= cfg.max_retry_attempts:
                     raise
 
                 code = exc.message_code
 
                 if graphql:
-                    graphql_server_error = exc.raw.get('errorStatus') == 500
+                    gql_server_error = exc.raw.get('errorStatus') in {500, 502}
                 else:
-                    graphql_server_error = False
+                    gql_server_error = False
 
                 catch = (
                     'errors.com.epicgames.common.oauth.invalid_token',
@@ -595,7 +687,7 @@ class HTTPClient:
 
                 elif (code == 'errors.com.epicgames.common.concurrent_modification_error'  # noqa
                         or code == 'errors.com.epicgames.common.server_error'
-                        or graphql_server_error):  # noqa
+                        or gql_server_error):  # noqa
                     sleep_time = 0.5 + (tries - 1) * 2
 
                 if sleep_time > 0:
@@ -1104,11 +1196,6 @@ class HTTPClient:
         )
         return await self.delete(r)
 
-    async def friends_remove_all(self) -> Any:
-        r = FriendsPublicService('/friends/api/v1/{client_id}/friends',
-                                 client_id=self.client.user.id)
-        return await self.delete(r)
-
     async def friends_get_blocklist(self) -> list:
         r = FriendsPublicService('/friends/api/v1/{client_id}/blocklist',
                                  client_id=self.client.user.id)
@@ -1203,7 +1290,8 @@ class HTTPClient:
         )
         return await self.get(r, params=params)
 
-    async def stats_get_mutliple_v2(self, ids: List[str], stats: List[str], *,
+    async def stats_get_multiple_v2(self, ids: List[str], stats: List[str], *,
+                                    category: Optional[str] = None,
                                     start_time: Optional[int] = None,
                                     end_time: Optional[int] = None) -> list:
         payload = {
@@ -1211,13 +1299,18 @@ class HTTPClient:
             'owners': ids,
             'stats': stats
         }
+
+        params = {}
+        if category is not None:
+            params['category'] = 'collection_fish'
+
         if start_time:
             payload['startDate'] = start_time
         if end_time:
             payload['endDate'] = end_time
 
         r = StatsproxyPublicService('/statsproxy/api/statsv2/query')
-        return await self.post(r, json=payload)
+        return await self.post(r, json=payload, params=params)
 
     async def stats_get_leaderboard_v2(self, stat: str) -> dict:
         r = StatsproxyPublicService(

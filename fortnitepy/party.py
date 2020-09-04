@@ -26,7 +26,6 @@ SOFTWARE.
 
 import json
 import asyncio
-import random
 import aioxmpp
 import re
 import functools
@@ -34,7 +33,7 @@ import datetime
 
 from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
                     Awaitable, Type)
-from enum import Enum
+from .enums import Enum
 
 from .errors import PartyError, Forbidden, HTTPException, NotFound
 from .user import User
@@ -45,10 +44,6 @@ from .utils import MaybeLock
 
 if TYPE_CHECKING:
     from .client import Client
-
-
-def get_random_default_character() -> str:
-    return (random.choice(list(DefaultCharactersChapter2))).name
 
 
 class DefaultPartyConfig:
@@ -470,7 +465,7 @@ class PartyMemberMeta(MetaBase):
 
         self.meta_ready_event = asyncio.Event()
 
-        self.def_character = get_random_default_character()
+        self.def_character = DefaultCharactersChapter2.get_random_name()
         self.schema = {
             'Default:Location_s': 'PreLobby',
             'Default:CampaignHero_j': json.dumps({
@@ -3457,7 +3452,7 @@ class ReceivedPartyInvitation:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    async def accept(self) -> None:
+    async def accept(self) -> ClientParty:
         """|coro|
 
         Accepts the invitation and joins the party.
@@ -3473,14 +3468,20 @@ class ReceivedPartyInvitation:
             You attempted to join a private party you've been kicked from.
         HTTPException
             Something went wrong when accepting the invitation.
+
+        Returns
+        -------
+        :class:`ClientParty`
+            The party the client joined by accepting the invitation.
         """
         if self.net_cl != self.client.net_cl and self.client.net_cl != '':
             raise PartyError('Incompatible net_cl')
 
-        await self.client.join_party(self.party.id)
+        party = await self.client.join_party(self.party.id)
         asyncio.ensure_future(
             self.client.http.party_delete_ping(self.sender.id)
         )
+        return party
 
     async def decline(self) -> None:
         """|coro|

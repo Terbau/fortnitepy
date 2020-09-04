@@ -6,6 +6,61 @@ Changelog
 Detailed version changes.
 
 
+v3.2.0
+------
+
+Changed
+~~~~~~~
+
+- (**Breaking**) Reworked :meth:`Client.fetch_multiple_battlepass_levels()` and other methods related to battlepass levels.
+    - They now require a season number to be specified.
+    - They now return :class:`float` instead of :class:`int`. You no longer have to divide the value yourself by 100.
+- (**Breaking**) :meth:`Client.add_friend()` now raises more specific errors when friendship limits has been exceeded.
+- (**Breaking**) :attr:`HTTPException.message_vars` is now always a list.
+- :meth:`ReceivedPartyInvitation.accept()` now returns the newly joined :class:`ClientParty`.
+
+Added
+~~~~~
+
+- Added :meth:`Client.fetch_multiple_br_stats_collections()`.
+- Added :meth:`User.fetch_br_stats_collection()`.
+- Added enum :class:`StatsCollectionType`.
+- Added :class:`StatsCollection`.
+- Added :attr:`HTTPException.route`.
+- Added :meth:`User.add()`.
+- Added three new errors related to friend limits:
+    - :exc:`MaxFriendshipsExceeded`
+    - :exc:`InviteeMaxFriendshipsExceeded`
+    - :exc:`InviteeMaxFriendshipRequestsExceeded`
+- Exposed :class:`Route` and documented it.
+- Added following classmethods to all enumerations:
+    - ``get_random_member()``
+    - ``get_random_name()``
+    - ``get_random_value()``
+- Added :attr:`SeasonStartTimestamp.SEASON_14` and :attr:`SeasonEndTimestamp.SEASON_13`
+
+Removed
+~~~~~~~
+
+- Removed `Client.remove_all_friends()` as it had been deprecated by epic.
+- Removed the undocumented attribute ``HTTPClient.session``.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed a rare race condition causing the clients party member object to be missing.
+- Fixed an issue introduced in the last update which caused season timestamps to be a little incorrect. Fetching battlepass levels was sometimes affected by this issue.
+- Fixed an issue that caused the http client to retry a request one too many times.
+- Fixed an issue where some graphql requests would error on 500 statuses instead of retrying.
+
+Docs
+~~~~
+
+- Added attribute tables for most models and dataclasses where it makes sense.
+- Added source links for methods and classes.
+- Changed the font used and cleaned up some other stuff a little.
+
+
 v3.1.0
 ------
 

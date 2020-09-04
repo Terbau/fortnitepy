@@ -32,20 +32,23 @@ import logging
 import time
 
 from aioxmpp import JID
-from typing import Union, Optional, Any, Awaitable, Callable, Dict, List
+from typing import Union, Optional, Any, Awaitable, Callable, Dict, List, Tuple
 
 from .errors import (PartyError, HTTPException, NotFound, Forbidden,
-                     DuplicateFriendship, FriendshipRequestAlreadySent)
+                     DuplicateFriendship, FriendshipRequestAlreadySent,
+                     MaxFriendshipsExceeded, InviteeMaxFriendshipsExceeded,
+                     InviteeMaxFriendshipRequestsExceeded)
 from .xmpp import XMPPClient
 from .http import HTTPClient
 from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
                    UserSearchEntry)
 from .friend import Friend, IncomingPendingFriend, OutgoingPendingFriend
 from .enums import (Platform, Region, UserSearchPlatform, AwayStatus,
-                    SeasonStartTimestamp, SeasonEndTimestamp)
+                    SeasonStartTimestamp, SeasonEndTimestamp,
+                    BattlePassStat, StatsCollectionType)
 from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, ClientParty,
                     Party)
-from .stats import StatsV2
+from .stats import StatsV2, StatsCollection, _StatsBase
 from .store import Store
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
@@ -565,6 +568,7 @@ class Client:
         self._closed_event = asyncio.Event()
         self._leave_lock = asyncio.Lock()
         self._join_party_lock = LockEvent()
+        self._internal_join_party_lock = LockEvent()
         self._reauth_lock = LockEvent()
         self._reauth_lock.failed = False
         self._refresh_task = None
@@ -945,8 +949,8 @@ class Client:
         self._ready_event.clear()
 
         if close_http:
-            await self.http.close()
             self._closed = True
+            await self.http.close()
 
         if self.auth.refresh_loop_running():
             self._refresh_task.cancel()
@@ -1985,6 +1989,17 @@ class Client:
         FriendshipRequestAlreadySent
             The client has already sent a friendship request that has not been
             handled yet by the user.
+        MaxFriendshipsExceeded
+            The client has hit the max amount of friendships a user can
+            have at a time. For most accounts this limit is set to ``1000``
+            but it could be higher for others.
+        InviteeMaxFriendshipsExceeded
+            The user you attempted to add has hit the max amount of friendships
+            a user can have at a time.
+        InviteeMaxFriendshipRequestsExceeded
+            The user you attempted to add has hit the max amount of friendship
+            requests a user can have at a time. This is usually ``700`` total
+            requests.
         Forbidden
             The client is not allowed to send friendship requests to the user
             because of the users settings.
@@ -2006,6 +2021,24 @@ class Client:
             if exc.message_code == m:
                 raise FriendshipRequestAlreadySent(
                     'A friendship request already exists for this user.'
+                )
+
+            m = 'errors.com.epicgames.friends.inviter_friendships_limit_exceeded'  # noqa
+            if exc.message_code == m:
+                raise MaxFriendshipsExceeded(
+                    'The client has hit the friendships limit.'
+                )
+
+            m = 'errors.com.epicgames.friends.invitee_friendships_limit_exceeded'  # noqa
+            if exc.message_code == m:
+                raise InviteeMaxFriendshipsExceeded(
+                    'The user has hit the friendships limit.'
+                )
+
+            m = 'errors.com.epicgames.friends.incoming_friendships_limit_exceeded'  # noqa
+            if exc.message_code == m:
+                raise InviteeMaxFriendshipRequestsExceeded(
+                    'The user has hit the incoming friendship requests limit.'
                 )
 
             m = ('errors.com.epicgames.friends.'
@@ -2072,19 +2105,6 @@ class Client:
             Something went wrong when trying to remove this friend.
         """
         await self.http.friends_remove_or_decline(user_id)
-
-    # NOTE: Not tested
-    async def remove_all_friends(self) -> None:
-        """|coro|
-
-        Removes all friends of the client.
-
-        Raises
-        ------
-        HTTPException
-            Something went wrong when requesting fortnite's services.
-        """
-        await self.http.friends_remove_all()
 
     async def dispatch_and_wait_event(self, event: str,
                                       *args: Any,
@@ -2344,6 +2364,22 @@ class Client:
             return coro
         return pred(event_or_coro) if is_coro else pred
 
+    def _process_stats_times(self, start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                             end_time: Optional[DatetimeOrTimestamp] = None
+                             ) -> Tuple[Optional[int], Optional[int]]:
+        epoch = datetime.datetime.utcfromtimestamp(0)
+        if isinstance(start_time, datetime.datetime):
+            start_time = int((start_time - epoch).total_seconds())
+        elif isinstance(start_time, SeasonStartTimestamp):
+            start_time = start_time.value
+
+        if isinstance(end_time, datetime.datetime):
+            end_time = int((end_time - epoch).total_seconds())
+        elif isinstance(end_time, SeasonEndTimestamp):
+            end_time = end_time.value
+
+        return start_time, end_time
+
     async def fetch_br_stats(self, user_id: str, *,
                              start_time: Optional[DatetimeOrTimestamp] = None,
                              end_time: Optional[DatetimeOrTimestamp] = None
@@ -2381,16 +2417,7 @@ class Client:
             An object representing the stats for this user. If the user was
             not found ``None`` is returned.
         """  # noqa
-        epoch = datetime.datetime.utcfromtimestamp(0)
-        if isinstance(start_time, datetime.datetime):
-            start_time = int((start_time - epoch).total_seconds())
-        elif isinstance(start_time, SeasonStartTimestamp):
-            start_time = start_time.value
-
-        if isinstance(end_time, datetime.datetime):
-            end_time = int((end_time - epoch).total_seconds())
-        elif isinstance(end_time, SeasonEndTimestamp):
-            end_time = end_time.value
+        start_time, end_time = self._process_stats_times(start_time, end_time)
 
         tasks = [
             self.fetch_user(user_id, cache=True),
@@ -2407,8 +2434,8 @@ class Client:
 
         return StatsV2(*results) if results[0] is not None else None
 
-    async def _multiple_stats_chunk_requester(self, user_ids: List[str],
-                                              stats: List[str],
+    async def _multiple_stats_chunk_requester(self, user_ids: List[str], stats: List[str], *,  # noqa
+                                              collection: Optional[str] = None,
                                               start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                               end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                               ) -> List[dict]:
@@ -2416,9 +2443,10 @@ class Client:
 
         tasks = []
         for chunk in chunks:
-            tasks.append(self.http.stats_get_mutliple_v2(
+            tasks.append(self.http.stats_get_multiple_v2(
                 chunk,
                 stats,
+                category=collection,
                 start_time=start_time,
                 end_time=end_time
             ))
@@ -2426,12 +2454,44 @@ class Client:
         results = await asyncio.gather(*tasks)
         return [item for sub in results for item in sub]
 
+    async def _fetch_multiple_br_stats(self, cls: _StatsBase,
+                                       user_ids: List[str],
+                                       stats: List[str],
+                                       *,
+                                       collection: Optional[str] = None,  # noqa
+                                       start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                       end_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                       ) -> Dict[str, StatsV2]:
+        start_time, end_time = self._process_stats_times(start_time, end_time)
+
+        tasks = [
+            self.fetch_users(user_ids, cache=True),
+            self._multiple_stats_chunk_requester(
+                user_ids,
+                stats,
+                collection=collection,
+                start_time=start_time,
+                end_time=end_time
+            )
+        ]
+        results = await asyncio.gather(*tasks)
+        if len(results[0]) > 0 and isinstance(results[0][0], dict):
+            results = results[::-1]
+
+        res = {}
+        for udata in results[1]:
+            r = [x for x in results[0] if x.id == udata['accountId']]
+            user = r[0] if len(r) != 0 else None
+            res[udata['accountId']] = (cls(user, udata)
+                                       if user is not None else None)
+        return res
+
     async def fetch_multiple_br_stats(self, user_ids: List[str],
                                       stats: List[str],
                                       *,
                                       start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                       end_time: Optional[DatetimeOrTimestamp] = None  # noqa
-                                      ) -> Dict[str, StatsV2]:
+                                      ) -> Dict[str, Optional[StatsV2]]:
         """|coro|
 
         Gets Battle Royale stats for multiple users at the same time.
@@ -2453,7 +2513,7 @@ class Client:
                 ]
 
                 # get the users and create a list of their ids.
-                users = await self.fetch_users(['Ninja', 'Dark', 'DrLupo'])
+                users = await self.fetch_users(['Ninja', 'DrLupo'])
                 user_ids = [u.id for u in users] + ['NonValidUserIdForTesting']
 
                 data = await self.fetch_multiple_br_stats(user_ids=user_ids, stats=stats)
@@ -2501,45 +2561,85 @@ class Client:
 
         Returns
         -------
-        Dict[:class:`str`, :class:`StatsV2`]
+        Dict[:class:`str`, Optional[:class:`StatsV2`]]
             A mapping where :class:`StatsV2` is bound to its owners id. If a
             userid was not found then the value bound to that userid will be
             ``None``.
+
+            .. note::
+
+                If a users stats is missing in the returned mapping it means
+                that the user has opted out of public leaderboards and that
+                the client therefore does not have permissions to requests
+                their stats.
         """  # noqa
-        epoch = datetime.datetime.utcfromtimestamp(0)
-        if isinstance(start_time, datetime.datetime):
-            start_time = int((start_time - epoch).total_seconds())
-        elif isinstance(start_time, SeasonStartTimestamp):
-            start_time = start_time.value
+        res = await self._fetch_multiple_br_stats(
+            cls=StatsV2,
+            user_ids=user_ids,
+            stats=stats,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        return res
 
-        if isinstance(end_time, datetime.datetime):
-            end_time = int((end_time - epoch).total_seconds())
-        elif isinstance(end_time, SeasonEndTimestamp):
-            end_time = end_time.value
+    async def fetch_multiple_br_stats_collections(self, user_ids: List[str],
+                                                  collection: Optional[StatsCollectionType] = None,  # noqa
+                                                  *,
+                                                  start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                                  end_time: Optional[DatetimeOrTimestamp] = None  # noqa
+                                                  ) -> Dict[str, Optional[StatsCollection]]:  # noqa
+        """|coro|
 
-        tasks = [
-            self.fetch_users(user_ids, cache=True),
-            self._multiple_stats_chunk_requester(
-                user_ids,
-                stats,
-                start_time=start_time,
-                end_time=end_time
-            )
-        ]
-        results = await asyncio.gather(*tasks)
-        if len(results[0]) > 0 and isinstance(results[0][0], dict):
-            results = results[::-1]
+        Gets Battle Royale stats collections for multiple users at the same time.
 
-        res = {}
-        for udata in results[1]:
-            r = [x for x in results[0] if x.id == udata['accountId']]
-            user = r[0] if len(r) != 0 else None
-            res[udata['accountId']] = (StatsV2(user, udata)
-                                       if user is not None else None)
+        Parameters
+        ----------
+        user_ids: List[:class:`str`]
+            A list of ids you are requesting the stats for.
+        collection: :class:`StatsCollectionType`
+            The collection to receive. Collections are predefined
+            stats that it attempts to request. 
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
+            The UTC start time of the time period to get stats from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
+            The UTC end time of the time period to get stats from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        Dict[:class:`str`, Optional[:class:`StatsCollection`]]
+            A mapping where :class:`StatsCollection` is bound to its owners id. If a
+            userid was not found then the value bound to that userid will be
+            ``None``.
+
+            .. note::
+
+                If a users stats is missing in the returned mapping it means
+                that the user has opted out of public leaderboards and that
+                the client therefore does not have permissions to requests
+                their stats.
+        """  # noqa
+        res = await self._fetch_multiple_br_stats(
+            cls=StatsCollection,
+            user_ids=user_ids,
+            stats=[],
+            collection=collection.value,
+            start_time=start_time,
+            end_time=end_time,
+        )
         return res
 
     async def fetch_multiple_battlepass_levels(self,
                                                users: List[str],
+                                               season: int,
                                                *,
                                                start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                                end_time: Optional[DatetimeOrTimestamp] = None  # noqa
@@ -2552,6 +2652,8 @@ class Client:
         ----------
         users: List[:class:`str`]
             List of user ids.
+        season: :class:`int`
+            The season number to request the battlepass levels for.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
@@ -2561,11 +2663,6 @@ class Client:
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
 
-        .. note::
-
-            If neither start_time nor end_time is ``None`` (default), then
-            the battlepass level from the current season is fetched.
-
         Raises
         ------
         HTTPException
@@ -2573,7 +2670,7 @@ class Client:
 
         Returns
         -------
-        Dict[:class:`str`, Optional[:class:`int`]]
+        Dict[:class:`str`, Optional[:class:`float`]]
             Users battlepass level mapped to their account id. Returns ``None``
             if no battlepass level was found. If a user has career board set
             to private, he/she will not appear in the result. Therefore you
@@ -2581,38 +2678,44 @@ class Client:
 
             .. note::
 
-                To get a users real level you need to divide the result by
-                100. The decimals are the percent progress
-                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
-                ``Level 208 and 63% on the way to 209.``
+                The decimals are the percent progress to the next level.
+                E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
+
+            .. note::
+
+                If a users battlepass level is missing in the returned mapping it means
+                that the user has opted out of public leaderboards and that
+                the client therefore does not have permissions to requests
+                their stats.
         """  # noqa
-        epoch = datetime.datetime.utcfromtimestamp(0)
-        if isinstance(start_time, datetime.datetime):
-            start_time = int((start_time - epoch).total_seconds())
-        elif isinstance(start_time, SeasonStartTimestamp):
-            start_time = start_time.value
+        start_time, end_time = self._process_stats_times(start_time, end_time)
 
-        if isinstance(end_time, datetime.datetime):
-            end_time = int((end_time - epoch).total_seconds())
-        elif isinstance(end_time, SeasonEndTimestamp):
-            end_time = end_time.value
+        if end_time is not None:
+            t = getattr(SeasonStartTimestamp, 'SEASON_{}'.format(season)).value
+            if end_time < t:
+                raise ValueError(
+                    'end_time can\'t be lower than the seasons start timestamp'
+                )
 
-        if (end_time is None
-                or end_time >= SeasonStartTimestamp.SEASON_13.value):
-            stat = 's13_social_bp_level'
-        else:
-            stat = 's11_social_bp_level'
-
+        info = getattr(BattlePassStat, 'SEASON_{}'.format(season)).value
+        stats = info[0] if isinstance(info[0], tuple) else (info[0],)
         data = await self._multiple_stats_chunk_requester(
             users,
-            (stat,),
+            stats,
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time if end_time is not None else info[1]
         )
 
-        return {e['accountId']: e['stats'].get(stat, None) for e in data}
+        def get_stat(user_data):
+            for stat in stats:
+                value = user_data.get(stat)
+                if value is not None:
+                    return value / 100
+
+        return {e['accountId']: get_stat(e['stats']) for e in data}
 
     async def fetch_battlepass_level(self, user_id: str, *,
+                                     season: int,
                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                      end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                      ) -> float:
@@ -2624,6 +2727,8 @@ class Client:
         ----------
         user_id: :class:`str`
             The user id to fetch the battlepass level for.
+        season: :class:`int`
+            The season number to request the battlepass level for.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
@@ -2632,11 +2737,6 @@ class Client:
             The UTC end time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-
-        .. note::
-
-            If neither start_time nor end_time is ``None`` (default), then
-            the battlepass level from the current season is fetched.
 
         Raises
         ------
@@ -2647,19 +2747,18 @@ class Client:
 
         Returns
         -------
-        Optional[:class:`int`]
+        Optional[:class:`float`]
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
 
             .. note::
 
-                To get a users real level you need to divide the result by
-                100. The decimals are the percent progress
-                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
-                ``Level 208 and 63% on the way to 209.``
+                The decimals are the percent progress to the next level.
+                E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
         """  # noqa
         data = await self.fetch_multiple_battlepass_levels(
             (user_id,),
+            season=season,
             start_time=start_time,
             end_time=end_time
         )
@@ -2881,39 +2980,40 @@ class Client:
 
     async def _join_party(self, party_data: dict, *,
                           event: str = 'party_member_join') -> ClientParty:
-        party = self.construct_party(party_data)
-        await party._update_members(party_data['members'])
-        self.party = party
+        async with self._internal_join_party_lock:
+            party = self.construct_party(party_data)
+            await party._update_members(party_data['members'])
+            self.party = party
 
-        def check(m):
-            if m.id != self.user.id:
-                return False
-            if party.id != m.party.id:
-                return False
-            return True
+            def check(m):
+                if m.id != self.user.id:
+                    return False
+                if party.id != m.party.id:
+                    return False
+                return True
 
-        future = asyncio.ensure_future(
-            self.wait_for(event, check=check, timeout=5),
-        )
+            future = asyncio.ensure_future(
+                self.wait_for(event, check=check, timeout=5),
+            )
 
-        try:
-            await self.http.party_join_request(party.id)
-        except HTTPException as e:
-            if not future.cancelled():
-                future.cancel()
+            try:
+                await self.http.party_join_request(party.id)
+            except HTTPException as e:
+                if not future.cancelled():
+                    future.cancel()
 
-            m = 'errors.com.epicgames.social.party.party_join_forbidden'  # noqa
-            if e.message_code == m:
-                raise Forbidden(
-                    'You are not allowed to join this party.'
-                )
-            raise
+                m = 'errors.com.epicgames.social.party.party_join_forbidden'  # noqa
+                if e.message_code == m:
+                    raise Forbidden(
+                        'You are not allowed to join this party.'
+                    )
+                raise
 
-        party_data = await self.http.party_lookup(party.id)
-        party = self.construct_party(party_data)
-        self.party = party
-        asyncio.ensure_future(party.join_chat())
-        await party._update_members(party_data['members'])
+            party_data = await self.http.party_lookup(party.id)
+            party = self.construct_party(party_data)
+            self.party = party
+            asyncio.ensure_future(party.join_chat())
+            await party._update_members(party_data['members'])
 
         try:
             await future

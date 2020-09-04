@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '3.1.0'
+__version__ = '3.2.0'
 
 from .client import Client, run_multiple, start_multiple, close_multiple
 from .auth import (Auth, EmailAndPasswordAuth, ExchangeCodeAuth,
@@ -40,11 +40,11 @@ from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, PartyMember,
 from .presence import Presence, PresenceGameplayStats, PresenceParty
 from .user import (ClientUser, User, BlockedUser, ExternalAuth,
                    UserSearchEntry, SacSearchEntryUser)
-from .stats import StatsV2
+from .stats import StatsV2, StatsCollection
 from .enums import *
 from .errors import *
 from .store import Store, FeaturedStoreItem, DailyStoreItem
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 from .kairos import Avatar
-from .http import HTTPRetryConfig
+from .http import HTTPRetryConfig, Route

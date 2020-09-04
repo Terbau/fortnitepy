@@ -28,12 +28,13 @@ import logging
 
 from aioxmpp import JID
 from typing import TYPE_CHECKING, Any, List, Optional
-from .enums import UserSearchPlatform, UserSearchMatchType
+from .enums import UserSearchPlatform, UserSearchMatchType, StatsCollectionType
 from .typedefs import DatetimeOrTimestamp
+from .errors import Forbidden
 
 if TYPE_CHECKING:
     from .client import Client
-    from .stats import StatsV2
+    from .stats import StatsV2, StatsCollection
 
 log = logging.getLogger(__name__)
 
@@ -187,9 +188,9 @@ class UserBase:
         Raises
         ------
         Forbidden
-            | The user has chosen to be hidden from public stats by disabling
+            The user has chosen to be hidden from public stats by disabling
             the fortnite setting below.
-            |  ``Settings`` -> ``Account and Privacy`` -> ``Show on career
+            ``Settings`` -> ``Account and Privacy`` -> ``Show on career
             leaderboard``
         HTTPException
             An error occured while requesting.
@@ -205,7 +206,54 @@ class UserBase:
             end_time=end_time
         )
 
+    async def fetch_br_stats_collection(self, collection: StatsCollectionType,
+                                        start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
+                                        end_time: Optional[DatetimeOrTimestamp] = None  # noqa)
+                                        ) -> 'StatsCollection':
+        """|coro|
+
+        Fetches a stats collections for this user.
+
+        Parameters
+        ----------
+        start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
+            The UTC start time of the time period to get stats from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+        end_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonEndTimestamp`]]
+            The UTC end time of the time period to get stats from.
+            *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
+            *Defaults to None*
+
+        Raises
+        ------
+        Forbidden
+            The user has chosen to be hidden from public stats by disabling
+            the fortnite setting below.
+            ``Settings`` -> ``Account and Privacy`` -> ``Show on career
+            leaderboard``
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        :class:`StatsCollection`
+            An object representing the stats collection for this user.
+        """  # noqa
+        res = await self.client.fetch_multiple_br_stats_collections(
+            user_ids=(self.id,),
+            collection=collection,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        if self.id not in res:
+            raise Forbidden('User has opted out of public leaderboards.')
+
+        return res[self.id]
+
     async def fetch_battlepass_level(self, *,
+                                     season: int,
                                      start_time: Optional[DatetimeOrTimestamp] = None,  # noqa
                                      end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                      ) -> float:
@@ -215,6 +263,8 @@ class UserBase:
 
         Parameters
         ----------
+        season: :class:`int`
+            The season number to request the battlepass level for.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
@@ -224,11 +274,6 @@ class UserBase:
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
 
-        .. note::
-
-            If neither start_time nor end_time is ``None`` (default), then
-            the battlepass level from the current season is fetched.
-
         Raises
         ------
         HTTPException
@@ -236,19 +281,18 @@ class UserBase:
 
         Returns
         -------
-        Optional[:class:`int`]
+        Optional[:class:`float`]
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
 
             .. note::
 
-                To get a users real level you need to divide the result by
-                100. The decimals are the percent progress
-                to the next level. E.g. ``20863 / 100`` -> ``208.63`` ->
-                ``Level 208 and 63% on the way to 209.``
+                The decimals are the percent progress to the next level.
+                E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
         """  # noqa
         return await self.client.fetch_battlepass_level(
             self.id,
+            season=season,
             start_time=start_time,
             end_time=end_time
         )
@@ -413,6 +457,40 @@ class User(UserBase):
             Something went wrong while blocking this user.
         """
         await self.client.block_user(self.id)
+
+    async def add(self) -> None:
+        """|coro|
+
+        Sends a friendship request to this user or adds them if they
+        have already sent one to the client.
+
+        Raises
+        ------
+        NotFound
+            The specified user does not exist.
+        DuplicateFriendship
+            The client is already friends with this user.
+        FriendshipRequestAlreadySent
+            The client has already sent a friendship request that has not been
+            handled yet by the user.
+        MaxFriendshipsExceeded
+            The client has hit the max amount of friendships a user can
+            have at a time. For most accounts this limit is set to ``1000``
+            but it could be higher for others.
+        InviteeMaxFriendshipsExceeded
+            The user you attempted to add has hit the max amount of friendships
+            a user can have at a time.
+        InviteeMaxFriendshipRequestsExceeded
+            The user you attempted to add has hit the max amount of friendship
+            requests a user can have at a time. This is usually ``700`` total
+            requests.
+        Forbidden
+            The client is not allowed to send friendship requests to the user
+            because of the users settings.
+        HTTPException
+            An error occured while requesting to add this friend.
+        """
+        await self.client.add_friend(self.id)
 
 
 class BlockedUser(UserBase):

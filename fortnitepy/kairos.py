@@ -22,7 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import random
 import json
 
 from typing import List, Optional, Dict, Any, Union
@@ -31,18 +30,10 @@ from .enums import DefaultCharactersChapter1, KairosBackgroundColorPreset
 ListOrPreset = Optional[Union[List[str], KairosBackgroundColorPreset]]
 
 
-def get_random_chapter1_default_cid() -> str:
-    return (random.choice(list(DefaultCharactersChapter1))).name
-
-
-def get_random_color_preset() -> List[str]:
-    return (random.choice(list(KairosBackgroundColorPreset))).value
-
-
 def get_random_default_avatar() -> 'Avatar':
     return Avatar(
-        asset=get_random_chapter1_default_cid(),
-        background_colors=get_random_color_preset()
+        asset=DefaultCharactersChapter1.get_random_name(),
+        background_colors=KairosBackgroundColorPreset.get_random_value()
     )
 
 

@@ -25,6 +25,7 @@ SOFTWARE.
 """
 
 from aiohttp import ClientResponse
+from typing import Union
 
 
 class FortniteException(Exception):
@@ -103,6 +104,28 @@ class FriendshipRequestAlreadySent(FortniteException):
     pass
 
 
+class MaxFriendshipsExceeded(FortniteException):
+    """This excepttion is raised if the client has hit the limit for
+    friendships.
+    """
+    pass
+
+
+class InviteeMaxFriendshipsExceeded(FortniteException):
+    """This exception is raised if the user you attempted to add has
+    hit the limit for friendships.
+    """
+    pass
+
+
+class InviteeMaxFriendshipRequestsExceeded(FortniteException):
+    """This exception is raised if the user you attempted to add has
+    hit the limit for the amount of friendship requests a user can have
+    at a time.
+    """
+    pass
+
+
 class ValidationFailure(FortniteException):
     """Represents a validation failure returned.
 
@@ -139,53 +162,63 @@ class HTTPException(FortniteException):
         The error message.
     status: :class:`int`
         The status code of the HTTP request.
+    route: Union[:class:`Route`, :class:`str`]
+        The route or url used for this request.
     raw: Union[:class:`str`, :class:`dict`]
         The raw message/data received from Fortnite services.
     request_headers: :class:`dict`
         The headers used for the request.
     message: :class:`str`
         The raw error message received from Fortnite services.
-    message_code: :class:`str`
+    message_code: Optional[:class:`str`]
         The raw error message code received from Fortnite services.
     message_vars: List[:class:`str`]
         List containing arguments passed to the message.
-    code: :class:`int`
+    code: Optional[:class:`int`]
         The error code received from Fortnite services.
-    originating_service: :class:`str`
+    originating_service: Optional[:class:`str`]
         The originating service this error was received from.
-    intent: :class:`str`
+    intent: Optional[:class:`str`]
         The prod this error was received from.
-    validation_failures: List[:exc:`ValidationFailure`]
+    validation_failures: Optional[List[:exc:`ValidationFailure`]]
         A list containing information about the validation failures.
         ``None`` if the error was not raised a validation issue.
     """
 
     def __init__(self, response: ClientResponse,
+                 route: Union['Route', str],
                  message: dict,
                  request_headers: dict) -> None:
         self.response = response
         self.status = response.status
+        self.route = route
         self.raw = message
         self.request_headers = request_headers
 
         _err = message if isinstance(message, dict) else {}
         self.message = _err.get('errorMessage')
         self.message_code = _err.get('errorCode')
-        self.message_vars = _err.get('messageVars')
+        self.message_vars = _err.get('messageVars', [])
         self.code = _err.get('numericErrorCode')
         self.originating_service = _err.get('originatingService')
         self.intent = _err.get('intent')
 
         validation_failures_data = _err.get('validationFailures')
         if validation_failures_data is not None:
-            self.validation_failures = [ValidationFailure(d) for d
-                                        in validation_failures_data.values()]
+            self.validation_failures = [
+                ValidationFailure(d) for d in validation_failures_data.values()
+            ]
         else:
             self.validation_failures = None
 
+        if self.message_code is not None:
+            fmt = self.message
+        else:
+            fmt = '{0} - {1}'.format(self.status, self.message)
+
         self.text = 'Code: "{0}" - {1}'.format(
             self.message_code,
-            self.message
+            fmt
         )
 
         super().__init__(self.text)

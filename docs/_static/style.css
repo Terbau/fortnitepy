@@ -1,125 +1,204 @@
 @import url('basic.css');
 
 div.document {
-	margin: 10px auto 0 auto;
-	max-width: 1200px; /* page width */
-	width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+  margin: 10px auto 0 auto;
+  max-width: 1200px;
+  /* page width */
+  width: 100%;
 }
 
 div.documentwrapper {
-	float: left;
-	width: 100%;
+  float: left;
+  width: 100%;
 }
 
 div.body {
-	max-width: 960px;
-	width: 100%;
+  max-width: 960px;
+  width: 100%;
 }
 
 div.bodywrapper {
-	margin: 0 0 0 240px; /* sidebar width */
+  margin: 0 0 0 240px;
+  /* sidebar width */
 }
 
 div.body {
-	background-color: #ffffff;
-	color: #3e4349;
-	padding: 0 30px 30px 30px;
+  background-color: #ffffff;
+  color: #3e4349;
+  padding: 0 30px 30px 30px;
 }
 
 div.footer {
-	color: #555;
-	font-size: 14px;
-	margin: 20px auto 30px auto;
-	text-align: right;
-	max-width: 1200px; /* page width */
-	width: 100%;
+  color: #555;
+  font-size: 14px;
+  margin: 20px auto 30px auto;
+  text-align: right;
+  max-width: 1200px;
+  /* page width */
+  width: 100%;
 }
 
 div.footer a {
-	color: #444;
-	text-decoration: underline;
+  color: #444;
+  text-decoration: underline;
+}
+
+.line-block {
+  margin-top: 0 !important;
+}
+
+/* attribute tables */
+.py-attribute-table {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  margin: 0 2em;
+  padding-top: 16px;
+}
+
+.py-attribute-table-column {
+  flex: 1 1 auto;
+}
+
+.py-attribute-table-column:not(:first-child) {
+  margin-top: 1em;
+}
+
+.py-attribute-table-column>span {
+  font-weight: bold;
+  color: #333333;
+}
+
+main .py-attribute-table-column>ul {
+  list-style: none;
+  margin: 4px 0px;
+  padding-left: 0;
+  font-size: 0.95em;
+}
+
+.py-attribute-table-entry {
+  margin: 0;
+  padding: 2px 0;
+  padding-left: 0.2em;
+  border-left: 2px solid #d6d6d6;
+  display: flex;
+  line-height: 1.1em !important;
+  font-size: 15px;
+}
+
+.py-attribute-table-entry>a {
+  padding-left: 0.5em;
+  color: #444444;
+  flex-grow: 1;
+}
+
+.py-attribute-table-entry>a:hover {
+  color: #2591c4;
+  text-decoration: none;
+}
+
+.py-attribute-table-entry:hover {
+  background-color: #e0e0e0;
+  border-left: 2px solid #75787b;
+  text-decoration: none;
+}
+
+.py-attribute-table-badge {
+  padding-left: 0.5em;
+  text-align: right;
+  font-size: 0.9em;
+  color: #292929;
+  font-weight: bold;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 div.related {
-	padding: 10px 10px;
-	width: auto;
+  padding: 10px 10px;
+  width: auto;
 }
 
-div.body h1, div.body h2, div.body h3 {
+div.body h1,
+div.body h2,
+div.body h3 {
   padding-bottom: 3px;
   border-bottom: 1px solid #ddd;
 }
 
 div.sphinxsidebar {
-	float: left;
-	font-size: 14px;
-	line-height: 1.5em;
-	margin-left: -100%;
-	width: 240px; /* sidebar width */
+  float: left;
+  font-size: 14px;
+  line-height: 1.5em;
+  margin-left: -100%;
+  width: 240px;
+  /* sidebar width */
 }
 
 div.sphinxsidebarwrapper {
-	font-size: 14px;
-	line-height: 1.5em;
-	padding: 10px 0 10px 10px;
+  font-size: 14px;
+  line-height: 1.5em;
+  padding: 10px 0 10px 10px;
 
-	/* sticky sidebar */
-	position: fixed;
-	width: 240px; /* sidebar width */
-	height: 90%;
-	overflow: hidden;
+  /* sticky sidebar */
+  position: fixed;
+  width: 240px;
+  /* sidebar width */
+  height: 90%;
+  overflow: hidden;
 }
 
 /* show scrollbar on hover */
 div.sphinxsidebarwrapper:hover {
-	overflow: auto;
+  overflow: auto;
 }
 
 div.sphinxsidebar h3,
 div.sphinxsidebar h4 {
-	color: #333;
-	font-size: 24px;
-	font-weight: normal;
-	margin: 0 0 5px 0;
-	padding: 0;
+  color: #333;
+  font-size: 24px;
+  font-weight: normal;
+  margin: 0 0 5px 0;
+  padding: 0;
 }
 
 div.sphinxsidebar h4 {
-	font-size: 1.1em;
+  font-size: 1.1em;
 }
 
 div.sphinxsidebar h3 a {
-	color: #333;
+  color: #333;
 }
 
 div.sphinxsidebar p {
-	color: #888;
+  color: #888;
 }
 
 div.sphinxsidebar p.searchtip {
-	line-height: 1.4em;
+  line-height: 1.4em;
 }
 
 div.sphinxsidebar ul {
-	color: #000;
-	margin: 10px 0 20px;
-	padding: 0;
+  color: #000;
+  margin: 10px 0 20px;
+  padding: 0;
 }
 
 div.sphinxsidebar a {
-	color: #444;
+  color: #444;
 }
 
 div.sphinxsidebar input {
-	border: 1px solid #ccc;
-	font-family: sans-serif;
-	font-size: 1em;
-	margin-top: 10px;
+  border: 1px solid #ccc;
+  /* font-family: sans-serif; */
+  font-size: 1em;
+  margin-top: 10px;
 }
 
 .active {
-	background-color: #dbdbdb;
-	border-left: 5px solid #dbdbdb;
+  background-color: #dbdbdb;
+  border-left: 5px solid #dbdbdb;
 }
 
 /* Avoid clunky auto grids */
@@ -133,41 +212,43 @@ dd {
   margin-left: 30px !important;
 }
 
-dl.function > dt,
-dl.attribute > dt,
-dl.classmethod > dt,
-dl.staticmethod > dt,
-dl.method > dt,
-dl.class > dt,
-dl.exception > dt {
-	font-size: 85%;
-	background-color: #f5f5f5;
-	border-radius: 5px;
-	margin: 25px 0 10px 0;
-	padding: 2px 10px;
+dl.function>dt,
+dl.attribute>dt,
+dl.classmethod>dt,
+dl.staticmethod>dt,
+dl.method>dt,
+dl.class>dt,
+dl.exception>dt {
+  font-size: 85%;
+  background-color: #f5f5f5;
+  border-radius: 5px;
+  margin: 25px 0 10px 0;
+  padding: 2px 10px;
 }
 
 pre {
-	background-color: #f5f5f5;
+  background-color: #f5f5f5;
   border: 1px solid #C6C9CB;
   color: #333131;
-	font-size: 15px;
-	font-weight: normal;
+  font-size: 15px;
+  font-weight: normal;
   line-height: 1.5em;
   margin: 1.5em 0 1.5em 0;
   padding: 10px;
 }
 
-a.reference.internal > strong {
+a.reference.internal>strong {
   font-weight: unset;
   font-family: monospace;
 }
 
-tt, code {
+tt,
+code {
   background-color: #ecf0f3;
 }
 
-tt.descname, code.descname {
+tt.descname,
+code.descname {
   font-size: 1.1em;
 }
 
@@ -175,7 +256,10 @@ a span.pre {
   color: #2591c4 !important;
 }
 
-tt.xref, a tt, code.xref, a code {
+tt.xref,
+a tt,
+code.xref,
+a code {
   font-weight: normal;
 }
 

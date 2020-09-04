@@ -25,8 +25,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from enum import Enum
-from aioxmpp import PresenceShow
+import random
+import types
+
+from typing import Optional, Any
+from enum import Enum as OriginalEnum
+
+
+class Enum(OriginalEnum):
+    @classmethod
+    def get_random_member(cls) -> Optional[Any]:
+        try:
+            return cls[random.choice(cls._member_names_)]
+        except IndexError:
+            pass
+
+    @classmethod
+    def get_random_name(cls) -> Optional[Any]:
+        member = cls.get_random_member()
+        if member is not None:
+            return member.name
+
+    @classmethod
+    def get_random_value(cls) -> Optional[Any]:
+        member = cls.get_random_member()
+        if member is not None:
+            return member.value
 
 
 class PartyPrivacy(Enum):
@@ -172,34 +196,43 @@ class AwayStatus(Enum):
 
 
 class SeasonStartTimestamp(Enum):
-    SEASON_1  = 1508889600
-    SEASON_2  = 1513209600
-    SEASON_3  = 1519257600
-    SEASON_4  = 1525132800
-    SEASON_5  = 1531353600
-    SEASON_6  = 1538006400
-    SEASON_7  = 1544054400
-    SEASON_8  = 1551312000
-    SEASON_9  = 1557360000
-    SEASON_10 = 1564617600
-    SEASON_11 = 1571097600
-    SEASON_12 = 1582156800
-    SEASON_13 = 1592352000
+    SEASON_1  = 1508889601
+    SEASON_2  = 1513209601
+    SEASON_3  = 1519257601
+    SEASON_4  = 1525132801
+    SEASON_5  = 1531353601
+    SEASON_6  = 1538006401
+    SEASON_7  = 1544054401
+    SEASON_8  = 1551312001
+    SEASON_9  = 1557360001
+    SEASON_10 = 1564617601
+    SEASON_11 = 1571097601
+    SEASON_12 = 1582156801
+    SEASON_13 = 1592352001
+    SEASON_14 = 1598486401
 
 
 class SeasonEndTimestamp(Enum):
-    SEASON_1  = 1513123199
-    SEASON_2  = 1519171199
-    SEASON_3  = 1525046399
-    SEASON_4  = 1531353599
-    SEASON_5  = 1538006399
-    SEASON_6  = 1544054399
-    SEASON_7  = 1551311999
-    SEASON_8  = 1557359999
-    SEASON_9  = 1564617599
-    SEASON_10 = 1570924799
-    SEASON_11 = 1582156799
-    SEASON_12 = 1592351999
+    SEASON_1  = 1513123200
+    SEASON_2  = 1519171200
+    SEASON_3  = 1525046400
+    SEASON_4  = 1531353600
+    SEASON_5  = 1538006400
+    SEASON_6  = 1544054400
+    SEASON_7  = 1551312000
+    SEASON_8  = 1557360000
+    SEASON_9  = 1564617600
+    SEASON_10 = 1570924800
+    SEASON_11 = 1582156800
+    SEASON_12 = 1592352000
+    SEASON_13 = 1598486400
+
+
+class BattlePassStat(Enum):
+    SEASON_11 = ('s11_social_bp_level', SeasonEndTimestamp.SEASON_11.value)
+    SEASON_12 = ('s11_social_bp_level', SeasonEndTimestamp.SEASON_12.value)
+    SEASON_13 = (('s13_social_bp_level', 's11_social_bp_level'), SeasonEndTimestamp.SEASON_13.value)
+    SEASON_14 = ('s14_social_bp_level', None)
 
 
 class KairosBackgroundColorPreset(Enum):
@@ -217,3 +250,6 @@ class KairosBackgroundColorPreset(Enum):
     LIME         = ["#DFFF73","#86CF13","#404B07"]
     INDIGO       = ["#B35EEF","#4D1397","#2E0A5D"]
 
+
+class StatsCollectionType(Enum):
+    FISH = 'collection_fish'
