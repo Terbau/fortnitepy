@@ -2074,19 +2074,6 @@ class Client:
         """
         await self.http.friends_remove_or_decline(user_id)
 
-    # NOTE: Not tested
-    async def remove_all_friends(self) -> None:
-        """|coro|
-
-        Removes all friends of the client.
-
-        Raises
-        ------
-        HTTPException
-            Something went wrong when requesting fortnite's services.
-        """
-        await self.http.friends_remove_all()
-
     async def dispatch_and_wait_event(self, event: str,
                                       *args: Any,
                                       **kwargs: Any) -> None:

@@ -1196,11 +1196,6 @@ class HTTPClient:
         )
         return await self.delete(r)
 
-    async def friends_remove_all(self) -> Any:
-        r = FriendsPublicService('/friends/api/v1/{client_id}/friends',
-                                 client_id=self.client.user.id)
-        return await self.delete(r)
-
     async def friends_get_blocklist(self) -> list:
         r = FriendsPublicService('/friends/api/v1/{client_id}/blocklist',
                                  client_id=self.client.user.id)
