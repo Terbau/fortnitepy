@@ -771,6 +771,9 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
+        if user_id == self.client.user.id:
+            await self.client._internal_join_party_lock.wait()
+
         member = party.get_member(user_id)
         if member is None:
             member = (await party._update_members(
@@ -781,9 +784,9 @@ class XMPPClient:
         if party.me is not None:
             party.me.do_on_member_join_patch()
 
-        yielding = party.me._default_config.yield_leadership
-        if party.me and party.me.leader and not yielding:
-            fut = asyncio.ensure_future(party.refresh_squad_assignments())
+            yielding = party.me._default_config.yield_leadership
+            if party.me.leader and not yielding:
+                fut = asyncio.ensure_future(party.refresh_squad_assignments())
 
         try:
             if member.id == self.client.user.id:

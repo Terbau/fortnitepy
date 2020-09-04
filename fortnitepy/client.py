@@ -568,6 +568,7 @@ class Client:
         self._closed_event = asyncio.Event()
         self._leave_lock = asyncio.Lock()
         self._join_party_lock = LockEvent()
+        self._internal_join_party_lock = LockEvent()
         self._reauth_lock = LockEvent()
         self._reauth_lock.failed = False
         self._refresh_task = None
@@ -2979,39 +2980,40 @@ class Client:
 
     async def _join_party(self, party_data: dict, *,
                           event: str = 'party_member_join') -> ClientParty:
-        party = self.construct_party(party_data)
-        await party._update_members(party_data['members'])
-        self.party = party
+        async with self._internal_join_party_lock:
+            party = self.construct_party(party_data)
+            await party._update_members(party_data['members'])
+            self.party = party
 
-        def check(m):
-            if m.id != self.user.id:
-                return False
-            if party.id != m.party.id:
-                return False
-            return True
+            def check(m):
+                if m.id != self.user.id:
+                    return False
+                if party.id != m.party.id:
+                    return False
+                return True
 
-        future = asyncio.ensure_future(
-            self.wait_for(event, check=check, timeout=5),
-        )
+            future = asyncio.ensure_future(
+                self.wait_for(event, check=check, timeout=5),
+            )
 
-        try:
-            await self.http.party_join_request(party.id)
-        except HTTPException as e:
-            if not future.cancelled():
-                future.cancel()
+            try:
+                await self.http.party_join_request(party.id)
+            except HTTPException as e:
+                if not future.cancelled():
+                    future.cancel()
 
-            m = 'errors.com.epicgames.social.party.party_join_forbidden'  # noqa
-            if e.message_code == m:
-                raise Forbidden(
-                    'You are not allowed to join this party.'
-                )
-            raise
+                m = 'errors.com.epicgames.social.party.party_join_forbidden'  # noqa
+                if e.message_code == m:
+                    raise Forbidden(
+                        'You are not allowed to join this party.'
+                    )
+                raise
 
-        party_data = await self.http.party_lookup(party.id)
-        party = self.construct_party(party_data)
-        self.party = party
-        asyncio.ensure_future(party.join_chat())
-        await party._update_members(party_data['members'])
+            party_data = await self.http.party_lookup(party.id)
+            party = self.construct_party(party_data)
+            self.party = party
+            asyncio.ensure_future(party.join_chat())
+            await party._update_members(party_data['members'])
 
         try:
             await future
