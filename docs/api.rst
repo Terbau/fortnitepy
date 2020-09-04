@@ -1010,6 +1010,12 @@ HTTPRetryConfig
 .. autoclass:: HTTPRetryConfig()
 	:members:
 
+Route
+~~~~~
+
+.. autoclass:: Route()
+	:members:
+
 Avatar
 ~~~~~~
 

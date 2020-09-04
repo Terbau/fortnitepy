@@ -157,6 +157,74 @@ class GraphQLRequest:
 
 
 class Route:
+    """Represents a route to use for a http request. This should
+    be subclassed by new routes and the class attributes ``BASE`` and
+    optionally ``AUTH`` should be overridden.
+
+    .. warning::
+
+        Usually there is no reason to subclass and implement routes
+        yourself as most of them are already implemented. Take a look
+        at http.py if you're interested in knowing all of the predefined
+        routes.
+
+    Available authentication placeholders:
+    - `IOS_BASIC_TOKEN`
+    - `FORTNITE_BASIC_TOKEN`
+    - `IOS_ACCESS_TOKEN`
+    - `FORTNITE_ACCESS_TOKEN`
+
+    Example usage: ::
+
+        class SocialBanPublicService(fortnitepy.Route):
+            BASE = 'https://social-ban-public-service-prod.ol.epicgames.com'
+            AUTH = 'FORTNITE_ACCESS_TOKEN'
+
+        route = SocialBanPublicService(
+            '/socialban/api/public/v1/{user_id}',
+            user_id='c7af4984a77a498b83d8b16d475d76bc'
+        )
+        resp = await client.http.get(route)
+
+        # resp would look something like this:
+        # {
+        #     "bans" : [],
+        #     "warnings" : []
+        # }
+
+    Parameters
+    ----------
+    path: :class:`path`
+        The path to used for the request.
+
+        .. warning::
+
+            You should always use name
+            formatting for arguments and instead of using `.format()`on the
+            path, you should pass the format kwargs as kwargs to the route.
+            This might seem counterintuitive but it is important to ensure
+            rate limit retry reliability.
+    auth: Optional[:class:`str`]
+        The authentication to use for the request. If ``None`` the default
+        auth specified for the route is used.
+    **params: Any
+        The variables to format the path with passed alongside their name.
+
+    Attributes
+    ----------
+    path: :class:`str`
+        The requests path.
+    params: Dict[:class:`str`, Any]
+        A mapping of the params passed.
+    base: :class:`str`
+        The base of the request url.
+    auth: Optional[:class:`str`]
+        The auth placeholder.
+    url: :class:`str`
+        The formatted url.
+    sanitized_url: :class:`str`
+        The yet to be formatted url.
+    """
     BASE = ''
     AUTH = None
 
@@ -175,6 +243,9 @@ class Route:
 
         if auth:
             self.AUTH = auth
+
+        self.base = self.BASE
+        self.auth = self.AUTH
 
 
 class EpicGamesGraphQL(Route):
