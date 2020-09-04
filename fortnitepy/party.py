@@ -3452,7 +3452,7 @@ class ReceivedPartyInvitation:
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    async def accept(self) -> None:
+    async def accept(self) -> ClientParty:
         """|coro|
 
         Accepts the invitation and joins the party.
@@ -3468,14 +3468,20 @@ class ReceivedPartyInvitation:
             You attempted to join a private party you've been kicked from.
         HTTPException
             Something went wrong when accepting the invitation.
+
+        Returns
+        -------
+        :class:`ClientParty`
+            The party the client joined by accepting the invitation.
         """
         if self.net_cl != self.client.net_cl and self.client.net_cl != '':
             raise PartyError('Incompatible net_cl')
 
-        await self.client.join_party(self.party.id)
+        party = await self.client.join_party(self.party.id)
         asyncio.ensure_future(
             self.client.http.party_delete_ping(self.sender.id)
         )
+        return party
 
     async def decline(self) -> None:
         """|coro|
