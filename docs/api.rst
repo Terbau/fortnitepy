@@ -1046,8 +1046,6 @@ Exceptions
 
 .. autoexception:: ValidationFailure
 
-.. autoexception:: PurchaseException
-
 .. autoexception:: EventError
 
 .. autoexception:: XMPPError
