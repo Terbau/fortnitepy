@@ -652,6 +652,28 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param after: The current battlepass data. Same structure as :attr:`PartyMember.battlepass_info`.
 	:type after: :class:`tuple`
 
+.. function:: event_party_member_enlightenments_change(member, before, after)
+
+	This event is called when a members enlightenments values are changed.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous enlightenment values.
+	:type before: :class:`list`
+	:param after: The current enlightenment values.
+	:type after: :class:`list`
+
+.. function:: event_party_member_corruption_change(member, before, after)
+
+	This event is called when a members corruption value is changed.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous corruption value. Could be ``None`` if not set.
+	:type before: Optional[:class:`list`]
+	:param after: The current corruption value. Could be ``None`` if not set.
+	:type after: Optional[:class:`list`]
+
 .. function:: event_party_member_outfit_variants_change(member, before, after)
 
 	This event is called when a members outfit variants been changed.
