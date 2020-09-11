@@ -1774,7 +1774,7 @@ class Client:
             The incoming pending friend if found, else ``None``.
         """
         pending_friend = self.get_pending_friend(user_id)
-        if pending_friend.incoming:
+        if pending_friend and pending_friend.incoming:
             return pending_friend
 
     def get_outgoing_pending_friend(self,
@@ -1794,7 +1794,7 @@ class Client:
             The outgoing pending friend if found, else ``None``.
         """
         pending_friend = self.get_pending_friend(user_id)
-        if pending_friend.outgoing:
+        if pending_friend and pending_friend.outgoing:
             return pending_friend
 
     def store_blocked_user(self, data: dict, *,
