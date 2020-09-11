@@ -563,7 +563,8 @@ class OutgoingPendingFriend(PendingFriendBase):
     async def cancel(self) -> None:
         """|coro|
 
-        Cancel the friend request sent to this user.
+        Cancel the friend request sent to this user. This method is also
+        aliases to ``abort()``.
 
         Raises
         ------
@@ -571,3 +572,5 @@ class OutgoingPendingFriend(PendingFriendBase):
             Something went wrong when trying to cancel this request.
         """
         await self.client.remove_or_decline_friend(self.id)
+
+    abort = cancel
