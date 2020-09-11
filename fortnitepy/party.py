@@ -528,6 +528,9 @@ class PartyMemberMeta(MetaBase):
                     'vL': {}
                 }
             }),
+            'Default:ArbitraryCustomDataStore_j': json.dumps({
+                'ArbitraryCustomDataStore': []
+            }),
             'Default:AthenaBannerInfo_j': json.dumps({
                 'AthenaBannerInfo': {
                     'bannerIconId': 'standardbanner15',
@@ -627,6 +630,11 @@ class PartyMemberMeta(MetaBase):
     def scratchpad(self) -> list:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['scratchpad']
+
+    @property
+    def custom_data_store(self) -> list:
+        base = self.get_prop('Default:ArbitraryCustomDataStore_j')
+        return base['ArbitraryCustomDataStore']
 
     @property
     def emote(self) -> str:
@@ -814,6 +822,13 @@ class PartyMemberMeta(MetaBase):
             }
         }
         key = 'Default:AthenaCosmeticLoadoutVariants_j'
+        return {key: self.set_prop(key, final)}
+
+    def set_custom_data_store(self, value: list) -> Dict[str, Any]:
+        final = {
+            'ArbitraryCustomDataStore': value
+        }
+        key = 'Default:ArbitraryCustomDataStore_j'
         return {key: self.set_prop(key, final)}
 
     def set_match_state(self, *,
@@ -1293,6 +1308,15 @@ class PartyMemberBase(User):
         return [tuple(d.values()) for d in self.meta.scratchpad]
 
     @property
+    def corruption(self) -> Optional[float]:
+        """Optional[float]: The corruption value this member is using. ``None``
+        if no corruption value is set.
+        """
+        data = self.meta.custom_data_store
+        if data:
+            return float(data[0])
+
+    @property
     def emote(self) -> Optional[str]:
         """Optional[:class:`str`]: The EID of the emote this member is
         currently playing. ``None`` if no emote is currently playing.
@@ -1434,7 +1458,7 @@ class PartyMemberBase(User):
             async def set_soccer_skin():
                 me = client.party.me
 
-                variants = me.create_variants(
+                variants = me.create_variant(
                     pattern=0,
                     numeric=99,
                     jersey_color='Norway'
@@ -1831,7 +1855,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
     async def set_outfit(self, asset: Optional[str] = None, *,
                          key: Optional[str] = None,
                          variants: Optional[List[Dict[str, str]]] = None,
-                         enlightenment: Optional[Union[List, Tuple]] = None
+                         enlightenment: Optional[Union[List, Tuple]] = None,
+                         corruption: Optional[float] = None
                          ) -> None:
         """|coro|
 
@@ -1854,7 +1879,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             resets variants.
         enlightenment: Optional[Union[:class:`list`, :class:`Tuple`]]
             A list/tuple containing exactly two integer values describing the
-            season and the level you want to enlighten the current outfit with.
+            season and the level you want to enlighten the current loadout
+            with.
 
             .. note::
 
@@ -1866,6 +1892,13 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 # First value is the season in Fortnite Chapter 2
                 # Second value is the level for the season
                 (1, 300)
+        corruption: Optional[float]
+            The corruption value to use for the loadout.
+
+            .. note::
+
+                Unlike enlightenment you do not need to set any variants
+                yourself as that is handled by the library.
 
         Raises
         ------
@@ -1880,15 +1913,6 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['characterDef']
 
-        new = self.meta.variants
-        if variants is not None:
-            new['AthenaCharacter'] = {'i': variants}
-        else:
-            try:
-                del new['AthenaCharacter']
-            except KeyError:
-                pass
-
         if enlightenment is not None:
             if len(enlightenment) != 2:
                 raise ValueError('enlightenment has to be a list/tuple with '
@@ -1901,22 +1925,43 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                     }
                 ]
 
+        if corruption is not None:
+            corruption = ['{:.4f}'.format(corruption)]
+            variants = [
+                {'c': "Corruption", 'v': 'FloatSlider', 'dE': 1}
+            ] + (variants or [])
+        else:
+            corruption = self.meta.custom_data_store
+
+        current = self.meta.variants
+        if variants is not None:
+            current['AthenaCharacter'] = {'i': variants}
+        else:
+            try:
+                del current['AthenaCharacter']
+            except KeyError:
+                pass
+
         prop = self.meta.set_cosmetic_loadout(
             character=asset,
             character_ekey=key,
             scratchpad=enlightenment
         )
         prop2 = self.meta.set_variants(
-            variants=new
+            variants=current
+        )
+        prop3 = self.meta.set_custom_data_store(
+            value=corruption
         )
 
         if not self.edit_lock.locked():
-            return await self.patch(updated={**prop, **prop2})
+            return await self.patch(updated={**prop, **prop2, **prop3})
 
     async def set_backpack(self, asset: Optional[str] = None, *,
                            key: Optional[str] = None,
                            variants: Optional[List[Dict[str, str]]] = None,
-                           enlightenment: Optional[Union[List, Tuple]] = None
+                           enlightenment: Optional[Union[List, Tuple]] = None,
+                           corruption: Optional[float] = None
                            ) -> None:
         """|coro|
 
@@ -1939,7 +1984,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             resets variants.
         enlightenment: Optional[Union[:class:`list`, :class:`Tuple`]]
             A list/tuple containing exactly two integer values describing the
-            season and the level you want to enlighten the current outfit with.
+            season and the level you want to enlighten the current loadout
+            with.
 
             .. note::
 
@@ -1951,6 +1997,13 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 # First value is the season in Fortnite Chapter 2
                 # Second value is the level for the season
                 (1, 300)
+        corruption: Optional[float]
+            The corruption value to use for the loadout.
+
+            .. note::
+
+                Unlike enlightenment you do not need to set any variants
+                yourself as that is handled by the library.
 
         Raises
         ------
@@ -1965,15 +2018,6 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
 
-        new = self.meta.variants
-        if variants is not None:
-            new['AthenaBackpack'] = {'i': variants}
-        else:
-            try:
-                del new['AthenaBackpack']
-            except KeyError:
-                pass
-
         if enlightenment is not None:
             if len(enlightenment) != 2:
                 raise ValueError('enlightenment has to be a list/tuple with '
@@ -1986,17 +2030,37 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                     }
                 ]
 
+        if corruption is not None:
+            corruption = ['{:.4f}'.format(corruption)]
+            variants = [
+                {'c': "Corruption", 'v': 'FloatSlider', 'dE': 1}
+            ] + (variants or [])
+        else:
+            corruption = self.meta.custom_data_store
+
+        current = self.meta.variants
+        if variants is not None:
+            current['AthenaBackpack'] = {'i': variants}
+        else:
+            try:
+                del current['AthenaBackpack']
+            except KeyError:
+                pass
+
         prop = self.meta.set_cosmetic_loadout(
             backpack=asset,
             backpack_ekey=key,
             scratchpad=enlightenment
         )
         prop2 = self.meta.set_variants(
-            variants=new
+            variants=current
+        )
+        prop3 = self.meta.set_custom_data_store(
+            value=corruption
         )
 
         if not self.edit_lock.locked():
-            return await self.patch(updated={**prop, **prop2})
+            return await self.patch(updated={**prop, **prop2, **prop3})
 
     async def clear_backpack(self) -> None:
         """|coro|
