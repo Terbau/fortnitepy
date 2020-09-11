@@ -521,8 +521,12 @@ class PartyMemberMeta(MetaBase):
                     'contrailDef': 'None',
                     'contrailEKey': '',
                     'scratchpad': [],
-                    'variants': [],
                 },
+            }),
+            'Default:AthenaCosmeticLoadoutVariants_j': json.dumps({
+                'AthenaCosmeticLoadoutVariants': {
+                    'vL': {}
+                }
             }),
             'Default:AthenaBannerInfo_j': json.dumps({
                 'AthenaBannerInfo': {
@@ -600,24 +604,24 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def variants(self) -> List[Dict[str, str]]:
-        base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['variants']
+        base = self.get_prop('Default:AthenaCosmeticLoadoutVariants_j')
+        return base['AthenaCosmeticLoadoutVariants']['vL']
 
     @property
     def outfit_variants(self) -> List[Dict[str, str]]:
-        return [x for x in self.variants if x['item'] == 'AthenaCharacter']
+        return self.variants.get('AthenaCharacter', {}).get('i', [])
 
     @property
     def backpack_variants(self) -> List[Dict[str, str]]:
-        return [x for x in self.variants if x['item'] == 'AthenaBackpack']
+        return self.variants.get('AthenaBackpack', {}).get('i', [])
 
     @property
     def pickaxe_variants(self) -> List[Dict[str, str]]:
-        return [x for x in self.variants if x['item'] == 'AthenaPickaxe']
+        return self.variants.get('AthenaPickaxe', {}).get('i', [])
 
     @property
     def contrail_variants(self) -> List[Dict[str, str]]:
-        return [x for x in self.variants if x['item'] == 'AthenaContrail']
+        return self.variants.get('AthenaContrail', {}).get('i', [])
 
     @property
     def scratchpad(self) -> list:
@@ -775,8 +779,7 @@ class PartyMemberMeta(MetaBase):
                              pickaxe_ekey: Optional[str] = None,
                              contrail: Optional[str] = None,
                              contrail_ekey: Optional[str] = None,
-                             scratchpad: Optional[list] = None,
-                             variants: Optional[List[Dict[str, str]]] = None
+                             scratchpad: Optional[list] = None
                              ) -> Dict[str, Any]:
         prop = self.get_prop('Default:AthenaCosmeticLoadout_j')
         data = prop['AthenaCosmeticLoadout']
@@ -799,11 +802,21 @@ class PartyMemberMeta(MetaBase):
             data['contrailEKey'] = contrail_ekey
         if scratchpad is not None:
             data['scratchpad'] = scratchpad
-        if variants is not None:
-            data['variants'] = variants
 
         final = {'AthenaCosmeticLoadout': data}
         key = 'Default:AthenaCosmeticLoadout_j'
+        return {key: self.set_prop(key, final)}
+
+    def set_variants(self, variants: List[dict]) -> Dict[str, Any]:
+        prop = self.get_prop('Default:AthenaCosmeticLoadoutVariants_j')
+        data = prop['AthenaCosmeticLoadoutVariants']['vL']
+
+        final = {
+            'AthenaCosmeticLoadoutVariants': {
+                'vL': variants
+            }
+        }
+        key = 'Default:AthenaCosmeticLoadoutVariants_j'
         return {key: self.set_prop(key, final)}
 
     def set_match_state(self, *,
@@ -1405,9 +1418,8 @@ class PartyMemberBase(User):
         self._role_updated_at = datetime.datetime.utcnow()
 
     @staticmethod
-    def create_variants(item: str = "AthenaCharacter", *,
-                        particle_config: str = 'Emissive',
-                        **kwargs: Any) -> List[Dict[str, str]]:
+    def create_variant(*, config_overrides: Dict[str, str] = {},
+                       **kwargs: Any) -> List[Dict[str, Union[str, int]]]:
         """Creates the variants list by the variants you set.
 
         .. warning::
@@ -1441,9 +1453,15 @@ class PartyMemberBase(User):
         item: :class:`str`
             The variant item type. This defaults to ``AthenaCharacter`` which
             is what you want to use if you are changing skin variants.
-        particle_config: :class:`str`
-            The type of particle you want to use. The available types
-            are ``Emissive`` (default), ``Mat`` and ``Particle``.
+        config_overrides: Dict[:class:`str`, :class:`str`]
+            A config that overrides the default config for the variant
+            backend names. Example: ::
+
+                # NOTE: Keys refer to the kwarg name.
+                # NOTE: Values must include exactly one empty format bracket.
+                {
+                    'particle': 'Mat{}'
+                }
         pattern: Optional[:class:`int`]
             The pattern number you want to use.
         numeric: Optional[:class:`int`]
@@ -1472,35 +1490,37 @@ class PartyMemberBase(User):
         List[:class:`dict`]
             List of dictionaries including all variants data.
         """
-        config = {
+        default_config = {
             'pattern': 'Mat{}',
             'numeric': 'Numeric.{}',
             'clothing_color': 'Mat{}',
             'jersey_color': 'Color.{}',
             'parts': 'Stage{}',
             'progressive': 'Stage{}',
-            'particle': '{}{}',
+            'particle': 'Emissive{}',
             'material': 'Mat{}',
             'emissive': 'Emissive{}',
             'profile_banner': '{}',
         }
+        config = {**default_config, **config_overrides}
 
-        variant = []
+        data = []
         for channel, value in kwargs.items():
             v = {
-                'item': item,
-                'channel': ''.join([x.capitalize()
-                                    for x in channel.split('_')])
+                'c': ''.join(x.capitalize() for x in channel.split('_')),
+                'dE': 0,
             }
 
-            if channel == 'particle':
-                v['variant'] = config[channel].format(particle_config, value)
-            elif channel == 'JerseyColor':
-                v['variant'] = config[channel].format(value.upper())
+            if channel == 'JerseyColor':
+                v['v'] = config[channel].format(value.upper())
             else:
-                v['variant'] = config[channel].format(value)
-            variant.append(v)
-        return variant
+                v['v'] = config[channel].format(value)
+
+            data.append(v)
+
+        return data
+
+    create_variants = create_variant
 
 
 class PartyMember(PartyMemberBase):
@@ -1863,8 +1883,14 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['characterDef']
 
-        variants = [x for x in self.meta.variants
-                    if x['item'] != 'AthenaCharacter'] + (variants or [])
+        new = self.meta.variants
+        if variants is not None:
+            new['AthenaCharacter'] = {'i': variants}
+        else:
+            try:
+                del new['AthenaCharacter']
+            except KeyError:
+                pass
 
         if enlightenment is not None:
             if len(enlightenment) != 2:
@@ -1881,12 +1907,14 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         prop = self.meta.set_cosmetic_loadout(
             character=asset,
             character_ekey=key,
-            variants=variants,
             scratchpad=enlightenment
+        )
+        prop2 = self.meta.set_variants(
+            variants=new
         )
 
         if not self.edit_lock.locked():
-            return await self.patch(updated=prop)
+            return await self.patch(updated={**prop, **prop2})
 
     async def set_backpack(self, asset: Optional[str] = None, *,
                            key: Optional[str] = None,
@@ -1940,8 +1968,14 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
 
-        variants = [x for x in self.meta.variants
-                    if x['item'] != 'AthenaBackpack'] + (variants or [])
+        new = self.meta.variants
+        if variants is not None:
+            new['AthenaBackpack'] = {'i': variants}
+        else:
+            try:
+                del new['AthenaBackpack']
+            except KeyError:
+                pass
 
         if enlightenment is not None:
             if len(enlightenment) != 2:
@@ -1958,12 +1992,14 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         prop = self.meta.set_cosmetic_loadout(
             backpack=asset,
             backpack_ekey=key,
-            variants=variants,
             scratchpad=enlightenment
+        )
+        prop2 = self.meta.set_variants(
+            variants=new
         )
 
         if not self.edit_lock.locked():
-            return await self.patch(updated=prop)
+            return await self.patch(updated={**prop, **prop2})
 
     async def clear_backpack(self) -> None:
         """|coro|
@@ -2014,16 +2050,25 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
 
-        variants = [x for x in self.meta.variants
-                    if x['item'] != 'AthenaBackpack'] + (variants or [])
+        new = self.meta.variants
+        if variants is not None:
+            new['AthenaBackpack'] = {'i': variants}
+        else:
+            try:
+                del new['AthenaBackpack']
+            except KeyError:
+                pass
+
         prop = self.meta.set_cosmetic_loadout(
             backpack=asset,
             backpack_ekey=key,
-            variants=variants
+        )
+        prop2 = self.meta.set_variants(
+            variants=new
         )
 
         if not self.edit_lock.locked():
-            return await self.patch(updated=prop)
+            return await self.patch(updated={**prop, **prop2})
 
     async def clear_pet(self) -> None:
         """|coro|
@@ -2074,16 +2119,25 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['pickaxeDef']
 
-        variants = [x for x in self.meta.variants
-                    if x['item'] != 'AthenaPickaxe'] + (variants or [])
+        new = self.meta.variants
+        if variants is not None:
+            new['AthenaPickaxe'] = {'i': variants}
+        else:
+            try:
+                del new['AthenaPickaxe']
+            except KeyError:
+                pass
+
         prop = self.meta.set_cosmetic_loadout(
             pickaxe=asset,
             pickaxe_ekey=key,
-            variants=variants
+        )
+        prop2 = self.meta.set_variants(
+            variants=new
         )
 
         if not self.edit_lock.locked():
-            return await self.patch(updated=prop)
+            return await self.patch(updated={**prop, **prop2})
 
     async def set_contrail(self, asset: Optional[str] = None, *,
                            key: Optional[str] = None,
@@ -2122,16 +2176,25 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['contrailDef']
 
-        variants = [x for x in self.meta.variants
-                    if x['item'] != 'AthenaContrail'] + (variants or [])
+        new = self.meta.variants
+        if variants is not None:
+            new['AthenaContrail'] = {'i': variants}
+        else:
+            try:
+                del new['AthenaContrail']
+            except KeyError:
+                pass
+
         prop = self.meta.set_cosmetic_loadout(
             contrail=asset,
             contrail_ekey=key,
-            variants=variants
+        )
+        prop2 = self.meta.set_variants(
+            variants=new
         )
 
         if not self.edit_lock.locked():
-            return await self.patch(updated=prop)
+            return await self.patch(updated={**prop, **prop2})
 
     async def clear_contrail(self) -> None:
         """|coro|
