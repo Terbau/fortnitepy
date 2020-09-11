@@ -6,6 +6,35 @@ Changelog
 Detailed version changes.
 
 
+v3.3.0
+------
+
+Changed
+~~~~~~~
+
+- Changes made to :meth:`PartyMember.create_variant`:
+    - (Renamed) `PartyMember.create_variants` -> :meth:`PartyMember.create_variant`. This is not breaking though as its aliased to its old name.
+    - (**Breaking**) Removed kwarg ``particle_config`` in favor of the new ``config_overrides``.
+- Updated build version to fortnite v14.10.
+
+Added
+~~~~~
+
+- Added :attr:`PartyMember.corruption`.
+- Added kwarg ``corruption`` to :meth:`ClientPartyMember.set_outfit()` and :meth:`ClientPartyMember.set_backpack`.
+- Added event :func:`event_party_member_enlightenments_change()`.
+- Added event :func:`event_party_member_corruption_change()`.
+- Added alias ``abort()`` for :meth:`OutgoingPendingFriend.cancel()`.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed variants not working after fortnite v14.10.
+- Fixed outdated lobby errors when the bot was leader.
+- Fixed an issue that caused :meth:`Client.get_outgoing_pending_friend()` and :meth:`Client.get_incoming_pending_friend()` to error when it should have return ``None``.
+- Fixed a rare race condition issue that could break processing of :func:`event_friend_request_abort()` and :func:`event_friend_request_decline()`
+
+
 v3.2.0
 ------
 

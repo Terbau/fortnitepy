@@ -531,10 +531,10 @@ class Client:
         self.avatar = kwargs.get('avatar', get_random_default_avatar())  # noqa
         self.platform = kwargs.get('platform', Platform.WINDOWS)
         self.net_cl = kwargs.get('net_cl', '')
-        self.party_build_id = '1:1:{0.net_cl}'.format(self)
+        self.party_build_id = '1:2:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', DefaultPartyConfig())  # noqa
         self.default_party_member_config = kwargs.get('default_party_member_config', DefaultPartyMemberConfig())  # noqa
-        self.build = kwargs.get('build', '++Fortnite+Release-12.50-CL-13193885')  # noqa
+        self.build = kwargs.get('build', '++Fortnite+Release-14.10-CL-14288110')  # noqa
         self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
 
         self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
@@ -1774,7 +1774,7 @@ class Client:
             The incoming pending friend if found, else ``None``.
         """
         pending_friend = self.get_pending_friend(user_id)
-        if pending_friend.incoming:
+        if pending_friend and pending_friend.incoming:
             return pending_friend
 
     def get_outgoing_pending_friend(self,
@@ -1794,7 +1794,7 @@ class Client:
             The outgoing pending friend if found, else ``None``.
         """
         pending_friend = self.get_pending_friend(user_id)
-        if pending_friend.outgoing:
+        if pending_friend and pending_friend.outgoing:
             return pending_friend
 
     def store_blocked_user(self, data: dict, *,

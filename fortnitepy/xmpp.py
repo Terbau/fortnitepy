@@ -643,24 +643,26 @@ class XMPPClient:
 
         if body['reason'] == 'ABORTED':
             pf = self.client.get_pending_friend(_id)
-            self.client.store_user(pf.get_raw())
+            if pf is not None:
+                self.client.store_user(pf.get_raw())
 
-            try:
-                del self.client._pending_friends[pf.id]
-            except KeyError:
-                pass
+                try:
+                    del self.client._pending_friends[pf.id]
+                except KeyError:
+                    pass
 
-            self.client.dispatch_event('friend_request_abort', pf)
+                self.client.dispatch_event('friend_request_abort', pf)
         elif body['reason'] == 'REJECTED':
             pf = self.client.get_pending_friend(_id)
-            self.client.store_user(pf.get_raw())
+            if pf is not None:
+                self.client.store_user(pf.get_raw())
 
-            try:
-                del self.client._pending_friends[pf.id]
-            except KeyError:
-                pass
+                try:
+                    del self.client._pending_friends[pf.id]
+                except KeyError:
+                    pass
 
-            self.client.dispatch_event('friend_request_decline', pf)
+                self.client.dispatch_event('friend_request_decline', pf)
         else:
             f = self.client.get_friend(_id)
             if f is not None:
@@ -1082,12 +1084,11 @@ class XMPPClient:
 
         check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
                  'pet', 'pickaxe', 'contrail', 'emote', 'emoji', 'banner',
-                 'battlepass_info', 'in_match', 'match_players_left')
+                 'battlepass_info', 'in_match', 'match_players_left',
+                 'enlightenments', 'corruption', 'outfit_variants',
+                 'backpack_variants', 'pickaxe_variants', 'contrail_variants')
         pre_values = {k: _getattr(member, k) for k in check}
 
-        check_variants = ('outfit_variants', 'backpack_variants',
-                          'pickaxe_variants', 'contrail_variants')
-        pre_variants_values = {k: _getattr(member, k) for k in check_variants}
         member.update(body)
 
         if party._default_config.team_change_allowed or not party.me.leader:
@@ -1129,20 +1130,20 @@ class XMPPClient:
                 value
             )
 
+        def compare(a, b):
+            def construct_set(v):
+                return set(itertools.chain(
+                    *[list(x.values()) if isinstance(x, dict) else (x,)
+                      for x in v]
+                ))
+
+            if isinstance(a, (tuple, list)) and isinstance(b, (tuple, list)):
+                return construct_set(a) == construct_set(b)
+            return a == b
+
         for key, pre_value in pre_values.items():
             value = _getattr(member, key)
-
-            if pre_value != value:
-                _dispatch(key, member, pre_value, value)
-
-        def compare_variants(a, b):
-            def construct_set(v):
-                return set(itertools.chain(*[list(x.values()) for x in v]))
-            return construct_set(a) == construct_set(b)
-
-        for key, pre_value in pre_variants_values.items():
-            value = _getattr(member, key)
-            if not compare_variants(pre_value, value):
+            if not compare(pre_value, value):
                 _dispatch(key, member, pre_value, value)
 
     @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_REQUIRE_CONFIRMATION')  # noqa
