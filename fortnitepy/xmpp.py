@@ -643,24 +643,26 @@ class XMPPClient:
 
         if body['reason'] == 'ABORTED':
             pf = self.client.get_pending_friend(_id)
-            self.client.store_user(pf.get_raw())
+            if pf is not None:
+                self.client.store_user(pf.get_raw())
 
-            try:
-                del self.client._pending_friends[pf.id]
-            except KeyError:
-                pass
+                try:
+                    del self.client._pending_friends[pf.id]
+                except KeyError:
+                    pass
 
-            self.client.dispatch_event('friend_request_abort', pf)
+                self.client.dispatch_event('friend_request_abort', pf)
         elif body['reason'] == 'REJECTED':
             pf = self.client.get_pending_friend(_id)
-            self.client.store_user(pf.get_raw())
+            if pf is not None:
+                self.client.store_user(pf.get_raw())
 
-            try:
-                del self.client._pending_friends[pf.id]
-            except KeyError:
-                pass
+                try:
+                    del self.client._pending_friends[pf.id]
+                except KeyError:
+                    pass
 
-            self.client.dispatch_event('friend_request_decline', pf)
+                self.client.dispatch_event('friend_request_decline', pf)
         else:
             f = self.client.get_friend(_id)
             if f is not None:
