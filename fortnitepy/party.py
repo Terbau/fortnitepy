@@ -808,9 +808,6 @@ class PartyMemberMeta(MetaBase):
         return {key: self.set_prop(key, final)}
 
     def set_variants(self, variants: List[dict]) -> Dict[str, Any]:
-        prop = self.get_prop('Default:AthenaCosmeticLoadoutVariants_j')
-        data = prop['AthenaCosmeticLoadoutVariants']['vL']
-
         final = {
             'AthenaCosmeticLoadoutVariants': {
                 'vL': variants
