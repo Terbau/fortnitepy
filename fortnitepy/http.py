@@ -1139,6 +1139,22 @@ class HTTPClient:
         return await self.post(r, params=params, **kwargs)
 
     ###################################
+    #         Fortnite Events         #
+    ###################################
+
+    async def fortnite_get_event_leaderboard(self, event_id: str, event_window_id: str, page: int = 0) -> dict:
+        
+        r = EventsPublicService(
+            '/api/v1/leaderboards/Fortnite/{event_id}/{event_window_id}/{client_id}?page={page}',
+            event_id=event_id,
+            event_window_id=event_window_id,
+            client_id=self.client.user.id,
+            page=page
+        )
+        
+        return await self.get(r)
+
+    ###################################
     #         Fortnite Public         #
     ###################################
 

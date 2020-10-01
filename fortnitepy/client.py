@@ -1203,6 +1203,26 @@ class Client:
 
     fetch_profile_by_display_name = fetch_user_by_display_name
 
+    async def fortnite_get_event_leaderboard(self, event_id: str, event_window_id: str, page: int = 0) -> dict:
+        """|coro|
+
+        Returns the leaderboard of the specific event.
+
+        Parameters
+        ----------
+        event_id: :class:`str`
+            The event id of the event that you want to get.
+
+        event_window_id: :class:`str`
+            The event window id of the event that you want to get.
+
+        page: :class:`int`
+            The page that you want to get.
+            Page 0 returns the top 100 of the event.
+        """
+        
+        return await self.http.fortnite_get_event_leaderboard(event_id=event_id, event_window_id=event_window_id, page=page)
+        
     async def fetch_users_by_display_name(self, display_name, *,
                                           raw: bool = False
                                           ) -> Optional[User]:
