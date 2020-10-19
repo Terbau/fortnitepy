@@ -2,19 +2,15 @@
 
 """
 MIT License
-
 Copyright (c) 2019-2020 Terbau
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
-
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
-
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -196,19 +192,13 @@ async def start_multiple(clients: List['Client'], *,
                          before_close: Optional[Awaitable] = None
                          ) -> None:
     """|coro|
-
     Starts multiple clients at the same time.
-
     .. warning::
-
         This function is blocking and should be the last function to run.
-
     .. info::
-
         Due to throttling by epicgames on login, the clients are started
         with a 0.2 second gap. You can change this value with the gap_timeout
         keyword argument.
-
     Parameters
     ----------
     clients: List[:class:`Client`]
@@ -242,7 +232,6 @@ async def start_multiple(clients: List['Client'], *,
         close. This must be a coroutine as all the clients wait to close until
         this callback is finished processing so you can do heavy close stuff
         like closing database connections, sessions etc.
-
     Raises
     ------
     AuthException
@@ -317,10 +306,8 @@ async def start_multiple(clients: List['Client'], *,
 
 async def close_multiple(clients: List['Client']) -> None:
     """|coro|
-
     Closes multiple clients at the same time by calling :meth:`Client.close()`
     on all of them.
-
     Parameters
     ----------
     clients: List[:class:`Client`]
@@ -349,17 +336,12 @@ def run_multiple(clients: List['Client'], *,
     for you. If you already have a running event loop, you should start
     the clients with :func:`start_multiple()`. On shutdown, all clients
     will be closed gracefully.
-
     .. warning::
-
         This function is blocking and should be the last function to run.
-
     .. info::
-
         Due to throttling by epicgames on login, the clients are started
         with a 0.2 second gap. You can change this value with the gap_timeout
         keyword argument.
-
     Parameters
     ----------
     clients: List[:class:`Client`]
@@ -393,7 +375,6 @@ def run_multiple(clients: List['Client'], *,
         close. This must be a coroutine as all the clients wait to close until
         this callback is finished processing so you can do heavy close stuff
         like closing database connections, sessions etc.
-
     Raises
     ------
     AuthException
@@ -456,10 +437,33 @@ def run_multiple(clients: List['Client'], *,
     if not future.cancelled():
         return future.result()
 
+class FriendsLimitsReached:
+    def __init__(self, data: dict = None):
+        if data:
+            self._update(data)
+
+    def _update(self, data: dict):
+        self._incoming = data.get('incoming')
+        self._outgoing = data.get('outgoing')
+        self._accepted = data.get('accepted')
+
+    @property
+    def incoming(self) -> bool:
+        """:class:`bool`: If this is set to True you don't receive any friend requests."""
+        return self._incoming
+
+    @property
+    def outgoing(self) -> bool:
+        """:class:`bool`: If this is set to True :class:`MaxFriendshipsExceeded` will be raised when trying to add friends."""
+        return self._outgoing
+
+    @property
+    def accepted(self) -> bool:
+        """:class:`bool`: If this is set to True :class:`MaxFriendshipsExceeded` will be raised when trying to accept friends."""
+        return self._accepted
 
 class Client:
     """Represents the client connected to Fortnite and EpicGames' services.
-
     Parameters
     ----------
     auth: :class:`Auth`
@@ -507,7 +511,6 @@ class Client:
         The domain used by Fortnite's XMPP services.
     serivce_port: :class:`int`
         The port used by Fortnite's XMPP services.
-
     Attributes
     ----------
     loop: :class:`asyncio.AbstractEventLoop`
@@ -560,6 +563,7 @@ class Client:
         self._events = {}
         self._friends = {}
         self._pending_friends = {}
+        self.friends_limits_reached = FriendsLimitsReached()
         self._users = {}
         self._blocked_users = {}
         self._presences = {}
@@ -587,12 +591,10 @@ class Client:
     def from_iso(iso: str) -> datetime.datetime:
         """Converts an iso formatted string to a
         :class:`datetime.datetime` object
-
         Parameters
         ----------
         iso: :class:`str`:
             The iso formatted string to convert to a datetime object.
-
         Returns
         -------
         :class:`datetime.datetime`
@@ -609,12 +611,10 @@ class Client:
     def to_iso(dt: datetime.datetime) -> str:
         """Converts a :class:`datetime.datetime`
         object to an iso formatted string
-
         Parameters
         ----------
         dt: :class:`datetime.datetime`
             The datetime object to convert to an iso formatted string.
-
         Returns
         -------
         :class:`str`
@@ -652,9 +652,7 @@ class Client:
         """List[Union[:class:`IncomingPendingFriend`,
         :class:`OutgoingPendingFriend`]]: A list of all of the clients
         pending friends.
-
         .. note::
-
             Pending friends can be both incoming (pending friend sent the
             request to the bot) or outgoing (the bot sent the request to the
             pending friend). You must check what kind of pending friend an
@@ -714,11 +712,8 @@ class Client:
         """This function starts the loop and then calls :meth:`start` for you.
         If you have passed an already running event loop to the client, you
         should start the client with :meth:`start`.
-
         .. warning::
-
             This function is blocking and should be the last function to run.
-
         Raises
         ------
         AuthException
@@ -785,23 +780,18 @@ class Client:
 
     async def start(self, dispatch_ready: bool = True) -> None:
         """|coro|
-
         Starts the client and logs into the specified user.
-
         .. warning::
-
             This functions is blocking and everything after the line calling
             this function will never run! If you are using this function
             instead of :meth:`run` you should always call it after everything
             else. When the client is ready it will dispatch
             :meth:`event_ready`.
-
         Parameters
         ----------
         dispatch_ready: :class:`bool`
             Whether or not the client should dispatch the ready event when
             ready.
-
         Raises
         ------
         AuthException
@@ -968,9 +958,7 @@ class Client:
                     close_http: bool = True,
                     dispatch_close: bool = True) -> None:
         """|coro|
-
         Logs the user out and closes running services.
-
         Parameters
         ----------
         close_http: :class:`bool`
@@ -978,7 +966,6 @@ class Client:
             when logged out.
         dispatch_close: :class:`bool`
             Whether or not to dispatch the close event.
-
         Raises
         ------
         HTTPException
@@ -1004,10 +991,8 @@ class Client:
 
     async def restart(self) -> None:
         """|coro|
-
         Restarts the client completely. All events received while this method
         runs are dispatched when it has finished.
-
         Raises
         ------
         AuthException
@@ -1100,7 +1085,6 @@ class Client:
 
     def is_ready(self) -> bool:
         """Specifies if the internal state of the client is ready.
-
         Returns
         -------
         :class:`bool`
@@ -1110,14 +1094,12 @@ class Client:
 
     async def wait_until_ready(self) -> None:
         """|coro|
-
         Waits until the internal state of the client is ready.
         """
         await self._ready_event.wait()
 
     async def wait_until_closed(self) -> None:
         """|coro|
-
         Waits until the client is fully closed.
         """
         await self._closed_event.wait()
@@ -1144,10 +1126,8 @@ class Client:
                                          raw: bool = False
                                          ) -> Optional[User]:
         """|coro|
-
         Fetches a user from the passed display name. Aliased to
         ``fetch_profile_by_display_name()`` as well for legacy reasons.
-
         Parameters
         ----------
         display_name: :class:`str`
@@ -1155,24 +1135,17 @@ class Client:
         cache: :class:`bool`
             If set to True it will try to get the user from the friends or
             user cache.
-
             .. note::
-
                 Setting this parameter to False will make it an api call.
-
         raw: :class:`bool`
             If set to True it will return the data as you would get it from
             the api request.
-
             .. note::
-
                 Setting raw to True does not work with cache set to True.
-
         Raises
         ------
         HTTPException
             An error occured while requesting the user.
-
         Returns
         -------
         Optional[:class:`User`]
@@ -1207,30 +1180,23 @@ class Client:
                                           raw: bool = False
                                           ) -> Optional[User]:
         """|coro|
-
         Fetches all users including external users (accounts from other
         platforms) that matches the given the display name. Aliased to
         ``fetch_profiles_by_display_name()`` as well for legacy reasons.
-
         .. warning::
-
             This function is not for requesting multiple users by multiple
             display names. Use :meth:`Client.fetch_user()` for that.
-
         Parameters
         ----------
         display_name: :class:`str`
             The display name of the users you want to get.
-
         raw: :class:`bool`
             If set to True it will return the data as you would get it from
             the api request. *Defaults to ``False``*
-
         Raises
         ------
         HTTPException
             An error occured while requesting the user.
-
         Returns
         -------
         List[:class:`User`]
@@ -1246,10 +1212,8 @@ class Client:
                          raw: bool = False
                          ) -> Optional[User]:
         """|coro|
-
         Fetches a single user by the given id/displayname. Aliased to
         ``fetch_profile()`` as well for legacy reasons.
-
         Parameters
         ----------
         user: :class:`str`
@@ -1257,24 +1221,17 @@ class Client:
         cache: :class:`bool`
             If set to True it will try to get the user from the friends or
             user cache and fall back to an api request if not found.
-
             .. note::
-
                 Setting this parameter to False will make it an api call.
-
         raw: :class:`bool`
             If set to True it will return the data as you would get it from
             the api request.
-
             .. note::
-
                 Setting raw to True does not work with cache set to True.
-
         Raises
         ------
         HTTPException
             An error occured while requesting the user.
-
         Returns
         -------
         Optional[:class:`User`]
@@ -1292,10 +1249,8 @@ class Client:
                           cache: bool = False,
                           raw: bool = False) -> List[User]:
         """|coro|
-
         Fetches multiple users at once by the given ids/displaynames. Aliased
         to ``fetch_profiles()`` as well for legacy reasons.
-
         Parameters
         ----------
         users: List[:class:`str`]
@@ -1303,24 +1258,17 @@ class Client:
         cache: :class:`bool`
             If set to True it will try to get the users from the friends or
             user cache and fall back to an api request if not found.
-
             .. note::
-
                 Setting this parameter to False will make it an api call.
-
         raw: :class:`bool`
             If set to True it will return the data as you would get it from
             the api request.
-
             .. note::
-
                 Setting raw to True does not work with cache set to True.
-
         Raises
         ------
         HTTPException
             An error occured while requesting user information.
-
         Returns
         -------
         List[:class:`User`]
@@ -1397,17 +1345,13 @@ class Client:
                                   cache: bool = False,
                                   raw: bool = False) -> Optional[User]:
         """|coro|
-
         Fetches a single user by the email. Aliased to
         ``fetch_profile_by_email()`` as well for legacy reasons.
-
         .. warning::
-
             Because of epicgames throttling policy, you can only do this
             request three times in a timespan of 600 seconds. If you were
             to do more than three requests in that timespan, a
             :exc:`HTTPException` would be raised.
-
         Parameters
         ----------
         email: :class:`str`
@@ -1415,26 +1359,19 @@ class Client:
         cache: :class:`bool`
             If set to True it will try to get the user from the friends or
             user cache and fall back to an api request if not found.
-
             .. note::
-
                 This method does two api requests but with this set to False
                 only one request will be done as long as the user is found in
                 one of the caches.
-
         raw: :class:`bool`
             If set to True it will return the data as you would get it from
             the api request.
-
             .. note::
-
                 Setting raw to True does not work with cache set to True.
-
         Raises
         ------
         HTTPException
             An error occured while requesting the user.
-
         Returns
         -------
         Optional[:class:`User`]
@@ -1459,10 +1396,8 @@ class Client:
                            platform: UserSearchPlatform
                            ) -> List[UserSearchEntry]:
         """|coro|
-
         Searches after users by a prefix and returns up to 100 matches.
         Aliased to ``search_profiles()`` as well for legacy reasons.
-
         Parameters
         ----------
         prefix: :class:`str`
@@ -1472,18 +1407,14 @@ class Client:
             to ``Tfue`` like ``Tfue_Faze dequan``.
         platform: :class:`UserSearchPlatform`
             The platform you wish to search by.
-
             ..note::
-
                 The platform is only important for prefix matches. All exact
                 matches are returned regardless of which platform is
                 specified.
-
         Raises
         ------
         HTTPException
             An error occured while requesting.
-
         Returns
         -------
         List[:class:`UserSearchEntry`]
@@ -1519,19 +1450,15 @@ class Client:
 
     async def search_sac_by_slug(self, slug: str) -> List[SacSearchEntryUser]:
         """|coro|
-
         Searches for an owner of slug + retrieves owners of similar slugs.
-
         Parameters
         ----------
         slug: :class:`str`
             The slug (support a creator code) you wish to search for.
-
         Raises
         ------
         HTTPException
             An error occured while requesting fortnite's services.
-
         Returns
         -------
         List[:class:`SacSearchEntryUser`]
@@ -1572,6 +1499,8 @@ class Client:
             self.http.presence_get_last_online(priority=priority),
         )
         raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
+        
+        self.friends_limits_reached._update(raw_summary.get('limitsReached', {}))
 
         ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
         chunks = [ids[i:i + 100] for i in range(0, len(ids), 100)]
@@ -1649,12 +1578,10 @@ class Client:
 
     def get_user(self, user_id: str) -> Optional[User]:
         """Tries to get a user from the user cache by the given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the user.
-
         Returns
         -------
         Optional[:class:`User`]
@@ -1690,12 +1617,10 @@ class Client:
 
     def get_friend(self, user_id: str) -> Optional[Friend]:
         """Tries to get a friend from the friend cache by the given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the friend.
-
         Returns
         -------
         Optional[:class:`Friend`]
@@ -1743,12 +1668,10 @@ class Client:
                                                OutgoingPendingFriend]]:
         """Tries to get a pending friend from the pending friend cache by the
         given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the pending friend.
-
         Returns
         -------
         Optional[Union[:class:`IncomingPendingFriend`, 
@@ -1762,12 +1685,10 @@ class Client:
                                     ) -> Optional[IncomingPendingFriend]:
         """Tries to get an incoming pending friend from the pending friends
         cache by the given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the incoming pending friend.
-
         Returns
         -------
         Optional[:class:`IncomingPendingFriend`]
@@ -1782,12 +1703,10 @@ class Client:
                                     ) -> Optional[OutgoingPendingFriend]:
         """Tries to get an outgoing pending friend from the pending friends
         cache by the given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the outgoing pending friend.
-
         Returns
         -------
         Optional[:class:`OutgoingPendingFriend`]
@@ -1816,12 +1735,10 @@ class Client:
     def get_blocked_user(self, user_id: str) -> Optional[BlockedUser]:
         """Tries to get a blocked user from the blocked users cache by the
         given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the blocked user.
-
         Returns
         -------
         Optional[:class:`BlockedUser`]
@@ -1831,12 +1748,10 @@ class Client:
 
     def get_presence(self, user_id: str) -> Optional[Presence]:
         """Tries to get the latest received presence from the presence cache.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the friend you want the last presence of.
-
         Returns
         -------
         Optional[:class:`Presence`]
@@ -1846,12 +1761,10 @@ class Client:
 
     def has_friend(self, user_id: str) -> bool:
         """Checks if the client is friends with the given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the user you want to check.
-
         Returns
         -------
         :class:`bool`
@@ -1861,12 +1774,10 @@ class Client:
 
     def is_pending(self, user_id: str) -> bool:
         """Checks if the given user id is a pending friend of the client.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the user you want to check.
-
         Returns
         -------
         :class:`bool`
@@ -1876,12 +1787,10 @@ class Client:
 
     def is_blocked(self, user_id: str) -> bool:
         """Checks if the given user id is blocked by the client.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the user you want to check.
-
         Returns
         -------
         :class:`bool`
@@ -1891,14 +1800,11 @@ class Client:
 
     async def fetch_blocklist(self) -> List[str]:
         """|coro|
-
         Retrieves the blocklist with an api call.
-
         Raises
         ------
         HTTPException
             An error occured while fetching blocklist.
-
         Returns
         -------
         List[:class:`str`]
@@ -1908,14 +1814,11 @@ class Client:
 
     async def block_user(self, user_id: str) -> None:
         """|coro|
-
         Blocks a user by a given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the user you want to block.
-
         Raises
         ------
         HTTPException
@@ -1925,14 +1828,11 @@ class Client:
 
     async def unblock_user(self, user_id: str) -> None:
         """|coro|
-
         Unblocks a user by a given user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the user you want to unblock
-
         Raises
         ------
         HTTPException
@@ -1942,12 +1842,10 @@ class Client:
 
     def is_id(self, value: str) -> bool:
         """Simple function that finds out if a :class:`str` is a valid id
-
         Parameters
         ----------
         value: :class:`str`
             The string you want to check.
-
         Returns
         -------
         :class:`bool`
@@ -1957,12 +1855,10 @@ class Client:
 
     def is_display_name(self, val: str) -> bool:
         """Simple function that finds out if a :class:`str` is a valid displayname
-
         Parameters
         ----------
         value: :class:`str`
             The string you want to check.
-
         Returns
         -------
         :class:`bool`
@@ -1972,14 +1868,11 @@ class Client:
 
     async def add_friend(self, user_id: str) -> None:
         """|coro|
-
         Sends a friend request to the specified user id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the user you want to add.
-
         Raises
         ------
         NotFound
@@ -2051,19 +1944,14 @@ class Client:
 
     async def accept_friend(self, user_id: str) -> Friend:
         """|coro|
-
         .. warning::
-
             Do not use this method to send a friend request. It will then not
             return until the friend request has been accepted by the user.
-
         Accepts a request.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the user you want to accept.
-
         Raises
         ------
         NotFound
@@ -2078,7 +1966,6 @@ class Client:
             because of the users settings.
         HTTPException
             An error occured while requesting to accept this friend.
-
         Returns
         -------
         :class:`Friend`
@@ -2091,14 +1978,11 @@ class Client:
 
     async def remove_or_decline_friend(self, user_id: str) -> None:
         """|coro|
-
         Removes a friend by the given id.
-
         Parameters
         ----------
         user_id: :class:`str`
             The id of the friend you want to remove.
-
         Raises
         ------
         HTTPException
@@ -2166,74 +2050,55 @@ class Client:
                  check: Callable = None,
                  timeout: Optional[int] = None) -> Any:
         """|coro|
-
         Waits for an event to be dispatch.
-
         In case the event returns more than one arguments, a tuple is passed
         containing the arguments.
-
         Examples
         --------
         This example waits for the author of a :class:`FriendMessage` to say
         hello.: ::
-
             @client.event
             async def event_friend_message(message):
                 await message.reply('Say hello!')
-
                 def check_function(m):
                     return m.author.id == message.author.id
-
                 msg = await client.wait_for('message', check=check_function, timeout=60)
                 await msg.reply('Hello {0.author.display_name}!'.format(msg))
-
         This example waits for the the leader of a party to promote the bot
         after joining and then sets a new custom key: ::
-
             @client.event
             async def event_party_member_join(member):
-
                 # checks if the member that joined is the UserClient
                 if member.id != client.user.id:
                     return
-
                 def check(m):
                     return m.id == client.user.id
-
                 try:
                     await client.wait_for('party_member_promote', check=check, timeout=120)
                 except asyncio.TimeoutError:
                     await member.party.send('You took too long to promote me!')
-
                 await member.party.set_custom_key('my_custom_key_123')
-
         Parameters
         ----------
         event: :class:`str`
             The name of the event. 
-
             .. note::
-
                 | The name of the event must be **without** the ``event_``
                 prefix.
                 |
                 | Wrong = ``event_friend_message``.
                 | Correct = ``friend_message``.
-
         check: Optional[Callable]
             A predicate to check what to wait for.
             Defaults to a predicate that always returns ``True``. This means
             it will return the first result unless you pass another predicate.
-
         timeout: :class:`int`
             How many seconds to wait for before asyncio.TimeoutError is raised.
             *Defaults to ``None`` which means it will wait forever.*
-
         Raises
         ------
         asyncio.TimeoutError
             No event was retrieved in the time you specified.
-
         Returns
         -------
         Any
@@ -2272,14 +2137,12 @@ class Client:
     def add_event_handler(self, event: str, coro: Awaitable[Any]) -> None:
         """Registers a coroutine as an event handler. You can register as many
         coroutines as you want to a single event.
-
         Parameters
         ----------
         event: :class:`str`
             The name of the event you want to register this coro for.
         coro: :ref:`coroutine <coroutine>`
             The coroutine to function as the handler for the specified event.
-
         Raises
         ------
         TypeError
@@ -2297,7 +2160,6 @@ class Client:
 
     def remove_event_handler(self, event: str, coro: Awaitable) -> None:
         """Removes a coroutine as an event handler.
-
         Parameters
         ----------
         event: :class:`str`
@@ -2314,23 +2176,17 @@ class Client:
     def event(self,
               event_or_coro: Union[str, Awaitable[Any]] = None) -> Awaitable:
         """A decorator to register an event.
-
         .. note::
-
             You do not need to decorate events in a subclass of :class:`Client`
             but the function names of event handlers must follow this format
             ``event_<event>``.
-
         Usage: ::
-
             @client.event
             async def event_friend_message(message):
                 await message.reply('Thanks for your message!')
-
             @client.event('friend_message')
             async def my_message_handler(message):
                 await message.reply('Thanks for your message!')
-
         Raises
         ------
         TypeError
@@ -2385,9 +2241,7 @@ class Client:
                              end_time: Optional[DatetimeOrTimestamp] = None
                              ) -> StatsV2:
         """|coro|
-
         Gets Battle Royale stats the specified user.
-
         Parameters
         ----------
         user_id: :class:`str`
@@ -2400,7 +2254,6 @@ class Client:
             The UTC end time of the time period to get stats from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-
         Raises
         ------
         Forbidden
@@ -2410,7 +2263,6 @@ class Client:
             leaderboard``
         HTTPException
             An error occured while requesting.
-
         Returns
         -------
         :class:`StatsV2`
@@ -2493,42 +2345,33 @@ class Client:
                                       end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                       ) -> Dict[str, Optional[StatsV2]]:
         """|coro|
-
         Gets Battle Royale stats for multiple users at the same time.
-
         .. note::
-
             This function is not the same as doing :meth:`fetch_br_stats` for
             multiple users. The expected return for this function would not be
             all the stats for the specified users but rather the stats you
             specify.
-
         Example usage: ::
-
             async def stat_function():
                 stats = [
                     fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo'),
                     fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo'),
                     fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo')
                 ]
-
                 # get the users and create a list of their ids.
                 users = await self.fetch_users(['Ninja', 'DrLupo'])
                 user_ids = [u.id for u in users] + ['NonValidUserIdForTesting']
-
                 data = await self.fetch_multiple_br_stats(user_ids=user_ids, stats=stats)
                 for id, res in data.items():
                     if res is not None:
                         print('ID: {0} | Stats: {1}'.format(id, res.get_stats()))
                     else:
                         print('ID: {0} not found.'.format(id))
-
             # Example output:
             # ID: 463ca9d604524ce38071f512baa9cd70 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 759, 'kills': 28093, 'matchesplayed': 6438}}}
             # ID: 3900c5958e4b4553907b2b32e86e03f8 | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1763, 'kills': 41375, 'matchesplayed': 7944}}}
             # ID: 4735ce9132924caf8a5b17789b40f79c | Stats: {'keyboardmouse': {'defaultsolo': {'wins': 1888, 'kills': 40784, 'matchesplayed': 5775}}}
             # ID: NonValidUserIdForTesting not found.
-
         Parameters
         ----------
         user_ids: List[:class:`str`]
@@ -2536,15 +2379,12 @@ class Client:
         stats: List[:class:`str`]
             A list of stats to get for the users. Use
             :meth:`StatsV2.create_stat` to create the stats.
-
             Example: ::
-
                 [
                     fortnitepy.StatsV2.create_stat('placetop1', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo'),
                     fortnitepy.StatsV2.create_stat('kills', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo'),
                     fortnitepy.StatsV2.create_stat('matchesplayed', fortnitepy.V2Input.KEYBOARDANDMOUSE, 'defaultsolo')
                 ]
-
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the time period to get stats from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
@@ -2553,21 +2393,17 @@ class Client:
             The UTC end time of the time period to get stats from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-
         Raises
         ------
         HTTPException
             An error occured while requesting.
-
         Returns
         -------
         Dict[:class:`str`, Optional[:class:`StatsV2`]]
             A mapping where :class:`StatsV2` is bound to its owners id. If a
             userid was not found then the value bound to that userid will be
             ``None``.
-
             .. note::
-
                 If a users stats is missing in the returned mapping it means
                 that the user has opted out of public leaderboards and that
                 the client therefore does not have permissions to requests
@@ -2589,9 +2425,7 @@ class Client:
                                                   end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                                   ) -> Dict[str, Optional[StatsCollection]]:  # noqa
         """|coro|
-
         Gets Battle Royale stats collections for multiple users at the same time.
-
         Parameters
         ----------
         user_ids: List[:class:`str`]
@@ -2607,21 +2441,17 @@ class Client:
             The UTC end time of the time period to get stats from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-
         Raises
         ------
         HTTPException
             An error occured while requesting.
-
         Returns
         -------
         Dict[:class:`str`, Optional[:class:`StatsCollection`]]
             A mapping where :class:`StatsCollection` is bound to its owners id. If a
             userid was not found then the value bound to that userid will be
             ``None``.
-
             .. note::
-
                 If a users stats is missing in the returned mapping it means
                 that the user has opted out of public leaderboards and that
                 the client therefore does not have permissions to requests
@@ -2645,9 +2475,7 @@ class Client:
                                                end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                                ) -> Dict[str, float]:
         """|coro|
-
         Fetches multiple users battlepass level.
-
         Parameters
         ----------
         users: List[:class:`str`]
@@ -2662,12 +2490,10 @@ class Client:
             The UTC end time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-
         Raises
         ------
         HTTPException
             An error occured while requesting.
-
         Returns
         -------
         Dict[:class:`str`, Optional[:class:`float`]]
@@ -2675,14 +2501,10 @@ class Client:
             if no battlepass level was found. If a user has career board set
             to private, he/she will not appear in the result. Therefore you
             should never expect a user to be included.
-
             .. note::
-
                 The decimals are the percent progress to the next level.
                 E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
-
             .. note::
-
                 If a users battlepass level is missing in the returned mapping it means
                 that the user has opted out of public leaderboards and that
                 the client therefore does not have permissions to requests
@@ -2720,9 +2542,7 @@ class Client:
                                      end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                      ) -> float:
         """|coro|
-
         Fetches a users battlepass level.
-
         Parameters
         ----------
         user_id: :class:`str`
@@ -2737,22 +2557,18 @@ class Client:
             The UTC end time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
             *Defaults to None*
-
         Raises
         ------
         Forbidden
             User has private career board.
         HTTPException
             An error occured while requesting.
-
         Returns
         -------
         Optional[:class:`float`]
             The users battlepass level. ``None`` is returned if the user has
             not played any real matches this season.
-
             .. note::
-
                 The decimals are the percent progress to the next level.
                 E.g. ``208.63`` -> ``Level 208 and 63% on the way to 209.``
         """  # noqa
@@ -2769,47 +2585,36 @@ class Client:
 
     async def fetch_leaderboard(self, stat: str) -> List[Dict[str, StrOrInt]]:
         """|coro|
-
         Fetches the leaderboard for a stat.
-
         .. warning::
-
             For some weird reason, the only valid stat you can pass is
             one with ``placetop1`` (``wins`` is also accepted).
-
         Example usage: ::
-
             async def get_leaderboard():
                 stat = fortnitepy.StatsV2.create_stat(
                     'wins',
                     fortnitepy.V2Input.KEYBOARDANDMOUSE,
                     'defaultsquad'
                 )
-
                 data = await client.fetch_leaderboard(stat)
-
                 for placement, entry in enumerate(data):
                     print('[{0}] Id: {1} | Wins: {2}'.format(
                         placement, entry['account'], entry['value']))
-
         Parameters
         ----------
         stat: :class:`str`
             The stat you are requesting the leaderboard entries for. You can
             use :meth:`StatsV2.create_stat` to create this string.
-
         Raises
         ------
         ValueError
             You passed an invalid/non-accepted stat argument.
         HTTPException
             An error occured when requesting.
-
         Returns
         -------
         List[Dict[:class:`str`, Union[:class:`str`, :class:`int`]]]
             List of dictionaries containing entry data. Example return: ::
-
                 {
                     'account': '4480a7397f824fe4b407077fb9397fbb',
                     'value': 5082
@@ -2942,19 +2747,15 @@ class Client:
 
     async def fetch_party(self, party_id: str) -> Party:
         """|coro|
-
         Fetches a party by its id.
-
         Parameters
         ----------
         party_id: :class:`str`
             The id of the party.
-
         Raises
         ------
         Forbidden
             You are not allowed to look up this party.
-
         Returns
         -------
         Optional[:class:`Party`]
@@ -3024,18 +2825,14 @@ class Client:
 
     async def join_party(self, party_id: str) -> ClientParty:
         """|coro|
-
         Joins a party by the party id.
-
         Parameters
         ----------
         party_id: :class:`str`
             The id of the party you wish to join.
-
         Raises
         ------
         .. warning::
-
             Because the client has to leave its current party before joining
             a new one, a new party is created if some of these errors are
             raised. Most of the time though this is not the case and the client
@@ -3047,15 +2844,12 @@ class Client:
         Forbidden
             You are not allowed to join this party because it's private
             and you have not been a part of it before.
-
             .. note::
-
                 If you have been a part of the party before but got
                 kicked, you are ineligible to join this party and this
                 error is raised.
         HTTPException
             An error occurred when requesting to join the party.
-
         Returns
         -------
         :class:`ClientParty`
@@ -3095,17 +2889,14 @@ class Client:
     async def set_presence(self, status: str, *,
                            away: AwayStatus = AwayStatus.ONLINE) -> None:
         """|coro|
-
         Sends and sets the status. This status message will override all other
         presence statuses including party presence status.
-
         Parameters
         ----------
         status: :class:`str`
             The status you want to set.
         away: :class:`AwayStatus`
             The away status to use. Defaults to :attr:`AwayStatus.ONLINE`.
-
         Raises
         ------
         TypeError
@@ -3124,9 +2915,7 @@ class Client:
                             away: AwayStatus = AwayStatus.ONLINE,
                             to: Optional[JID] = None) -> None:
         """|coro|
-
         Sends this status to all or one single friend.
-
         Parameters
         ----------
         status: Union[:class:`str`, :class:`dict`]
@@ -3136,7 +2925,6 @@ class Client:
         to: Optional[:class:`aioxmpp.JID`]
             The JID of the user that should receive this status.
             *Defaults to None which means it will send to all friends.*
-
         Raises
         ------
         TypeError
@@ -3150,7 +2938,6 @@ class Client:
 
     def set_avatar(self, avatar: Avatar) -> None:
         """Sets the client's avatar and updates it for all friends.
-
         Parameters
         ----------
         avatar: :class:`Avatar`
@@ -3162,14 +2949,11 @@ class Client:
     async def fetch_lightswitch_status(self,
                                        service_id: str = 'Fortnite') -> bool:
         """|coro|
-
         Fetches the lightswitch status of an epicgames service.
-
         Parameters
         ----------
         service_id: :class:`str`
             The service id to check status for.
-
         Raises
         ------
         ValueError
@@ -3177,7 +2961,6 @@ class Client:
             valid.
         HTTPException
             An error occured when requesting.
-
         Returns
         -------
         :class:`bool`
@@ -3190,28 +2973,21 @@ class Client:
 
     async def fetch_item_shop(self) -> Store:
         """|coro|
-
         Fetches the current item shop.
-
         Example: ::
-
             # fetches all CIDs (character ids) of of the current item shop.
             async def get_current_item_shop_cids():
                 store = await client.fetch_item_shop()
-
                 cids = []
                 for item in store.featured_items + store.daily_items:
                     for grant in item.grants:
                         if grant['type'] == 'AthenaCharacter':
                             cids.append(grant['asset'])
-
                 return cids
-
         Raises
         ------
         HTTPException
             An error occured when requesting.
-
         Returns
         -------
         :class:`Store`
@@ -3222,14 +2998,11 @@ class Client:
 
     async def fetch_br_news(self) -> List[BattleRoyaleNewsPost]:
         """|coro|
-
         Fetches news for the Battle Royale gamemode.
-
         Raises
         ------
         HTTPException
             An error occured when requesting.
-
         Returns
         -------
         :class:`list`
@@ -3249,15 +3022,12 @@ class Client:
 
     async def fetch_br_playlists(self) -> List[Playlist]:
         """|coro|
-
         Fetches all playlists registered on Fortnite. This includes all
         previous gamemodes that is no longer active.
-
         Raises
         ------
         HTTPException
             An error occured while requesting.
-
         Returns
         -------
         List[:class:`Playlist`]
@@ -3277,19 +3047,15 @@ class Client:
 
     async def fetch_active_ltms(self, region: Region) -> List[str]:
         """|coro|
-
         Fetches active LTMs for a specific region.
-
         Parameters
         ----------
         region: :class:`Region`
             The region to request active LTMs for.
-
         Raises
         ------
         HTTPException
             An error occured while requesting.
-
         Returns
         -------
         List[:class:`str`]
