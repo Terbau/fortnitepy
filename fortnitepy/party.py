@@ -3012,6 +3012,7 @@ class ClientParty(PartyBase, Patchable):
             'bIsJoinable': False,
             'bHasVoiceSupport': False,
             'SessionId': '',
+            'ProductName': 'Fortnite',
             'Properties': {
                 'KairosProfile_j': kairos_profile,
                 'party.joininfodata.286331153_j': join_data,
