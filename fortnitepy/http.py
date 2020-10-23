@@ -460,7 +460,7 @@ class HTTPClient:
                     'message': 'Unknown reason' if m is None else m.group(1)
                 },)
                 if m is not None:
-                    error_data['serviceResponse'] = json.dumps({
+                    error_data[0]['serviceResponse'] = json.dumps({
                         'errorStatus': int(m.group(2))
                     })
 
