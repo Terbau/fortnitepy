@@ -3115,12 +3115,13 @@ class Client:
             raise TypeError('status must be a str')
 
         self.status = status
+        self.away = away
         await self.xmpp.send_presence(
             status=status,
             show=away.value
         )
 
-    async def send_presence(self, status: str, *,
+    async def send_presence(self, status: Union[str, dict], *,
                             away: AwayStatus = AwayStatus.ONLINE,
                             to: Optional[JID] = None) -> None:
         """|coro|
