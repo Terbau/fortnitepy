@@ -610,6 +610,15 @@ class XMPPClient:
             except KeyError:
                 pass
 
+            # Send presence to the newly added friend as that is now
+            # required to do by the server (or at least thats what
+            # i suspect)
+            self.client.loop.create_task(self.send_presence(
+                to=f.jid,
+                status=self.client.party.last_raw_status,
+                show=self.client.away.value
+            ))
+
             self.client.dispatch_event('friend_add', f)
 
         elif _status == 'PENDING':

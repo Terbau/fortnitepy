@@ -1314,7 +1314,15 @@ class PartyMemberBase(User):
         """
         data = self.meta.custom_data_store
         if data:
-            return float(data[0])
+            for variants in self.meta.variants.values():
+                inner = variants.get('i', [])
+                for variant in inner:
+                    if variant['c'] == 'Corruption':
+                        for stored in data:
+                            try:
+                                return float(stored)
+                            except ValueError:
+                                pass
 
     @property
     def emote(self) -> Optional[str]:
@@ -3004,6 +3012,7 @@ class ClientParty(PartyBase, Patchable):
             'bIsJoinable': False,
             'bHasVoiceSupport': False,
             'SessionId': '',
+            'ProductName': 'Fortnite',
             'Properties': {
                 'KairosProfile_j': kairos_profile,
                 'party.joininfodata.286331153_j': join_data,

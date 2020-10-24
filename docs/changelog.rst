@@ -6,6 +6,20 @@ Changelog
 Detailed version changes.
 
 
+v3.3.1
+------
+
+Small patch to fix a problem with bots showing as offline when added as a friend.
+
+Big Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused bots to appear as offline when being added by a new friend.
+- Fixed an error in the processing of :attr:`PartyMember.corruption` that often resulted in huge error spams.
+- :meth:`Client.set_presence()` now also correctly saves the away status.
+- Fixed a rare error in the processing of html errors being returned from graphql services.
+
+
 v3.3.0
 ------
 
