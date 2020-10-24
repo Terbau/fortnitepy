@@ -53,7 +53,7 @@ What is async/await and how do I use it?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Asynchronous programming lets the program sort of perform multiple actions at
-once. For newcomers to python/programming in general, the `discord.py faq <https://benbot.stoplight.io/docs/benbot-docs>`_
+once. For newcomers to python/programming in general, the `discord.py faq <https://discordpy.readthedocs.io/en/latest/faq.html#coroutines>`_
 has a great simplified explanation of its basic concepts. For people with existing
 knowledge of asynchronous programming that want to know even more about it, I can
 suggest `this article <https://realpython.com/async-io-python/>`_ on it. As well as
