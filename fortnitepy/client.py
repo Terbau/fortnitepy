@@ -486,6 +486,14 @@ class Client:
         in official logs. Defaults to an empty string which is the recommended
         usage as of ``v0.9.0`` since you then
         won't need to update it when a new update is pushed by Fortnite.
+    party_version: :class:`int`
+        The party version the client should use. This value determines which version
+        should be able to join the party. If a user attempts to join the clients party
+        with a different party version than the client, then an error will be visible
+        saying something by the lines of "Their party of Fortnite is older/newer than
+        yours". If you experience this error I recommend incrementing the default set
+        value by one since the library in that case most likely has yet to be updated.
+        Defaults to ``3`` (As of November 3rd 2020).
     default_party_config: :class:`DefaultPartyConfig`
         The party configuration used when creating parties. If not specified,
         the client will use the default values specified in the data class.
@@ -531,7 +539,8 @@ class Client:
         self.avatar = kwargs.get('avatar', get_random_default_avatar())  # noqa
         self.platform = kwargs.get('platform', Platform.WINDOWS)
         self.net_cl = kwargs.get('net_cl', '')
-        self.party_build_id = '1:2:{0.net_cl}'.format(self)
+        self.party_version = kwargs.get('party_version', 3)
+        self.party_build_id = '1:{0.party_version}:{0.net_cl}'.format(self)
         self.default_party_config = kwargs.get('default_party_config', DefaultPartyConfig())  # noqa
         self.default_party_member_config = kwargs.get('default_party_member_config', DefaultPartyMemberConfig())  # noqa
         self.build = kwargs.get('build', '++Fortnite+Release-14.10-CL-14288110')  # noqa
