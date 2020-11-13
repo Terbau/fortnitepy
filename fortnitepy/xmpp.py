@@ -493,6 +493,8 @@ class XMPPClient:
         self._last_known_party_id = None
         self._task = None
 
+        self.send_presence_on_add = True
+
     def jid(self, user_id: str) -> aioxmpp.JID:
         return aioxmpp.JID.fromstr('{}@{}'.format(
             user_id,
@@ -613,11 +615,12 @@ class XMPPClient:
             # Send presence to the newly added friend as that is now
             # required to do by the server (or at least thats what
             # i suspect)
-            self.client.loop.create_task(self.send_presence(
-                to=f.jid,
-                status=self.client.party.last_raw_status,
-                show=self.client.away.value
-            ))
+            if self.send_presence_on_add:
+                self.client.loop.create_task(self.send_presence(
+                    to=f.jid,
+                    status=self.client.party.last_raw_status,
+                    show=self.client.away.value
+                ))
 
             self.client.dispatch_event('friend_add', f)
 
