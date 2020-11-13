@@ -6,6 +6,16 @@ Changelog
 Detailed version changes.
 
 
+v3.3.3
+------
+
+Added
+~~~~~
+
+- Added :attr:`Platform.XBOX_X`
+- Added :attr:`Platform.PLAYSTATION_5`
+
+
 v3.3.2
 ------
 

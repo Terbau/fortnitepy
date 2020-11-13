@@ -163,13 +163,17 @@ class Region(Enum):
 
 
 class Platform(Enum):
-    WINDOWS     = 'WIN'
-    MAC         = 'MAC'
-    PLAYSTATION = 'PSN'
-    XBOX        = 'XBL'
-    SWITCH      = 'SWT'
-    IOS         = 'IOS'
-    ANDROID     = 'AND'
+    WINDOWS       = 'WIN'
+    MAC           = 'MAC'
+    PLAYSTATION   = 'PSN'
+    PLAYSTATION_4 = 'PSN'
+    PLAYSTATION_5 = 'PS5'
+    XBOX          = 'XBL'
+    XBOX_ONE      = 'XBL'
+    XBOX_X        = 'XBX'
+    SWITCH        = 'SWT'
+    IOS           = 'IOS'
+    ANDROID       = 'AND'
 
 
 class UserSearchPlatform(Enum):

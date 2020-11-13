@@ -126,8 +126,14 @@ Enumerations
 
 	.. attribute:: WINDOWS
 	.. attribute:: MAC
-	.. attribute:: PLAYSTATION
-	.. attribute:: XBOX
+	.. attribute:: PLAYSTATION_4
+
+		Also accessible under ``PLAYSTATION`` for legacy reasons.
+	.. attribute:: PLAYSTATION_5
+	.. attribute:: XBOX_ONE
+
+		Also accessible under ``XBOX`` for legacy reasons.
+	.. attribute:: XBOX_X
 	.. attribute:: SWITCH
 	.. attribute:: IOS
 	.. attribute:: ANDROID
