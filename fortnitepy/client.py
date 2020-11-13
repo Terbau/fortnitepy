@@ -2929,7 +2929,7 @@ class Client:
                     **updated,
                     **edit_updated,
                     **party.construct_squad_assignments(),
-                    **party.meta.set_voicechat_implementation('VivoxVoiceChat')
+                    **party.meta.set_voicechat_implementation('EOSVoiceChat')
                 },
                 deleted=[*deleted, *edit_deleted],
                 priority=priority,
