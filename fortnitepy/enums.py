@@ -176,7 +176,6 @@ class Platform(Enum):
     ANDROID       = 'AND'
 
 
-
 class UserSearchPlatform(Enum):
     EPIC_GAMES  = 'epic'
     PLAYSTATION = 'psn'
