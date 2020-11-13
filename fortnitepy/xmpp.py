@@ -749,7 +749,7 @@ class XMPPClient:
                 net_cl = self.client.net_cl
         else:
             s = invite['meta']['urn:epic:cfg:build-id_s']
-            net_cl = s[4:] if s.startswith('1:1:') else s
+            net_cl = s[4:] if s.startswith('1:') else s
 
         if net_cl != self.client.net_cl and self.client.net_cl != '':
             log.debug(
