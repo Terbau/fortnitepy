@@ -170,7 +170,7 @@ class Platform(Enum):
     PLAYSTATION_5 = 'PS5'
     XBOX          = 'XBL'
     XBOX_ONE      = 'XBL'
-    XBOX_X        = 'XBX'
+    XBOX_X        = 'XSX'
     SWITCH        = 'SWT'
     IOS           = 'IOS'
     ANDROID       = 'AND'
