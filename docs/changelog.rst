@@ -6,6 +6,12 @@ Changelog
 Detailed version changes.
 
 
+v3.3.4
+------
+
+Fixed typo in the :attr:`Platform.XBOX_X` value. Whoops.
+
+
 v3.3.3
 ------
 
