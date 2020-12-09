@@ -2663,6 +2663,12 @@ class Client:
             List of user ids.
         season: :class:`int`
             The season number to request the battlepass levels for.
+
+            .. warning::
+
+                If you are requesting the previous season and the new season has not been
+                added to the library yet (check :class:`SeasonStartTimestamp`), you have to
+                manually include the previous seasons end timestamp in epoch seconds.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
@@ -2700,19 +2706,25 @@ class Client:
         start_time, end_time = self._process_stats_times(start_time, end_time)
 
         if end_time is not None:
-            t = getattr(SeasonStartTimestamp, 'SEASON_{}'.format(season)).value
-            if end_time < t:
+            e = getattr(SeasonStartTimestamp, 'SEASON_{}'.format(season), None)
+            if e is not None and end_time < e.value:
                 raise ValueError(
                     'end_time can\'t be lower than the seasons start timestamp'
                 )
 
-        info = getattr(BattlePassStat, 'SEASON_{}'.format(season)).value
-        stats = info[0] if isinstance(info[0], tuple) else (info[0],)
+        e = getattr(BattlePassStat, 'SEASON_{}'.format(season), None)
+        if e is not None:
+            info = e.value
+            stats = info[0] if isinstance(info[0], tuple) else (info[0],)
+            end_time = end_time if end_time is not None else info[1]
+        else:
+            stats = ('s{0}_social_bp_level'.format(season),)
+
         data = await self._multiple_stats_chunk_requester(
             users,
             stats,
             start_time=start_time,
-            end_time=end_time if end_time is not None else info[1]
+            end_time=end_time
         )
 
         def get_stat(user_data):
@@ -2738,6 +2750,12 @@ class Client:
             The user id to fetch the battlepass level for.
         season: :class:`int`
             The season number to request the battlepass level for.
+
+            .. warning::
+
+                If you are requesting the previous season and the new season has not been
+                added to the library yet (check :class:`SeasonStartTimestamp`), you have to
+                manually include the previous seasons end timestamp in epoch seconds.
         start_time: Optional[Union[:class:`int`, :class:`datetime.datetime`, :class:`SeasonStartTimestamp`]]
             The UTC start time of the window to get the battlepass level from.
             *Must be seconds since epoch, :class:`datetime.datetime` or a constant from SeasonEndTimestamp*
