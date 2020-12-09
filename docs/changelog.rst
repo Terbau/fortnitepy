@@ -6,6 +6,21 @@ Changelog
 Detailed version changes.
 
 
+v3.3.5
+------
+
+Added
+~~~~~
+
+- :attr:`SeasonStartTimestamp.SEASON_15`
+- :attr:`SeasonEndTimestamp.SEASON_14`
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused fetching battlepass levels for a new season to not work if the seasons timestamp was not added yet.
+
+
 v3.3.4
 ------
 
