@@ -110,8 +110,7 @@ client.
 .. code-block:: python3
 
     client = fortnitepy.Client(
-        email="email@email.com,
-        password="password1",
+        auth=fortnitepy.Auth, // Here goes an authentication method like fortnitepy.AdvancedAuth or fortnitepy.EmailAndPasswordAuth
         status="This is my status"
     )
 
@@ -181,8 +180,7 @@ with the correct one yourself.
 
     # pass the netcl to with the net_cl keyword when initializing the client.
     client = fortnitepy.Client(
-        email='email',
-        password='password',
+        auth=fortnitepy.Auth, // Here goes an authentication method like fortnitepy.AdvancedAuth or fortnitepy.EmailAndPasswordAuth
         net_cl='7605985'
     )
 
