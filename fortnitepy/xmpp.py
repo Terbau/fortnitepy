@@ -1188,8 +1188,8 @@ class XMPPClient:
             )
             if req_j is not None:
                 req = json.loads(req_j)['MemberSquadAssignmentRequest']
-                version = req['version']
-                if version != member._assignment_version:
+                version = req.get('version')
+                if version is not None and version != member._assignment_version:  # noqa
                     member._assignment_version = version
 
                     swap_member_id = req['swapTargetMemberId']
