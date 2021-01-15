@@ -583,32 +583,32 @@ class PartyMemberMeta(MetaBase):
     @property
     def assisted_challenge(self) -> str:
         base = self.get_prop('Default:AssistedChallengeInfo_j')
-        return base['AssistedChallengeInfo']['questItemDef']
+        return base['AssistedChallengeInfo'].get('questItemDef', 'None')
 
     @property
     def outfit(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['characterDef']
+        return base['AthenaCosmeticLoadout'].get('characterDef', 'None')
 
     @property
     def backpack(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['backpackDef']
+        return base['AthenaCosmeticLoadout'].get('backpackDef', 'None')
 
     @property
     def pickaxe(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['pickaxeDef']
+        return base['AthenaCosmeticLoadout'].get('pickaxeDef', 'None')
 
     @property
     def contrail(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['contrailDef']
+        return base['AthenaCosmeticLoadout'].get('contrailDef', 'None')
 
     @property
     def variants(self) -> List[Dict[str, str]]:
         base = self.get_prop('Default:AthenaCosmeticLoadoutVariants_j')
-        return base['AthenaCosmeticLoadoutVariants']['vL']
+        return base['AthenaCosmeticLoadoutVariants'].get('vL', {})
 
     @property
     def outfit_variants(self) -> List[Dict[str, str]]:
@@ -629,7 +629,7 @@ class PartyMemberMeta(MetaBase):
     @property
     def scratchpad(self) -> list:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['scratchpad']
+        return base['AthenaCosmeticLoadout'].get('scratchpad', [])
 
     @property
     def custom_data_store(self) -> list:
@@ -639,7 +639,7 @@ class PartyMemberMeta(MetaBase):
     @property
     def emote(self) -> str:
         base = self.get_prop('Default:FrontendEmote_j')
-        return base['FrontendEmote']['emoteItemDef']
+        return base['FrontendEmote'].get('emoteItemDef', 'None')
 
     @property
     def banner(self) -> Tuple[str, str, int]:
