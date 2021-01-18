@@ -575,7 +575,6 @@ class Client:
         self._exception_future = self.loop.create_future()
         self._ready_event = asyncio.Event()
         self._closed_event = asyncio.Event()
-        self._leave_lock = asyncio.Lock()
         self._join_party_lock = LockEvent()
         self._internal_join_party_lock = LockEvent()
         self._reauth_lock = LockEvent()
@@ -2902,17 +2901,17 @@ class Client:
                         self.user.id,
                         priority=priority
                     )
-                    async with self._leave_lock:
-                        try:
-                            await self.http.party_leave(
-                                data['current'][0]['id'],
-                                priority=priority
-                            )
-                        except HTTPException as e:
-                            m = ('errors.com.epicgames.social.'
-                                 'party.party_not_found')
-                            if e.message_code != m:
-                                raise
+
+                    try:
+                        await self.http.party_leave(
+                            data['current'][0]['id'],
+                            priority=priority
+                        )
+                    except HTTPException as e:
+                        m = ('errors.com.epicgames.social.'
+                                'party.party_not_found')
+                        if e.message_code != m:
+                            raise
 
                     await self.xmpp.leave_muc()
 

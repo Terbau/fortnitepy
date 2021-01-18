@@ -1831,7 +1831,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         self._cancel_clear_emote()
 
-        async with self.client._leave_lock:
+        async with self.client._join_party_lock:
             try:
                 await self.client.http.party_leave(self.party.id)
             except HTTPException as e:
@@ -1839,9 +1839,9 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 if e.message_code != m:
                     raise
 
-        await self.client.xmpp.leave_muc()
-        p = await self.client._create_party()
-        return p
+            await self.client.xmpp.leave_muc()
+            p = await self.client._create_party(acquire=False)
+            return p
 
     async def set_ready(self, state: ReadyState) -> None:
         """|coro|
