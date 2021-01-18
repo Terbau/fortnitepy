@@ -63,7 +63,11 @@ log = logging.getLogger(__name__)
 
 # all credit for this function goes to discord.py.
 def _cancel_tasks(loop: asyncio.AbstractEventLoop) -> None:
-    task_retriever = asyncio.Task.all_tasks
+    try:
+        task_retriever = asyncio.Task.all_tasks
+    except AttributeError:
+        task_retriever = asyncio.all_tasks
+
     tasks = {t for t in task_retriever(loop=loop) if not t.done()}
 
     if not tasks:
