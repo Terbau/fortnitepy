@@ -1474,7 +1474,6 @@ class XMPPClient:
         room.on_leave.connect(self.muc_on_leave)
         self.muc_room = room
 
-        asyncio.ensure_future(fut)
         await self.client.wait_for('muc_enter')
 
     async def leave_muc(self) -> None:
