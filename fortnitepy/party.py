@@ -3083,6 +3083,9 @@ class ClientParty(PartyBase, Patchable):
             priority=priority
         )
 
+        if not remove_missing:
+            return result
+
         for member in result:
             if member.id == self.client.user.id:
                 break
