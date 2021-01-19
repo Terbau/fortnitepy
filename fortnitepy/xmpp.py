@@ -456,6 +456,57 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
         return transport, stream, await features_future
 
 
+# Suppress noisy log message on stream failure
+async def _patched_main_impl(self):
+    failure_future = self._failure_future
+
+    override_peer = []
+    if self.stream.sm_enabled:
+        sm_location = self.stream.sm_location
+        if sm_location:
+            override_peer.append((
+                str(sm_location[0]),
+                sm_location[1],
+                aioxmpp.connector.STARTTLSConnector(),
+            ))
+    override_peer += self.override_peer
+
+    _, xmlstream, features = await aioxmpp.node.connect_xmlstream(
+        self._local_jid,
+        self._security_layer,
+        negotiation_timeout=self.negotiation_timeout.total_seconds(),
+        override_peer=override_peer,
+        loop=self._loop,
+        logger=self.logger
+    )
+
+    self._had_connection = True
+
+    try:
+        features, _ = await self._negotiate_stream(
+            xmlstream,
+            features
+        )
+
+        if self._is_suspended:
+            self.on_stream_resumed()
+        self._is_suspended = False
+        self._backoff_time = None
+
+        exc = await failure_future
+        # self.logger.error("stream failed: %s", exc)
+        self.logger.debug("stream failed: %s", exc)
+        raise exc
+    except asyncio.CancelledError:
+        self.logger.info("client shutting down (on request)")
+        # cancelled, this means a clean shutdown is requested
+        await self.stream.close()
+        raise
+    finally:
+        self.logger.info("stopping stream")
+        self.stream.stop()
+
+
 # Were just patching this method to suppress an exception
 # which is raised on stream error.
 def _patched_done_handler(self, task):
@@ -472,8 +523,10 @@ def _patched_done_handler(self, task):
         except Exception:
             pass
         self.on_failure(err)
+        # self._logger.exception("broker task failed")
 
 
+aioxmpp.node.Client._main_impl = _patched_main_impl
 aioxmpp.stream.StanzaStream._done_handler = _patched_done_handler
 
 
