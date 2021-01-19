@@ -34,8 +34,8 @@ import functools
 
 from typing import TYPE_CHECKING, List, Optional, Any, Union, Tuple
 from urllib.parse import quote
-from .utils import MaybeLock
 
+from .utils import MaybeLock
 from .errors import HTTPException
 
 if TYPE_CHECKING:

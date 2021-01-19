@@ -2818,6 +2818,7 @@ class PartyBase:
 
     async def _update_members(self, members: Optional[list] = None,
                               remove_missing: bool = True,
+                              fetch_user_data: bool = True,
                               priority: int = 0) -> None:
         client = self.client
         if members is None:
@@ -2840,6 +2841,9 @@ class PartyBase:
 
             if user is not None:
                 raw_users[user.id] = user.get_raw()
+            else:
+                if not fetch_user_data:
+                    raw_users[user_id] = {'id': user_id}
 
         user_ids = [uid for uid in user_ids if uid not in raw_users]
 
@@ -3070,10 +3074,12 @@ class ClientParty(PartyBase, Patchable):
 
     async def _update_members(self, members: Optional[list] = None,
                               remove_missing: bool = True,
+                              fetch_user_data: bool = True,
                               priority: int = 0) -> None:
         result = await super()._update_members(
             members=members,
             remove_missing=remove_missing,
+            fetch_user_data=fetch_user_data,
             priority=priority
         )
 

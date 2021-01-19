@@ -517,8 +517,24 @@ class Client:
         The host used by Fortnite's XMPP services.
     service_domain: :class:`str`
         The domain used by Fortnite's XMPP services.
-    serivce_port: :class:`int`
+    service_port: :class:`int`
         The port used by Fortnite's XMPP services.
+    cache_users: :class:`bool`
+        Whether or not the library should cache :class:`User` objects. Disable
+        this if you are running a program with lots of users as this could
+        potentially take a big hit on the memory usage. Defaults to ``True``.
+    events_request_user_data: :class:`bool`
+        Whether or not user data is requested in event processing. Disabling
+        this might be useful for larger applications that has to deal with
+        possibly being rate limited on their ip. Defaults to ``True``.
+
+        .. warning::
+
+            Keep in mind that if this option is disabled, there is a big
+            chance that display names, external auths and more might be missing
+            or simply is ``None`` on objects deriving from :class:`User`. Keep in
+            mind that :attr:`User.id` always will be available. You can use
+            :meth:`User.fetch()` to update all missing attributes.
 
     Attributes
     ----------
@@ -532,11 +548,9 @@ class Client:
 
     def __init__(self, auth, *,
                  loop: Optional[asyncio.AbstractEventLoop] = None,
-                 cache_users: bool = True,
                  **kwargs: Any) -> None:
 
         self.loop = loop or asyncio.get_event_loop()
-        self.cache_users = cache_users
 
         self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')  # noqa
         self.away = kwargs.get('away', AwayStatus.ONLINE)
@@ -549,10 +563,11 @@ class Client:
         self.default_party_member_config = kwargs.get('default_party_member_config', DefaultPartyMemberConfig())  # noqa
         self.build = kwargs.get('build', '++Fortnite+Release-14.10-CL-14288110')  # noqa
         self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
-
         self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
         self.service_domain = kwargs.get('xmpp_domain', 'xmpp-service-prod.ol.epicgames.com')  # noqa
         self.service_port = kwargs.get('xmpp_port', 5222)
+        self.cache_users = kwargs.get('cache_users', True)
+        self.events_request_user_data = kwargs.get('events_request_user_data', True)  # noqa
 
         self.kill_other_sessions = True
         self.accept_eula = True
@@ -2913,7 +2928,7 @@ class Client:
                         )
                     except HTTPException as e:
                         m = ('errors.com.epicgames.social.'
-                                'party.party_not_found')
+                             'party.party_not_found')
                         if e.message_code != m:
                             raise
 
