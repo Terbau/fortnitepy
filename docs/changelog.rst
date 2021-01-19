@@ -6,10 +6,10 @@ Changelog
 Detailed version changes.
 
 
-v3.3.6
+v3.4.0
 ------
 
-Adds Python 3.9 compatibility and other small fixes and features.
+This update adds Python 3.9 compatibility and other small fixes and features.
 
 Changes
 ~~~~~~~
@@ -25,8 +25,8 @@ Added
 Bug Fixes
 ~~~~~~~~~
 
-- Fixed several bugs causing python 3.9 to not be compatible with the library.
-- Fixed what I believe to be the (hopefully) last remaining issue that caused :attr:`ClientParty.me` to be ``None`` in rare cases.
+- Fixed several bugs related to changes in python 3.9 that caused the version to be incompatible with fortnitepy.
+- Fixed what I believe to be (hopefully) the last remaining issues that caused :attr:`ClientParty.me` to be ``None`` in some rare cases.
 - Party leave and party join actions are now under the same lock which should elliminate some race conditions.
 - Fixed an issue that caused aiohttp to spam noisy errors on shutdown when using :class:`asyncio.ProactorEventLoop`.
 - Fixed an issue where an error was raised if a meta property was missing.
