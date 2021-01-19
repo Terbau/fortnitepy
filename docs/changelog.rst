@@ -6,6 +6,36 @@ Changelog
 Detailed version changes.
 
 
+v3.3.6
+------
+
+Adds Python 3.9 compatibility and other small fixes and features.
+
+Changes
+~~~~~~~
+
+- Bumped aioxmpp compatibility requirement to the latest version (``0.12.0``)
+
+Added
+~~~~~
+
+- Added a new kwarg ``fetch_user_data_in_events`` to :class:`Client`. This is useful for larger applications that might deal with ratelimiting on their ip.
+- Added :meth:`User.fetch()` (applies to all objects derived from ``UserBase`` too) which can be used to refetch userdata like display name and external auths. This is useful if you have the new kwarg set to ``False``.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed several bugs causing python 3.9 to not be compatible with the library.
+- Fixed what I believe to be the (hopefully) last remaining issue that caused :attr:`ClientParty.me` to be ``None`` in rare cases.
+- Party leave and party join actions are now under the same lock which should elliminate some race conditions.
+- Fixed an issue that caused aiohttp to spam noisy errors on shutdown when using :class:`asyncio.ProactorEventLoop`.
+- Fixed an issue where an error was raised if a meta property was missing.
+- Fixed websocket sessions not being correctly closed when reconnecting after an unexpected close.
+- Suppressed the ``websocket stream closed by peer`` message.
+- Suppressed a noisy asyncio error log on shutdown that was introduced in the latest aioxmpp version.
+- Fixed an issue that caused processing of :func:`event_party_team_swap()` to error in some very rare cases.
+
+
 v3.3.5
 ------
 

@@ -135,7 +135,7 @@ class UserBase:
         .. warning::
 
             This property might be ``None`` if
-            ``Client.events_request_user_data`` is set to ``False``.
+            ``Client.fetch_user_data_in_events`` is set to ``False``.
         """
         return self._epicgames_display_name or self._external_display_name
 
@@ -168,7 +168,7 @@ class UserBase:
 
             This property might be ``False`` even though the account is a
             registered epic games account if
-            ``Client.events_request_user_data`` is set to ``False``.
+            ``Client.fetch_user_data_in_events`` is set to ``False``.
         """
         return self._epicgames_display_name is not None
 
@@ -182,7 +182,8 @@ class UserBase:
 
         Fetches basic information about this user and sets the updated
         properties. This might be useful if you for example need to be
-        sure the display name is updated.
+        sure the display name is updated or if you have
+        ``Client.fetch_user_data_in_events`` set to ``False``.
 
         Raises
         ------

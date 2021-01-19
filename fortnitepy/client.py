@@ -523,9 +523,9 @@ class Client:
         Whether or not the library should cache :class:`User` objects. Disable
         this if you are running a program with lots of users as this could
         potentially take a big hit on the memory usage. Defaults to ``True``.
-    events_request_user_data: :class:`bool`
-        Whether or not user data is requested in event processing. Disabling
-        this might be useful for larger applications that has to deal with
+    fetch_user_data_in_events: :class:`bool`
+        Whether or not user data should be fetched in event processing. Disabling
+        this might be useful for larger applications that deals with
         possibly being rate limited on their ip. Defaults to ``True``.
 
         .. warning::
@@ -567,7 +567,7 @@ class Client:
         self.service_domain = kwargs.get('xmpp_domain', 'xmpp-service-prod.ol.epicgames.com')  # noqa
         self.service_port = kwargs.get('xmpp_port', 5222)
         self.cache_users = kwargs.get('cache_users', True)
-        self.events_request_user_data = kwargs.get('events_request_user_data', True)  # noqa
+        self.fetch_user_data_in_events = kwargs.get('fetch_user_data_in_events', True)  # noqa
 
         self.kill_other_sessions = True
         self.accept_eula = True

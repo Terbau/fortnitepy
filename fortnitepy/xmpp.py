@@ -668,7 +668,7 @@ class XMPPClient:
 
             data = self.client.get_user(_id)
             if data is None:
-                if self.client.events_request_user_data:
+                if self.client.fetch_user_data_in_events:
                     data = await self.client.fetch_user(_id, raw=True)
             else:
                 data = data.get_raw()
@@ -707,7 +707,7 @@ class XMPPClient:
         elif _status == 'PENDING':
             data = self.client.get_user(_id)
             if data is None:
-                if self.client.events_request_user_data:
+                if self.client.fetch_user_data_in_events:
                     data = await self.client.fetch_user(_id, raw=True)
             else:
                 data = data.get_raw()
@@ -781,7 +781,7 @@ class XMPPClient:
         account_id = body['payload']['accountId']
         data = self.client.get_user(account_id)
         if data is None:
-            if self.client.events_request_user_data:
+            if self.client.fetch_user_data_in_events:
                 data = await self.client.fetch_user(account_id, raw=True)
         else:
             data = data.get_raw()
@@ -799,7 +799,7 @@ class XMPPClient:
         account_id = body['payload']['accountId']
         data = self.client.get_blocked_user(account_id)
         if data is None:
-            if self.client.events_request_user_data:
+            if self.client.fetch_user_data_in_events:
                 data = await self.client.fetch_user(account_id, raw=True)
         else:
             data = data.get_raw()
@@ -861,7 +861,7 @@ class XMPPClient:
         new_party = Party(self.client, data)
         await new_party._update_members(
             members=data['members'],
-            fetch_user_data=self.client.events_request_user_data,
+            fetch_user_data=self.client.fetch_user_data_in_events,
         )
 
         invitation = ReceivedPartyInvitation(
@@ -897,7 +897,7 @@ class XMPPClient:
             member = (await party._update_members(
                 (body,),
                 remove_missing=False,
-                fetch_user_data=self.client.events_request_user_data,
+                fetch_user_data=self.client.fetch_user_data_in_events,
             ))[0]
 
         fut = None
@@ -1179,7 +1179,7 @@ class XMPPClient:
                         member = (await party._update_members(
                             (m_data,),
                             remove_missing=False,
-                            fetch_user_data=self.client.events_request_user_data,  # noqa
+                            fetch_user_data=self.client.fetch_user_data_in_events,  # noqa
                         ))[0]
                         break
                 else:
@@ -1283,7 +1283,7 @@ class XMPPClient:
 
         data = self.client.get_user(user_id)
         if data is None:
-            if self.client.events_request_user_data:
+            if self.client.fetch_user_data_in_events:
                 data = await self.client.fetch_user(user_id, raw=True)
         else:
             data = data.get_raw()
