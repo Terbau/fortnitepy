@@ -1208,8 +1208,9 @@ class Client:
         if cache:
             for u in self._users.values():
                 try:
-                    if u.display_name.casefold() == display_name.casefold():
-                        return u
+                    if u.display_name is not None:
+                        if u.display_name.casefold() == display_name.casefold():  # noqa
+                            return u
                 except AttributeError:
                     pass
 
@@ -1364,9 +1365,10 @@ class Client:
             if cache:
                 for u in self._users.values():
                     try:
-                        if u.display_name.casefold() == dn.casefold():
-                            _users.append(u)
-                            return
+                        if u.display_name is not None:
+                            if u.display_name.casefold() == dn.casefold():
+                                _users.append(u)
+                                return
                     except AttributeError:
                         pass
 
