@@ -278,7 +278,7 @@ class WebsocketTransport:
                 if msg.type == aiohttp.WSMsgType.CLOSED:
                     if self._attempt_reconnect:
                         err = ConnectionError(
-                            'websocket stream closed by peer'
+                            'websocket stream closed'
                         )
                     else:
                         err = None
@@ -286,6 +286,8 @@ class WebsocketTransport:
                     if not self._called_lost:
                         self._called_lost = True
                         self.stream.connection_lost(err)
+                        self._close_session()
+
                     break
 
                 if msg.type == aiohttp.WSMsgType.ERROR:
@@ -323,15 +325,18 @@ class WebsocketTransport:
         if self._reader_task is not None and not self._reader_task.cancelled():
             self._reader_task.cancel()
 
+    def _close_session(self) -> None:
+        try:
+            return self.loop.create_task(self.session.close())
+        except AttributeError:
+            pass
+
     def close_callback(self, *args) -> None:
         self._close_event.set()
 
     def on_close(self, *args) -> None:
-        try:
-            task = self.loop.create_task(self.session.close())
-        except AttributeError:
-            pass
-        else:
+        task = self._close_session()
+        if task is not None:
             task.add_done_callback(self.close_callback)
 
     def _close(self) -> None:
