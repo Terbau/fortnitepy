@@ -406,6 +406,21 @@ class WebsocketXMLStream(aioxmpp.protocol.XMLStream):
             nsmap={None: "jabber:client"},
             sorted_attributes=self._sorted_attributes)
 
+    def error_future(self):
+        def callback(*args):
+            future = args[0]
+
+            try:
+                future.result()
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass
+
+        fut = super().error_future()
+        fut.add_done_callback(callback)
+        return fut
+
 
 class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
     def __init__(self, client, ws_connector=None):
