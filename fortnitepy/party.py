@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019-2020 Terbau
+Copyright (c) 2019-2021 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -583,32 +583,32 @@ class PartyMemberMeta(MetaBase):
     @property
     def assisted_challenge(self) -> str:
         base = self.get_prop('Default:AssistedChallengeInfo_j')
-        return base['AssistedChallengeInfo']['questItemDef']
+        return base['AssistedChallengeInfo'].get('questItemDef', 'None')
 
     @property
     def outfit(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['characterDef']
+        return base['AthenaCosmeticLoadout'].get('characterDef', 'None')
 
     @property
     def backpack(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['backpackDef']
+        return base['AthenaCosmeticLoadout'].get('backpackDef', 'None')
 
     @property
     def pickaxe(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['pickaxeDef']
+        return base['AthenaCosmeticLoadout'].get('pickaxeDef', 'None')
 
     @property
     def contrail(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['contrailDef']
+        return base['AthenaCosmeticLoadout'].get('contrailDef', 'None')
 
     @property
     def variants(self) -> List[Dict[str, str]]:
         base = self.get_prop('Default:AthenaCosmeticLoadoutVariants_j')
-        return base['AthenaCosmeticLoadoutVariants']['vL']
+        return base['AthenaCosmeticLoadoutVariants'].get('vL', {})
 
     @property
     def outfit_variants(self) -> List[Dict[str, str]]:
@@ -629,7 +629,7 @@ class PartyMemberMeta(MetaBase):
     @property
     def scratchpad(self) -> list:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['scratchpad']
+        return base['AthenaCosmeticLoadout'].get('scratchpad', [])
 
     @property
     def custom_data_store(self) -> list:
@@ -639,7 +639,7 @@ class PartyMemberMeta(MetaBase):
     @property
     def emote(self) -> str:
         base = self.get_prop('Default:FrontendEmote_j')
-        return base['FrontendEmote']['emoteItemDef']
+        return base['FrontendEmote'].get('emoteItemDef', 'None')
 
     @property
     def banner(self) -> Tuple[str, str, int]:
@@ -1702,6 +1702,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         self._config_cache = {}
         self.patch_lock = asyncio.Lock()
         self.edit_lock = asyncio.Lock()
+        self._dummy = False
 
         super().__init__(client, party, data)
 
@@ -1714,6 +1715,9 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                        deleted: Optional[list] = None,
                        overridden: Optional[dict] = None,
                        **kwargs) -> None:
+        if self._dummy:
+            return
+
         await self.client.http.party_update_member_meta(
             party_id=self.party.id,
             user_id=self.id,
@@ -1831,7 +1835,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         self._cancel_clear_emote()
 
-        async with self.client._leave_lock:
+        async with self.client._join_party_lock:
             try:
                 await self.client.http.party_leave(self.party.id)
             except HTTPException as e:
@@ -1839,9 +1843,9 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 if e.message_code != m:
                     raise
 
-        await self.client.xmpp.leave_muc()
-        p = await self.client._create_party()
-        return p
+            await self.client.xmpp.leave_muc()
+            p = await self.client._create_party(acquire=False)
+            return p
 
     async def set_ready(self, state: ReadyState) -> None:
         """|coro|
@@ -2814,6 +2818,7 @@ class PartyBase:
 
     async def _update_members(self, members: Optional[list] = None,
                               remove_missing: bool = True,
+                              fetch_user_data: bool = True,
                               priority: int = 0) -> None:
         client = self.client
         if members is None:
@@ -2836,6 +2841,9 @@ class PartyBase:
 
             if user is not None:
                 raw_users[user.id] = user.get_raw()
+            else:
+                if not fetch_user_data:
+                    raw_users[user_id] = {'id': user_id}
 
         user_ids = [uid for uid in user_ids if uid not in raw_users]
 
@@ -3063,6 +3071,66 @@ class ClientParty(PartyBase, Patchable):
 
         if new_leader.id == self.client.user.id:
             self.client.party.me.update_role('CAPTAIN')
+
+    async def _update_members(self, members: Optional[list] = None,
+                              remove_missing: bool = True,
+                              fetch_user_data: bool = True,
+                              priority: int = 0) -> None:
+        result = await super()._update_members(
+            members=members,
+            remove_missing=remove_missing,
+            fetch_user_data=fetch_user_data,
+            priority=priority
+        )
+
+        if not remove_missing:
+            return result
+
+        for member in result:
+            if member.id == self.client.user.id:
+                break
+        else:
+            # There should always be a ClientPartyMember in a ClientParty,
+            # therefore we have to create a dummy until the actual
+            # ClientPartyMember is added at a later stage. We do this to avoid
+            # ClientParty.me being None.
+            default_config = self.client.default_party_member_config
+            now = self.client.to_iso(datetime.datetime.utcnow())
+            platform_s = self.client.platform.value
+            conn_type = default_config.cls.CONN_TYPE
+            external_auths = [
+                x.get_raw() for x in self.client.user.external_auths
+            ]
+
+            data = {
+                'account_id': self.client.user.id,
+                'meta': {},
+                'connections': [
+                    {
+                        'id': str(self.client.xmpp.xmpp_client.local_jid),
+                        'connected_at': now,
+                        'updated_at': now,
+                        'offline_ttl': default_config.offline_ttl,
+                        'yield_leadership': default_config.yield_leadership,
+                        'meta': {
+                            'urn:epic:conn:platform_s': platform_s,
+                            'urn:epic:conn:type_s': conn_type,
+                        }
+                    }
+                ],
+                'revision': 0,
+                'updated_at': now,
+                'joined_at': now,
+                'role': 'MEMBER',
+                'displayName': self.client.user.display_name,
+                'id': self.client.user.id,
+                'externaAuths': external_auths,
+            }
+
+            member = self._create_clientmember(data)
+            member._dummy = True
+
+        return result
 
     async def join_chat(self) -> None:
         await self.client.xmpp.join_muc(self.id)

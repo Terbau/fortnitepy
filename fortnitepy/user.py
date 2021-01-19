@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019-2020 Terbau
+Copyright (c) 2019-2021 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -123,14 +123,19 @@ class UserBase:
         return not self.__eq__(other)
 
     @property
-    def display_name(self) -> str:
-        """:class:`str`: The users displayname
+    def display_name(self) -> Optional[str]:
+        """Optional[:class:`str`]: The users displayname
 
         .. warning::
 
             The display name will be the one registered to the epicgames
             account. If an epicgames account is not found it defaults
             to the display name of an external auth.
+
+        .. warning::
+
+            This property might be ``None`` if
+            ``Client.fetch_user_data_in_events`` is set to ``False``.
         """
         return self._epicgames_display_name or self._external_display_name
 
@@ -158,6 +163,12 @@ class UserBase:
             If this is True, the display name will be the one registered to
             the epicgames account, if not it defaults to the display name of
             an external auth.
+
+        .. warning::
+
+            This property might be ``False`` even though the account is a
+            registered epic games account if
+            ``Client.fetch_user_data_in_events`` is set to ``False``.
         """
         return self._epicgames_display_name is not None
 
@@ -165,6 +176,26 @@ class UserBase:
     def jid(self) -> JID:
         """:class:`aioxmpp.JID`: The JID of the user."""
         return JID.fromstr('{0.id}@{0.client.service_host}'.format(self))
+
+    async def fetch(self) -> None:
+        """|coro|
+
+        Fetches basic information about this user and sets the updated
+        properties. This might be useful if you for example need to be
+        sure the display name is updated or if you have
+        ``Client.fetch_user_data_in_events`` set to ``False``.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        result = await self.client.http.account_graphql_get_multiple_by_user_id(  # noqa
+            (self.id,),
+        )
+        data = result['accounts'][0]
+
+        self._update(data)
 
     async def fetch_br_stats(self, *,
                              start_time: Optional[DatetimeOrTimestamp] = None,
@@ -311,8 +342,7 @@ class UserBase:
             extra_external_auths=data.get('extraExternalAuths', []),
         )
 
-        self._id = data.get('accountId',
-                            data.get('id', data.get('account_id')))
+        self._id = data.get('id', data.get('accountId', data.get('account_id')))  # noqa
 
     def _update_external_auths(self, external_auths: List[dict], *,
                                extra_external_auths: List[dict] = []) -> None:

@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019-2020 Terbau
+Copyright (c) 2019-2021 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -52,27 +52,6 @@ class FriendBase(UserBase):
         self._status = data['status']
         self._direction = data['direction']
         self._created_at = self.client.from_iso(data['created'])
-
-    @property
-    def display_name(self) -> str:
-        """:class:`str`: The friend's displayname"""
-        return super().display_name
-
-    @property
-    def id(self) -> str:
-        """:class:`str`: The friend's id"""
-        return self._id
-
-    @property
-    def external_auths(self) -> List[ExternalAuth]:
-        """:class:`list`: List containing information about external auths.
-        Might be empty if the friend does not have any external auths"""
-        return self._external_auths
-
-    @property
-    def jid(self) -> JID:
-        """:class:`aioxmpp.JID`: The jid of the friend."""
-        return super().jid
 
     @property
     def status(self) -> str:
@@ -162,16 +141,6 @@ class Friend(FriendBase):
         self._note = _note if _note != '' else None
 
     @property
-    def display_name(self) -> str:
-        """:class:`str`: The friends displayname"""
-        return super().display_name
-
-    @property
-    def id(self) -> str:
-        """:class:`str`: The friends id"""
-        return self._id
-
-    @property
     def favorite(self) -> bool:
         """:class:`bool`: ``True`` if the friend is favorited by :class:`ClientUser`
         else ``False``.
@@ -189,13 +158,6 @@ class Friend(FriendBase):
     def note(self) -> Optional[str]:
         """:class:`str`: The friend's note. ``None`` if no note is set."""
         return self._note
-
-    @property
-    def external_auths(self) -> List[ExternalAuth]:
-        """:class:`list`: List containing information about external auths.
-        Might be empty if the friend does not have any external auths
-        """
-        return self._external_auths
 
     @property
     def last_presence(self) -> Presence:

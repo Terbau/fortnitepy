@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019-2020 Terbau
+Copyright (c) 2019-2021 Terbau
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -278,7 +278,7 @@ class WebsocketTransport:
                 if msg.type == aiohttp.WSMsgType.CLOSED:
                     if self._attempt_reconnect:
                         err = ConnectionError(
-                            'websocket stream closed by peer'
+                            'websocket stream closed'
                         )
                     else:
                         err = None
@@ -286,6 +286,8 @@ class WebsocketTransport:
                     if not self._called_lost:
                         self._called_lost = True
                         self.stream.connection_lost(err)
+                        self._close_session()
+
                     break
 
                 if msg.type == aiohttp.WSMsgType.ERROR:
@@ -323,15 +325,18 @@ class WebsocketTransport:
         if self._reader_task is not None and not self._reader_task.cancelled():
             self._reader_task.cancel()
 
+    def _close_session(self) -> None:
+        try:
+            return self.loop.create_task(self.session.close())
+        except AttributeError:
+            pass
+
     def close_callback(self, *args) -> None:
         self._close_event.set()
 
     def on_close(self, *args) -> None:
-        try:
-            task = self.loop.create_task(self.session.close())
-        except AttributeError:
-            pass
-        else:
+        task = self._close_session()
+        if task is not None:
             task.add_done_callback(self.close_callback)
 
     def _close(self) -> None:
@@ -401,6 +406,21 @@ class WebsocketXMLStream(aioxmpp.protocol.XMLStream):
             nsmap={None: "jabber:client"},
             sorted_attributes=self._sorted_attributes)
 
+    def error_future(self) -> asyncio.Future:
+        def callback(*args):
+            future = args[0]
+
+            try:
+                future.result()
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass
+
+        fut = super().error_future()
+        fut.add_done_callback(callback)
+        return fut
+
 
 class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
     def __init__(self, client, ws_connector=None):
@@ -456,6 +476,57 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
         return transport, stream, await features_future
 
 
+# Suppress noisy log message on stream failure
+async def _patched_main_impl(self):
+    failure_future = self._failure_future
+
+    override_peer = []
+    if self.stream.sm_enabled:
+        sm_location = self.stream.sm_location
+        if sm_location:
+            override_peer.append((
+                str(sm_location[0]),
+                sm_location[1],
+                aioxmpp.connector.STARTTLSConnector(),
+            ))
+    override_peer += self.override_peer
+
+    _, xmlstream, features = await aioxmpp.node.connect_xmlstream(
+        self._local_jid,
+        self._security_layer,
+        negotiation_timeout=self.negotiation_timeout.total_seconds(),
+        override_peer=override_peer,
+        loop=self._loop,
+        logger=self.logger
+    )
+
+    self._had_connection = True
+
+    try:
+        features, _ = await self._negotiate_stream(
+            xmlstream,
+            features
+        )
+
+        if self._is_suspended:
+            self.on_stream_resumed()
+        self._is_suspended = False
+        self._backoff_time = None
+
+        exc = await failure_future
+        # self.logger.error("stream failed: %s", exc)
+        self.logger.debug("stream failed: %s", exc)
+        raise exc
+    except asyncio.CancelledError:
+        self.logger.info("client shutting down (on request)")
+        # cancelled, this means a clean shutdown is requested
+        await self.stream.close()
+        raise
+    finally:
+        self.logger.info("stopping stream")
+        self.stream.stop()
+
+
 # Were just patching this method to suppress an exception
 # which is raised on stream error.
 def _patched_done_handler(self, task):
@@ -472,8 +543,10 @@ def _patched_done_handler(self, task):
         except Exception:
             pass
         self.on_failure(err)
+        # self._logger.exception("broker task failed")
 
 
+aioxmpp.node.Client._main_impl = _patched_main_impl
 aioxmpp.stream.StanzaStream._done_handler = _patched_done_handler
 
 
@@ -519,10 +592,15 @@ class XMPPClient:
         sent_at = self.client.from_iso(data['sent'])
         expires_at = sent_at + datetime.timedelta(hours=4)
 
+        member = None
         for m in data['members']:
             if m['account_id'] == from_id:
                 member = m
                 break
+
+        if member is None:
+            # This should theoretically never happen.
+            raise RuntimeError('Inviter is missing from payload.')
 
         party_m = data['meta']
         member_m = member['meta']
@@ -590,7 +668,8 @@ class XMPPClient:
 
             data = self.client.get_user(_id)
             if data is None:
-                data = await self.client.fetch_user(_id, raw=True)
+                if self.client.fetch_user_data_in_events:
+                    data = await self.client.fetch_user(_id, raw=True)
             else:
                 data = data.get_raw()
 
@@ -600,7 +679,8 @@ class XMPPClient:
                 timestamp = datetime.datetime.utcnow()
 
             f = self.client.store_friend({
-                **data,
+                **(data or {}),
+                'id': _payload['accountId'],
                 'favorite': _payload['favorite'],
                 'direction': _payload['direction'],
                 'status': _status,
@@ -627,12 +707,14 @@ class XMPPClient:
         elif _status == 'PENDING':
             data = self.client.get_user(_id)
             if data is None:
-                data = await self.client.fetch_user(_id, raw=True)
+                if self.client.fetch_user_data_in_events:
+                    data = await self.client.fetch_user(_id, raw=True)
             else:
                 data = data.get_raw()
 
             data = {
-                **data,
+                **(data or {}),
+                'id': _payload['accountId'],
                 'direction': _payload['direction'],
                 'status': _status,
                 'created': body['timestamp']
@@ -697,8 +779,17 @@ class XMPPClient:
         body = ctx.body
 
         account_id = body['payload']['accountId']
-        data = await self.client.fetch_user(account_id, raw=True)
-        blocked_user = self.client.store_blocked_user(data)
+        data = self.client.get_user(account_id)
+        if data is None:
+            if self.client.fetch_user_data_in_events:
+                data = await self.client.fetch_user(account_id, raw=True)
+        else:
+            data = data.get_raw()
+
+        blocked_user = self.client.store_blocked_user({
+            **(data or {}),
+            'id': account_id
+        })
         self.client.dispatch_event('user_block', blocked_user)
 
     @dispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryRemoved')  # noqa
@@ -706,7 +797,17 @@ class XMPPClient:
         body = ctx.body
 
         account_id = body['payload']['accountId']
-        user = await self.client.fetch_user(account_id)
+        data = self.client.get_blocked_user(account_id)
+        if data is None:
+            if self.client.fetch_user_data_in_events:
+                data = await self.client.fetch_user(account_id, raw=True)
+        else:
+            data = data.get_raw()
+
+        user = self.client.store_user({
+            **(data or {}),
+            'id': account_id,
+        })
 
         try:
             del self.client._blocked_users[user.id]
@@ -758,7 +859,10 @@ class XMPPClient:
             )
 
         new_party = Party(self.client, data)
-        await new_party._update_members(members=data['members'])
+        await new_party._update_members(
+            members=data['members'],
+            fetch_user_data=self.client.fetch_user_data_in_events,
+        )
 
         invitation = ReceivedPartyInvitation(
             self.client,
@@ -792,9 +896,11 @@ class XMPPClient:
         if member is None:
             member = (await party._update_members(
                 (body,),
-                remove_missing=False
+                remove_missing=False,
+                fetch_user_data=self.client.fetch_user_data_in_events,
             ))[0]
 
+        fut = None
         if party.me is not None:
             party.me.do_on_member_join_patch()
 
@@ -815,10 +921,8 @@ class XMPPClient:
         except asyncio.TimeoutError:
             pass
 
-        try:
+        if fut is not None:
             await fut
-        except UnboundLocalError:
-            pass
 
         self.client.dispatch_event('party_member_join', member)
 
@@ -1074,7 +1178,8 @@ class XMPPClient:
                     if user_id == m_data['account_id']:
                         member = (await party._update_members(
                             (m_data,),
-                            remove_missing=False
+                            remove_missing=False,
+                            fetch_user_data=self.client.fetch_user_data_in_events,  # noqa
                         ))[0]
                         break
                 else:
@@ -1109,8 +1214,8 @@ class XMPPClient:
             )
             if req_j is not None:
                 req = json.loads(req_j)['MemberSquadAssignmentRequest']
-                version = req['version']
-                if version != member._assignment_version:
+                version = req.get('version')
+                if version is not None and version != member._assignment_version:  # noqa
                     member._assignment_version = version
 
                     swap_member_id = req['swapTargetMemberId']
@@ -1176,10 +1281,17 @@ class XMPPClient:
         if party.id != body.get('party_id'):
             return
 
-        user = self.client.get_user(user_id)
-        if user is None:
-            user = await self.client.fetch_user(user_id)
+        data = self.client.get_user(user_id)
+        if data is None:
+            if self.client.fetch_user_data_in_events:
+                data = await self.client.fetch_user(user_id, raw=True)
+        else:
+            data = data.get_raw()
 
+        user = self.client.store_user({
+            **(data or {}),
+            'id': user_id,
+        })
         confirmation = PartyJoinConfirmation(self.client, party, user, body)
 
         # Automatically confirm if event is received but no handler is found.
@@ -1474,7 +1586,6 @@ class XMPPClient:
         room.on_leave.connect(self.muc_on_leave)
         self.muc_room = room
 
-        asyncio.ensure_future(fut)
         await self.client.wait_for('muc_enter')
 
     async def leave_muc(self) -> None:
