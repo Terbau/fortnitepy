@@ -475,6 +475,13 @@ class PartyMemberMeta(MetaBase):
                                  "".format(self.def_character)),
                 },
             }),
+            'Default:CampaignInfo_j': json.dumps({
+                'CampaignInfo': {
+                    'matchmakingLevel': 0,
+                    'zoneInstanceId': '',
+                    'homeBaseVersion': 1,
+                },
+            }),
             'Default:MatchmakingLevel_U': '0',
             'Default:ZoneInstanceId_s': '',
             'Default:HomeBaseVersion_U': '1',
@@ -560,18 +567,28 @@ class PartyMemberMeta(MetaBase):
                     'friendBoostXp': 0,
                 },
             }),
-            'Default:Platform_j': json.dumps({
-                'Platform': {
-                    'platformStr': self.member.client.platform.value,
+            'Default:PlatformData_j': json.dumps({
+                'PlatformData': {
+                    'platform': {
+                        'platformDescription': {
+                            'name': self.client.platform.value,
+                            'platformType': 'DESKTOP',
+                            'onlineSubsystem': 'None',
+                            'sessionType': '',
+                            'externalAccountType': '',
+                            'crossplayPool': 'DESKTOP'
+                        },
+                    },
+                    'uniqueId': 'INVALID',
+                    'sessionId': ''
                 },
             }),
-            'Default:PlatformUniqueId_s': 'INVALID',
-            'Default:PlatformSessionId_s': '',
             'Default:CrossplayPreference_s': 'OptedIn',
             'Default:VoiceChatEnabled_b': 'true',
             'Default:VoiceConnectionId_s': '',
-            'Default:SpectateAPartyMemberAvailable_b': "false",
+            'Default:SpectateAPartyMemberAvailable_b': 'false',
             'Default:FeatDefinition_s': 'None',
+            'Default:SidekickStatus_s': 'None',
             'Default:VoiceChatStatus_s': 'Disabled',
         }
 
@@ -677,8 +694,8 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def platform(self) -> str:
-        base = self.get_prop('Default:Platform_j')
-        return base['Platform']['platformStr']
+        base = self.get_prop('Default:PlatformData_j')
+        return base['PlatformData']['platform']['platformDescription']['name']
 
     @property
     def location(self) -> str:
