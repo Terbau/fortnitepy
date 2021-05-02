@@ -478,7 +478,6 @@ class PartyMemberMeta(MetaBase):
             'Default:MatchmakingLevel_U': '0',
             'Default:ZoneInstanceId_s': '',
             'Default:HomeBaseVersion_U': '1',
-            'Default:HasPreloadedAthena_b': 'false',
             'Default:FrontendEmote_j': json.dumps({
                 'FrontendEmote': {
                     'emoteItemDef': 'None',
@@ -488,10 +487,16 @@ class PartyMemberMeta(MetaBase):
             }),
             'Default:NumAthenaPlayersLeft_U': '0',
             'Default:UtcTimeStartedMatchAthena_s': '0001-01-01T00:00:00.000Z',
-            'Default:GameReadiness_s': 'NotReady',
-            'Default:HiddenMatchmakingDelayMax_U': '0',
-            'Default:ReadyInputType_s': 'Count',
-            'Default:CurrentInputType_s': 'MouseAndKeyboard',
+            'Default:LobbyState_j': json.dumps({
+                'LobbyState': {
+                    'inGameReadyCheckStatus': None,
+                    'gameReadiness': 'NotReady',
+                    'readyInputType': 'MouseAndKeyboard',
+                    'currentInputType': 'MouseAndKeyboard',
+                    'hiddenMatchmakingDelayMax': 0,
+                    'hasPreloadedAthena': False,
+                },
+            }),
             'Default:AssistedChallengeInfo_j': json.dumps({
                 'AssistedChallengeInfo': {
                     'questItemDef': 'None',
@@ -574,7 +579,8 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def ready(self) -> bool:
-        return self.get_prop('Default:GameReadiness_s')
+        base = self.get_prop('Default:LobbyState_j')
+        return base['LobbyState'].get('gameReadiness', 'NotReady')
 
     @property
     def input(self) -> str:
@@ -707,9 +713,32 @@ class PartyMemberMeta(MetaBase):
         key = 'Default:MemberSquadAssignmentRequest_j'
         return {key: self.set_prop(key, final)}
 
-    def set_readiness(self, val: str) -> Dict[str, Any]:
-        key = 'Default:GameReadiness_s'
-        return {key: self.set_prop(key, val)}
+    def set_lobby_state(self, *,
+                        in_game_ready_check_status: Optional[Any] = None,
+                        game_readiness: Optional[str] = None,
+                        ready_input_type: Optional[str] = None,
+                        current_input_type: Optional[str] = None,
+                        hidden_matchmaking_delay_max: Optional[int] = None,
+                        has_pre_loaded_athena: Optional[bool] = None,
+                        ) -> Dict[str, Any]:
+        data = (self.get_prop('Default:LobbyState_j'))['LobbyState']
+
+        if in_game_ready_check_status is not None:
+            data['inGameReadyCheckStatus'] = in_game_ready_check_status
+        if game_readiness is not None:
+            data['gameReadiness'] = game_readiness
+        if ready_input_type is not None:
+            data['readyInputType'] = ready_input_type
+        if current_input_type is not None:
+            data['currentInputType'] = current_input_type
+        if hidden_matchmaking_delay_max is not None:
+            data['hiddenMatchmakingDelayMax'] = hidden_matchmaking_delay_max
+        if has_pre_loaded_athena is not None:
+            data['hasPreloadedAthena'] = has_pre_loaded_athena
+
+        final = {'LobbyState': data}
+        key = 'Default:LobbyState_j'
+        return {key: self.set_prop(key, final)}
 
     def set_emote(self, emote: Optional[str] = None, *,
                   emote_ekey: Optional[str] = None,
@@ -1857,8 +1886,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         state: :class:`ReadyState`
             The ready state you wish to set.
         """
-        prop = self.meta.set_readiness(
-            val=state.value
+        prop = self.meta.set_lobby_state(
+            game_readiness=state.value
         )
 
         if not self.edit_lock.locked():
