@@ -1127,9 +1127,9 @@ class XMPPClient:
                 value = value()
             return value
 
-        check = {'playlist_info': 'playlist', 'squad_fill': None,
-                 'privacy': None}
-        pre_values = {k: _getattr(party, k) for k in check.keys()}
+        _check = {'playlist_info': 'playlist', 'squad_fill': None,
+                  'privacy': None}
+        pre_values = {k: _getattr(party, k) for k in _check.keys()}
 
         party._update(body)
         self.client.dispatch_event('party_update', party)
@@ -1138,7 +1138,7 @@ class XMPPClient:
             value = _getattr(party, key)
             if pre_value != value:
                 self.client.dispatch_event(
-                    'party_{0}_change'.format(check[key] or key),
+                    'party_{0}_change'.format(_check[key] or key),
                     party,
                     pre_value,
                     value
@@ -1199,12 +1199,14 @@ class XMPPClient:
                 value = value()
             return value
 
-        check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
-                 'pet', 'pickaxe', 'contrail', 'emote', 'emoji', 'banner',
-                 'battlepass_info', 'in_match', 'match_players_left',
-                 'enlightenments', 'corruption', 'outfit_variants',
-                 'backpack_variants', 'pickaxe_variants', 'contrail_variants')
-        pre_values = {k: _getattr(member, k) for k in check}
+        _check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
+                  'pet', 'pickaxe', 'contrail', 'emote', 'emoji', 'banner',
+                  'battlepass_info', 'in_match', 'match_players_left',
+                  'enlightenments', 'corruption', 'outfit_variants',
+                  'backpack_variants', 'pickaxe_variants',
+                  'contrail_variants', 'lobby_map_marker_is_visible',
+                  'lobby_map_marker_coordinates',)
+        pre_values = {k: _getattr(member, k) for k in _check}
 
         member.update(body)
 

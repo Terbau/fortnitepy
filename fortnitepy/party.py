@@ -497,6 +497,15 @@ class PartyMemberMeta(MetaBase):
                     'hasPreloadedAthena': False,
                 },
             }),
+            'Default:FrontEndMapMarker_j': json.dumps({
+                'FrontEndMapMarker': {
+                    'markerLocation': {
+                        'x': 0,
+                        'y': 0,
+                    },
+                    'bIsSet': False,
+                }
+            }),
             'Default:AssistedChallengeInfo_j': json.dumps({
                 'AssistedChallengeInfo': {
                     'questItemDef': 'None',
@@ -696,8 +705,45 @@ class PartyMemberMeta(MetaBase):
         prop = self.get_prop('Default:MemberSquadAssignmentRequest_j')
         return prop['MemberSquadAssignmentRequest']
 
+    @property
+    def frontend_marker_set(self) -> bool:
+        prop = self.get_prop('Default:FrontEndMapMarker_j')
+        return prop['FrontEndMapMarker'].get('bIsSet', False)
+
+    @property
+    def frontend_marker_location(self) -> Tuple[float, float]:
+        prop = self.get_prop('Default:FrontEndMapMarker_j')
+        location = prop['FrontEndMapMarker'].get('markerLocation')
+        if location is None:
+            return (0.0, 0.0)
+
+        # Swap y and x because epic uses y for horizontal and x for vertical
+        # which messes with my brain.
+        return (location['y'], location['x'])
+
     def maybesub(self, def_: Any) -> Any:
         return def_ if def_ else 'None'
+
+    def set_frontend_marker(self, *,
+                            x: Optional[float] = None,
+                            y: Optional[float] = None,
+                            is_set: Optional[bool] = None
+                            ) -> Dict[str, Any]:
+        prop = self.get_prop('Default:FrontEndMapMarker_j')
+        data = prop['FrontEndMapMarker']
+
+        # Swap y and x because epic uses y for horizontal and x for vertical
+        # which messes with my brain.
+        if x is not None:
+            data['markerLocation']['y'] = x
+        if y is not None:
+            data['markerLocation']['x'] = y
+        if is_set is not None:
+            data['bIsSet'] = is_set
+
+        final = {'FrontEndMapMarker': data}
+        key = 'Default:FrontEndMapMarker_j'
+        return {key: self.set_prop(key, final)}
 
     def set_member_squad_assignment_request(self, current_pos: int,
                                             target_pos: int,
@@ -1430,6 +1476,33 @@ class PartyMemberBase(User):
             Defaults to ``0`` if not in a match.
         """
         return self.meta.players_left
+
+    def lobby_map_marker_is_visible(self) -> bool:
+        """Whether or not this members lobby map marker is currently visible.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if this members lobby map marker is currently visible else
+            ``False``.
+        """
+        return self.meta.frontend_marker_set
+
+    @property
+    def lobby_map_marker_coordinates(self) -> Tuple[float, float]:
+        """Tuple[:class:`float`, :class:`float`]: A tuple containing the x and y
+        coordinates of this members current lobby map marker.
+
+        .. note::
+
+            Check if the marker is currently visible with
+            :meth:`PartyMember.lobby_map_marker_is_visible()`.
+
+        .. note::
+
+            The coordinates range is roughly ``-135000.0 <= coordinate <= 135000``
+        """  # noqa
+        return self.meta.frontend_marker_location
 
     def is_ready(self) -> bool:
         """Whether or not this member is ready.
@@ -2635,6 +2708,53 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             spectate_party_member_available=False,
             players_left=0,
             started_at=datetime.datetime(1, 1, 1)
+        )
+
+        if not self.edit_lock.locked():
+            return await self.patch(updated=prop)
+
+    async def set_lobby_map_marker(self, x: float, y: float) -> None:
+        """|coro|
+
+        Sets the clients lobby map marker.
+
+        Parameters
+        ----------
+        x: :class:`float`
+            The horizontal x coordinate.  The x range is roughly
+            ``-135000.0 <= x <= 135000``.
+        y: :class:`float`
+            The vertical y coordinate. The y range is roughly
+            ``-135000.0 <= y <= 135000``.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        prop = self.meta.set_frontend_marker(
+            x=x,
+            y=y,
+            is_set=True,
+        )
+
+        if not self.edit_lock.locked():
+            return await self.patch(updated=prop)
+
+    async def clear_lobby_map_marker(self):
+        """|coro|
+
+        Clears and hides the clients current lobby map marker.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        prop = self.meta.set_frontend_marker(
+            x=0.0,
+            y=0.0,
+            is_set=False,
         )
 
         if not self.edit_lock.locked():

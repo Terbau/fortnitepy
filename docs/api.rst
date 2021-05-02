@@ -743,8 +743,30 @@ this decorator if you are in a subclass of :class:`Client`.
 	:type member: :class:`PartyMember`
 	:param before: The previous servercount.
 	:type before: :class:`int`
-	:param after: The previous servercount.
+	:param after: The new and current servercount.
 	:type after: :class:`int`
+
+.. function:: event_party_member_lobby_map_marker_is_visible_change(member, before, after)
+
+	This event is called when the visibility of a members lobby map marker is toggled.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: Whether or not the marker used to be visible.
+	:type before: :class:`bool`
+	:param after: Whether or not the marker is now currently visible.
+	:type after: :class:`bool`
+
+.. function:: event_party_member_lobby_map_marker_coordinates_change(member, before, after)
+
+	This event is called when the coordinates of a members lobby map marker is changed.
+
+	:param member: The member that changed.
+	:type member: :class:`PartyMember`
+	:param before: The previous coordinates.
+	:type before: Tuple[:class:`float`, class:`float`]
+	:param after: The new coordinates.
+	:type after: Tuple[:class:`float`, class:`float`]
 
 
 Stats Reference
