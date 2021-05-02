@@ -58,6 +58,7 @@ bot = commands.Bot(
         email=email,
         password=password,
         prompt_authorization_code=True,
+        prompt_code_if_invalid=True,
         delete_existing_device_auths=True,
         **device_auth_details
     )

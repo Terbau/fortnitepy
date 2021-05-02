@@ -65,6 +65,7 @@ for email, password in credentials.items():
         email=email,
         password=password,
         prompt_authorization_code=True,
+        prompt_code_if_invalid=True,
         delete_existing_device_auths=True,
         **device_auths.get(email, {})
     )
