@@ -345,7 +345,9 @@ class UserBase:
         self._id = data.get('id', data.get('accountId', data.get('account_id')))  # noqa
 
     def _update_external_auths(self, external_auths: List[dict], *,
-                               extra_external_auths: List[dict] = []) -> None:
+                               extra_external_auths: Optional[List[dict]] = None  # noqa
+                               ) -> None:
+        extra_external_auths = extra_external_auths or []
         extra_ext = {v['authIds'][0]['type'].split('_')[0].lower(): v
                      for v in extra_external_auths}
 

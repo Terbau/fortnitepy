@@ -6,6 +6,32 @@ Changelog
 Detailed version changes.
 
 
+v3.5.0
+------
+
+Added
+~~~~~
+
+- Added the following functionality related to lobby map markers:
+  - :meth:`PartyMember.lobby_map_marker_is_visible()`
+  - :attr:`PartyMember.lobby_map_marker_coordinates`
+  - :meth:`ClientPartyMember.set_lobby_map_marker()`
+  - :meth:`ClientPartyMember.clear_lobby_map_marker()`
+  - :func:`event_party_member_lobby_map_marker_is_visible_change()`
+  - :func:`event_party_member_lobby_map_marker_coordinates_change()`
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused methods and properties related to party readiness to not work.
+- Fixed a possible issue where getting a party members platform could result in an error.
+
+Misc
+~~~~
+
+- Added the kwarg ``prompt_code_if_invalid=True`` to all examples by default.
+
+
 v3.4.0
 ------
 

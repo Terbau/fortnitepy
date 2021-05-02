@@ -475,10 +475,16 @@ class PartyMemberMeta(MetaBase):
                                  "".format(self.def_character)),
                 },
             }),
+            'Default:CampaignInfo_j': json.dumps({
+                'CampaignInfo': {
+                    'matchmakingLevel': 0,
+                    'zoneInstanceId': '',
+                    'homeBaseVersion': 1,
+                },
+            }),
             'Default:MatchmakingLevel_U': '0',
             'Default:ZoneInstanceId_s': '',
             'Default:HomeBaseVersion_U': '1',
-            'Default:HasPreloadedAthena_b': 'false',
             'Default:FrontendEmote_j': json.dumps({
                 'FrontendEmote': {
                     'emoteItemDef': 'None',
@@ -488,10 +494,25 @@ class PartyMemberMeta(MetaBase):
             }),
             'Default:NumAthenaPlayersLeft_U': '0',
             'Default:UtcTimeStartedMatchAthena_s': '0001-01-01T00:00:00.000Z',
-            'Default:GameReadiness_s': 'NotReady',
-            'Default:HiddenMatchmakingDelayMax_U': '0',
-            'Default:ReadyInputType_s': 'Count',
-            'Default:CurrentInputType_s': 'MouseAndKeyboard',
+            'Default:LobbyState_j': json.dumps({
+                'LobbyState': {
+                    'inGameReadyCheckStatus': None,
+                    'gameReadiness': 'NotReady',
+                    'readyInputType': 'MouseAndKeyboard',
+                    'currentInputType': 'MouseAndKeyboard',
+                    'hiddenMatchmakingDelayMax': 0,
+                    'hasPreloadedAthena': False,
+                },
+            }),
+            'Default:FrontEndMapMarker_j': json.dumps({
+                'FrontEndMapMarker': {
+                    'markerLocation': {
+                        'x': 0,
+                        'y': 0,
+                    },
+                    'bIsSet': False,
+                }
+            }),
             'Default:AssistedChallengeInfo_j': json.dumps({
                 'AssistedChallengeInfo': {
                     'questItemDef': 'None',
@@ -546,18 +567,28 @@ class PartyMemberMeta(MetaBase):
                     'friendBoostXp': 0,
                 },
             }),
-            'Default:Platform_j': json.dumps({
-                'Platform': {
-                    'platformStr': self.member.client.platform.value,
+            'Default:PlatformData_j': json.dumps({
+                'PlatformData': {
+                    'platform': {
+                        'platformDescription': {
+                            'name': self.member.client.platform.value,
+                            'platformType': 'DESKTOP',
+                            'onlineSubsystem': 'None',
+                            'sessionType': '',
+                            'externalAccountType': '',
+                            'crossplayPool': 'DESKTOP'
+                        },
+                    },
+                    'uniqueId': 'INVALID',
+                    'sessionId': ''
                 },
             }),
-            'Default:PlatformUniqueId_s': 'INVALID',
-            'Default:PlatformSessionId_s': '',
             'Default:CrossplayPreference_s': 'OptedIn',
             'Default:VoiceChatEnabled_b': 'true',
             'Default:VoiceConnectionId_s': '',
-            'Default:SpectateAPartyMemberAvailable_b': "false",
+            'Default:SpectateAPartyMemberAvailable_b': 'false',
             'Default:FeatDefinition_s': 'None',
+            'Default:SidekickStatus_s': 'None',
             'Default:VoiceChatStatus_s': 'Disabled',
         }
 
@@ -574,7 +605,8 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def ready(self) -> bool:
-        return self.get_prop('Default:GameReadiness_s')
+        base = self.get_prop('Default:LobbyState_j')
+        return base['LobbyState'].get('gameReadiness', 'NotReady')
 
     @property
     def input(self) -> str:
@@ -662,8 +694,8 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def platform(self) -> str:
-        base = self.get_prop('Default:Platform_j')
-        return base['Platform']['platformStr']
+        base = self.get_prop('Default:PlatformData_j')
+        return base['PlatformData']['platform']['platformDescription']['name']
 
     @property
     def location(self) -> str:
@@ -690,8 +722,45 @@ class PartyMemberMeta(MetaBase):
         prop = self.get_prop('Default:MemberSquadAssignmentRequest_j')
         return prop['MemberSquadAssignmentRequest']
 
+    @property
+    def frontend_marker_set(self) -> bool:
+        prop = self.get_prop('Default:FrontEndMapMarker_j')
+        return prop['FrontEndMapMarker'].get('bIsSet', False)
+
+    @property
+    def frontend_marker_location(self) -> Tuple[float, float]:
+        prop = self.get_prop('Default:FrontEndMapMarker_j')
+        location = prop['FrontEndMapMarker'].get('markerLocation')
+        if location is None:
+            return (0.0, 0.0)
+
+        # Swap y and x because epic uses y for horizontal and x for vertical
+        # which messes with my brain.
+        return (location['y'], location['x'])
+
     def maybesub(self, def_: Any) -> Any:
         return def_ if def_ else 'None'
+
+    def set_frontend_marker(self, *,
+                            x: Optional[float] = None,
+                            y: Optional[float] = None,
+                            is_set: Optional[bool] = None
+                            ) -> Dict[str, Any]:
+        prop = self.get_prop('Default:FrontEndMapMarker_j')
+        data = prop['FrontEndMapMarker']
+
+        # Swap y and x because epic uses y for horizontal and x for vertical
+        # which messes with my brain.
+        if x is not None:
+            data['markerLocation']['y'] = x
+        if y is not None:
+            data['markerLocation']['x'] = y
+        if is_set is not None:
+            data['bIsSet'] = is_set
+
+        final = {'FrontEndMapMarker': data}
+        key = 'Default:FrontEndMapMarker_j'
+        return {key: self.set_prop(key, final)}
 
     def set_member_squad_assignment_request(self, current_pos: int,
                                             target_pos: int,
@@ -707,9 +776,32 @@ class PartyMemberMeta(MetaBase):
         key = 'Default:MemberSquadAssignmentRequest_j'
         return {key: self.set_prop(key, final)}
 
-    def set_readiness(self, val: str) -> Dict[str, Any]:
-        key = 'Default:GameReadiness_s'
-        return {key: self.set_prop(key, val)}
+    def set_lobby_state(self, *,
+                        in_game_ready_check_status: Optional[Any] = None,
+                        game_readiness: Optional[str] = None,
+                        ready_input_type: Optional[str] = None,
+                        current_input_type: Optional[str] = None,
+                        hidden_matchmaking_delay_max: Optional[int] = None,
+                        has_pre_loaded_athena: Optional[bool] = None,
+                        ) -> Dict[str, Any]:
+        data = (self.get_prop('Default:LobbyState_j'))['LobbyState']
+
+        if in_game_ready_check_status is not None:
+            data['inGameReadyCheckStatus'] = in_game_ready_check_status
+        if game_readiness is not None:
+            data['gameReadiness'] = game_readiness
+        if ready_input_type is not None:
+            data['readyInputType'] = ready_input_type
+        if current_input_type is not None:
+            data['currentInputType'] = current_input_type
+        if hidden_matchmaking_delay_max is not None:
+            data['hiddenMatchmakingDelayMax'] = hidden_matchmaking_delay_max
+        if has_pre_loaded_athena is not None:
+            data['hasPreloadedAthena'] = has_pre_loaded_athena
+
+        final = {'LobbyState': data}
+        key = 'Default:LobbyState_j'
+        return {key: self.set_prop(key, final)}
 
     def set_emote(self, emote: Optional[str] = None, *,
                   emote_ekey: Optional[str] = None,
@@ -1402,6 +1494,33 @@ class PartyMemberBase(User):
         """
         return self.meta.players_left
 
+    def lobby_map_marker_is_visible(self) -> bool:
+        """Whether or not this members lobby map marker is currently visible.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if this members lobby map marker is currently visible else
+            ``False``.
+        """
+        return self.meta.frontend_marker_set
+
+    @property
+    def lobby_map_marker_coordinates(self) -> Tuple[float, float]:
+        """Tuple[:class:`float`, :class:`float`]: A tuple containing the x and y
+        coordinates of this members current lobby map marker.
+
+        .. note::
+
+            Check if the marker is currently visible with
+            :meth:`PartyMember.lobby_map_marker_is_visible()`.
+
+        .. note::
+
+            The coordinates range is roughly ``-135000.0 <= coordinate <= 135000``
+        """  # noqa
+        return self.meta.frontend_marker_location
+
     def is_ready(self) -> bool:
         """Whether or not this member is ready.
 
@@ -1857,8 +1976,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         state: :class:`ReadyState`
             The ready state you wish to set.
         """
-        prop = self.meta.set_readiness(
-            val=state.value
+        prop = self.meta.set_lobby_state(
+            game_readiness=state.value
         )
 
         if not self.edit_lock.locked():
@@ -2606,6 +2725,53 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             spectate_party_member_available=False,
             players_left=0,
             started_at=datetime.datetime(1, 1, 1)
+        )
+
+        if not self.edit_lock.locked():
+            return await self.patch(updated=prop)
+
+    async def set_lobby_map_marker(self, x: float, y: float) -> None:
+        """|coro|
+
+        Sets the clients lobby map marker.
+
+        Parameters
+        ----------
+        x: :class:`float`
+            The horizontal x coordinate.  The x range is roughly
+            ``-135000.0 <= x <= 135000``.
+        y: :class:`float`
+            The vertical y coordinate. The y range is roughly
+            ``-135000.0 <= y <= 135000``.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        prop = self.meta.set_frontend_marker(
+            x=x,
+            y=y,
+            is_set=True,
+        )
+
+        if not self.edit_lock.locked():
+            return await self.patch(updated=prop)
+
+    async def clear_lobby_map_marker(self):
+        """|coro|
+
+        Clears and hides the clients current lobby map marker.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+        """
+        prop = self.meta.set_frontend_marker(
+            x=0.0,
+            y=0.0,
+            is_set=False,
         )
 
         if not self.edit_lock.locked():
