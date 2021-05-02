@@ -87,6 +87,13 @@ async def hello(ctx):
 bot.run()
 ```
 
+# Authorization
+How to get a one time authorization code:
+1. Log into the epic games account of your choice [here](https://www.epicgames.com/id/logout?redirectUrl=https%3A//www.epicgames.com/id/login%3FredirectUrl%3Dhttps%253A%252F%252Fwww.epicgames.com%252Fid%252Fapi%252Fredirect%253FclientId%253D3446cd72694c4a4485d81b77adbb2141%2526responseType%253Dcode).
+2. Copy the hex part from the url that shows up as showcased by the image below:
+
+![Authorization Code](https://raw.githubusercontent.com/Terbau/fortnitepy/dev/docs/resources/images/authorization_code.png)
+
 # Credit
 Thanks to [Kysune](https://github.com/SzymonLisowiec), [iXyles](https://github.com/iXyles), [Vrekt](https://github.com/Vrekt) and [amrsatrio](https://github.com/Amrsatrio) for ideas and/or work that this library is built upon.
 
