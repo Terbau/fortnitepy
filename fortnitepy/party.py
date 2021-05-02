@@ -571,7 +571,7 @@ class PartyMemberMeta(MetaBase):
                 'PlatformData': {
                     'platform': {
                         'platformDescription': {
-                            'name': self.client.platform.value,
+                            'name': self.member.client.platform.value,
                             'platformType': 'DESKTOP',
                             'onlineSubsystem': 'None',
                             'sessionType': '',
