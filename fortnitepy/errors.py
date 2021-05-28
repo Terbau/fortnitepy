@@ -69,6 +69,10 @@ class PartyError(FortniteException):
     pass
 
 
+class PartyIsFull(FortniteException):
+    """This exception is raised when the bot attempts to join a full party."""
+
+
 class Forbidden(FortniteException):
     """This exception is raised whenever you attempted a request that your
     account does not have permission to do.

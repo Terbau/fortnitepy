@@ -37,7 +37,7 @@ from typing import Union, Optional, Any, Awaitable, Callable, Dict, List, Tuple
 from .errors import (PartyError, HTTPException, NotFound, Forbidden,
                      DuplicateFriendship, FriendshipRequestAlreadySent,
                      MaxFriendshipsExceeded, InviteeMaxFriendshipsExceeded,
-                     InviteeMaxFriendshipRequestsExceeded)
+                     InviteeMaxFriendshipRequestsExceeded, PartyIsFull)
 from .xmpp import XMPPClient
 from .http import HTTPClient
 from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
@@ -3091,6 +3091,8 @@ class Client:
             You are already a member of this party.
         NotFound
             The party was not found.
+        PartyIsFull
+            The party you attempted to join is full.
         Forbidden
             You are not allowed to join this party because it's private
             and you have not been a part of it before.
@@ -3127,6 +3129,12 @@ class Client:
                 if e.message_code == m:
                     raise Forbidden(
                         'You are not allowed to join this party.'
+                    )
+
+                m = 'errors.com.epicgames.social.party.party_is_full'
+                if e.message_code == m:
+                    raise PartyIsFull(
+                        'The party you attempted to join is full.'
                     )
 
                 raise

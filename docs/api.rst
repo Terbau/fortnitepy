@@ -1170,6 +1170,8 @@ Exceptions
 
 .. autoexception:: PartyError
 
+.. autoexception:: PartyIsFull
+
 .. autoexception:: Forbidden
 
 .. autoexception:: NotFound
