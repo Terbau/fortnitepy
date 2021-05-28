@@ -1563,6 +1563,18 @@ class HTTPClient:
         )
         return await self.post(r, json=payload)
 
+    async def party_send_intention(self, user_id: str) -> dict:
+        payload = {
+            'urn:epic:invite:platformdata_s': '',
+        }
+
+        r = PartyService(
+            '/party/api/v1/Fortnite/members/{user_id}/intentions/{client_id}',
+            client_id=self.client.user.id,
+            user_id=user_id
+        )
+        return await self.post(r, json=payload)
+
     async def party_lookup(self, party_id: str, **kwargs: Any) -> dict:
         r = PartyService('/party/api/v1/Fortnite/parties/{party_id}',
                          party_id=party_id)

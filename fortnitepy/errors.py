@@ -130,6 +130,13 @@ class InviteeMaxFriendshipRequestsExceeded(FortniteException):
     pass
 
 
+class FriendOffline(FortniteException):
+    """This exception is raised when an action that requires a friend to be
+    online is performed at an offline friend.
+    """
+    pass
+
+
 class InvalidOffer(FortniteException):
     """This exception is raised when an invalid/outdated offer is
     passed. Only offers currently in the item shop are valid."""

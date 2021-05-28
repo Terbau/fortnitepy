@@ -40,7 +40,8 @@ from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any, Tuple
 
 from .errors import XMPPError, PartyError, HTTPException
 from .message import FriendMessage, PartyMessage
-from .party import Party, ReceivedPartyInvitation, PartyJoinConfirmation
+from .party import (Party, PartyJoinRequest, ReceivedPartyInvitation,
+                    PartyJoinConfirmation)
 from .presence import Presence
 from .enums import AwayStatus
 
@@ -1301,6 +1302,34 @@ class XMPPClient:
             return await confirmation.confirm()
 
         self.client.dispatch_event('party_member_confirm', confirmation)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.INITIAL_INTENTION')  # noqa
+    async def event_party_join_request_received(self, ctx: EventContext) -> None:  # noqa
+        body = ctx.body
+
+        user_id = body.get('requester_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+
+        friend = self.client.get_friend(user_id)
+        if friend is None:
+            return
+
+        request = PartyJoinRequest(
+            self.client,
+            party,
+            friend,
+            body
+        )
+        self.client.dispatch_event('party_join_request', request)
 
     @dispatcher.event('com.epicgames.social.party.notification.v0.INVITE_DECLINED')  # noqa
     async def event_party_invite_declined(self, ctx: EventContext) -> None:

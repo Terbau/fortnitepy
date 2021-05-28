@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, List, Optional
 from aioxmpp import JID
 
 from .user import UserBase, ExternalAuth
-from .errors import PartyError, Forbidden, HTTPException
+from .errors import FriendOffline, InvalidOffer, PartyError, Forbidden, HTTPException
 from .presence import Presence
 from .enums import Platform
 
@@ -456,6 +456,39 @@ class Friend(FriendBase):
             Object representing the sent party invitation.
         """
         return await self.client.party.invite(self.id)
+
+    async def request_to_join(self) -> None:
+        """|coro|
+
+        Sends a request to join a friends party. This is mainly used for
+        requesting to join private parties specifically, but it can be used
+        for all types of party privacies.
+
+        Raises
+        ------
+        PartyError
+            You are already a part of this friends party.
+        FriendOffline
+            The friend you requested to join is offline.
+        HTTPException
+            An error occured while requesting.
+        """
+        try:
+            await self.client.http.party_send_intention(self.id)
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.social.party.user_already_in_party'
+            if exc.message_code == m:
+                raise PartyError(
+                    'The bot is already a part of this friends party.'
+                )
+
+            m = 'errors.com.epicgames.social.party.user_has_no_party'
+            if exc.message_code == m:
+                raise FriendOffline(
+                    'The friend you requested to join is offline.'
+                )
+
+            raise
 
     async def owns_offer(self, offer_id: str) -> bool:
         """|coro|

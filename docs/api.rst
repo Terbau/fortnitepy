@@ -459,9 +459,24 @@ this decorator if you are in a subclass of :class:`Client`.
 	.. warning::
 
 		This event is automatically handled by the client which automatically always accepts the user. If you have this event referenced in your code the client won't automatically handle it anymore and you must handle it youself. 
+
+	.. note::
+
+		This event differs from :func:`event_party_join_request` by the fact that this event is fired whenever someone is in the middle of joining the party, while :func:`event_party_join_request` is called when someone explicitly requests to join your private party.
 	
 	:param confirmation: Confirmation object with accessible confirmation methods.
 	:type confirmation: :class:`PartyJoinConfirmation`
+
+.. function:: event_party_join_request(request)
+
+	This event is called when a friend requests to join your private party.
+
+	.. note::
+
+		This event differs from :func:`event_party_member_confirm` by the fact that this event is called when someone explicitly requests to join the bots party, while :func:`event_party_member_confirm` is an event that is fired whenever someone is in the middle of joining the party.
+
+	:param request: Request object.
+	:type request: :class:`PartyJoinRequest`
 
 .. function:: event_party_member_chatban(member, reason)
 
@@ -1026,6 +1041,14 @@ PartyJoinConfirmation
 .. autoclass:: PartyJoinConfirmation()
 	:members:
 
+PartyJoinRequest
+~~~~~~~~~~~~~~~~
+
+.. attributetable:: PartyJoinRequest
+
+.. autoclass:: PartyJoinRequest
+	:members:
+
 Presence
 ~~~~~~~~
 
@@ -1185,5 +1208,7 @@ Exceptions
 .. autoexception:: InviteeMaxFriendshipsExceeded
 
 .. autoexception:: InviteeMaxFriendshipRequestsExceeded
+
+.. autoexception:: FriendOffline
 
 .. autoexception:: InvalidOffer

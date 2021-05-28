@@ -4045,3 +4045,59 @@ class PartyJoinConfirmation:
                 return
 
             raise
+
+
+class PartyJoinRequest:
+    """Represents a party join request. These requests are in most cases
+    only received when the bots party privacy is set to private.
+
+    .. info::
+
+        There is currently no way to reject a join request. The official
+        fortnite client does this by simply ignoring the request and waiting
+        for it to expire.
+
+    Attributes
+    ----------
+    client: :class:`Client`
+        The client.
+    party: :class:`ClientParty`
+        The party the user wants to join.
+    friend: :class:`Friend`
+        The friend who requested to join the party.
+    created_at: :class:`datetime.datetime`
+        The UTC timestamp of when this join request was created.
+    expires_at: :class:`datetime.datetime`
+        The UTC timestamp of when this join request will expire. This
+        should always be one minute after its creation.
+    """
+
+    __slots__ = ('client', 'party', 'friend', 'created_at', 'expires_at')
+
+    def __init__(self, client: 'Client',
+                 party: ClientParty,
+                 friend: User,
+                 data: dict) -> None:
+        self.client = client
+        self.party = party
+        self.friend = friend
+        self.created_at = self.client.from_iso(data['sent_at'])
+        self.expires_at = self.client.from_iso(data['expires_at'])
+
+    async def accept(self):
+        """|coro|
+
+        Accepts a party join request. Accepting this before the request
+        has expired forces the sender to join the party. If not then the
+        sender will receive a regular party invite.
+
+        Raises
+        ------
+        PartyError
+            User is already in your party.
+        PartyError
+            The party is full.
+        HTTPException
+            An error occured while requesting.
+        """
+        return await self.party.invite(self.friend.id)
