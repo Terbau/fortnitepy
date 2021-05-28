@@ -1185,3 +1185,5 @@ Exceptions
 .. autoexception:: InviteeMaxFriendshipsExceeded
 
 .. autoexception:: InviteeMaxFriendshipRequestsExceeded
+
+.. autoexception:: InvalidOffer

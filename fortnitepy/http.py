@@ -33,7 +33,7 @@ import time
 import functools
 
 from typing import TYPE_CHECKING, List, Optional, Any, Union, Tuple
-from urllib.parse import quote
+from urllib.parse import quote as urllibquote
 
 from .utils import MaybeLock
 from .errors import HTTPException
@@ -47,6 +47,12 @@ GRAPHQL_HTML_ERROR_PATTERN = re.compile(
     r'<title>((\d+).*)<\/title>',
     re.MULTILINE
 )
+
+
+def quote(string: str) -> str:
+    string = urllibquote(string)
+    string = string.replace('/', '%2F')
+    return string
 
 
 class HTTPRetryConfig:
@@ -1207,6 +1213,16 @@ class HTTPClient:
 
     async def fortnite_get_store_catalog(self) -> dict:
         r = FortnitePublicService('/fortnite/api/storefront/v2/catalog')
+        return await self.get(r)
+
+    async def fortnite_check_gift_eligibility(self,
+                                              user_id: str,
+                                              offer_id: str) -> Any:
+        r = FortnitePublicService(
+            '/fortnite/api/storefront/v2/gift/check_eligibility/recipient/{user_id}/offer/{offer_id}',  # noqa
+            user_id=user_id,
+            offer_id=offer_id,
+        )
         return await self.get(r)
 
     async def fortnite_get_timeline(self) -> dict:

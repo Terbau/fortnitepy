@@ -457,6 +457,42 @@ class Friend(FriendBase):
         """
         return await self.client.party.invite(self.id)
 
+    async def owns_offer(self, offer_id: str) -> bool:
+        """|coro|
+
+        Checks if a friend owns a currently active offer in the item shop.
+
+        Raises
+        ------
+        InvalidOffer
+            An invalid/outdated offer_id was passed. Only offers currently in
+            the item shop are valid.
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        :class:`bool`
+            Whether or not the friend owns the offer.
+        """
+        try:
+            data = await self.client.http.fortnite_check_gift_eligibility(
+                self.id,
+                offer_id,
+            )
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.modules.gamesubcatalog.purchase_not_allowed'  # noqa
+            if exc.message_code == m:
+                return True
+
+            m = 'errors.com.epicgames.modules.gamesubcatalog.catalog_out_of_date'  # noqa
+            if exc.message_code == m:
+                raise InvalidOffer('The offer_id passed is not valid.')
+
+            raise
+
+        return False
+
 
 class PendingFriendBase(FriendBase):
     """Represents a pending friend from Fortnite."""

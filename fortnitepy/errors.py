@@ -130,6 +130,12 @@ class InviteeMaxFriendshipRequestsExceeded(FortniteException):
     pass
 
 
+class InvalidOffer(FortniteException):
+    """This exception is raised when an invalid/outdated offer is
+    passed. Only offers currently in the item shop are valid."""
+    pass
+
+
 class ValidationFailure(FortniteException):
     """Represents a validation failure returned.
 
