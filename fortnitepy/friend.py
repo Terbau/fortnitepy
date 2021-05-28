@@ -464,6 +464,13 @@ class Friend(FriendBase):
         requesting to join private parties specifically, but it can be used
         for all types of party privacies.
 
+        .. warning::
+
+            If the request is accepted by the receiving friend, the bot will
+            receive a regular party invitation. Unlike the fortnite client,
+            fortnitepy will not automatically accept this invitation. You have
+            to make some logic for doing that yourself.
+
         Raises
         ------
         PartyError
