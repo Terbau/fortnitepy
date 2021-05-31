@@ -3755,9 +3755,14 @@ class ClientParty(PartyBase, Patchable):
         ------
         ValueError
             Duplicate positions were set in the assignments.
+        Forbidden
+            You are not the leader of the party.
         HTTPException
             An error occured while requesting.
         """
+        if self.me is not None and not self.me.leader:
+            raise Forbidden('You have to be leader for this action to work.')
+
         return await self.refresh_squad_assignments(assignments=assignments)
 
     async def _invite(self, friend: Friend) -> None:
