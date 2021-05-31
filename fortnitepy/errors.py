@@ -25,7 +25,10 @@ SOFTWARE.
 """
 
 from aiohttp import ClientResponse
-from typing import Union
+from typing import Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .http import Route  # noqa
 
 
 class FortniteException(Exception):

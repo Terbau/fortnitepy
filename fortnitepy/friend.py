@@ -27,10 +27,10 @@ SOFTWARE.
 import datetime
 
 from typing import TYPE_CHECKING, List, Optional
-from aioxmpp import JID
 
-from .user import UserBase, ExternalAuth
-from .errors import FriendOffline, InvalidOffer, PartyError, Forbidden, HTTPException
+from .user import UserBase
+from .errors import (FriendOffline, InvalidOffer, PartyError, Forbidden,
+                     HTTPException)
 from .presence import Presence
 from .enums import Platform
 
@@ -516,7 +516,7 @@ class Friend(FriendBase):
             Whether or not the friend owns the offer.
         """
         try:
-            data = await self.client.http.fortnite_check_gift_eligibility(
+            await self.client.http.fortnite_check_gift_eligibility(
                 self.id,
                 offer_id,
             )
