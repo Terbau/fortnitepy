@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '3.5.0'
+__version__ = '3.6.0'
 
 from .client import Client, run_multiple, start_multiple, close_multiple
 from .auth import (Auth, EmailAndPasswordAuth, ExchangeCodeAuth,
@@ -36,7 +36,7 @@ from .message import FriendMessage, PartyMessage
 from .party import (DefaultPartyConfig, DefaultPartyMemberConfig, PartyMember,
                     ClientPartyMember, JustChattingClientPartyMember, Party, 
                     ClientParty, ReceivedPartyInvitation, SentPartyInvitation,
-                    PartyJoinConfirmation)
+                    PartyJoinConfirmation, PartyJoinRequest, SquadAssignment)
 from .presence import Presence, PresenceGameplayStats, PresenceParty
 from .user import (ClientUser, User, BlockedUser, ExternalAuth,
                    UserSearchEntry, SacSearchEntryUser)

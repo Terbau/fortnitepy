@@ -37,7 +37,7 @@ from typing import Union, Optional, Any, Awaitable, Callable, Dict, List, Tuple
 from .errors import (PartyError, HTTPException, NotFound, Forbidden,
                      DuplicateFriendship, FriendshipRequestAlreadySent,
                      MaxFriendshipsExceeded, InviteeMaxFriendshipsExceeded,
-                     InviteeMaxFriendshipRequestsExceeded)
+                     InviteeMaxFriendshipRequestsExceeded, PartyIsFull)
 from .xmpp import XMPPClient
 from .http import HTTPClient
 from .user import (ClientUser, User, BlockedUser, SacSearchEntryUser,
@@ -450,6 +450,7 @@ def run_multiple(clients: List['Client'], *,
     except KeyboardInterrupt:
 
         if not _stopped:
+            _stopped = True
             loop.run_until_complete(close_multiple(clients))
     finally:
         future.remove_done_callback(close)
@@ -535,6 +536,11 @@ class Client:
             or simply is ``None`` on objects deriving from :class:`User`. Keep in
             mind that :attr:`User.id` always will be available. You can use
             :meth:`User.fetch()` to update all missing attributes.
+    wait_for_member_meta_in_events: :class:`bool`
+        Whether or not the client should wait for party member meta (information
+        about outfit, backpack etc.) before dispatching events like
+        :func:`event_party_member_join()`. If this is disabled then member objects
+        in the events won't have the correct meta. Defaults to ``True``.
 
     Attributes
     ----------
@@ -568,6 +574,7 @@ class Client:
         self.service_port = kwargs.get('xmpp_port', 5222)
         self.cache_users = kwargs.get('cache_users', True)
         self.fetch_user_data_in_events = kwargs.get('fetch_user_data_in_events', True)  # noqa
+        self.wait_for_member_meta_in_events = kwargs.get('wait_for_member_meta_in_events', True)  # noqa
 
         self.kill_other_sessions = True
         self.accept_eula = True
@@ -2966,7 +2973,7 @@ class Client:
                     **default_schema,
                     **updated,
                     **edit_updated,
-                    **party.construct_squad_assignments(),
+                    **party._construct_raw_squad_assignments(),
                     **party.meta.set_voicechat_implementation('EOSVoiceChat')
                 },
                 deleted=[*deleted, *edit_deleted],
@@ -3091,6 +3098,8 @@ class Client:
             You are already a member of this party.
         NotFound
             The party was not found.
+        PartyIsFull
+            The party you attempted to join is full.
         Forbidden
             You are not allowed to join this party because it's private
             and you have not been a part of it before.
@@ -3127,6 +3136,12 @@ class Client:
                 if e.message_code == m:
                     raise Forbidden(
                         'You are not allowed to join this party.'
+                    )
+
+                m = 'errors.com.epicgames.social.party.party_is_full'
+                if e.message_code == m:
+                    raise PartyIsFull(
+                        'The party you attempted to join is full.'
                     )
 
                 raise

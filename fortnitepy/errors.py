@@ -25,7 +25,10 @@ SOFTWARE.
 """
 
 from aiohttp import ClientResponse
-from typing import Union
+from typing import Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .http import Route  # noqa
 
 
 class FortniteException(Exception):
@@ -67,6 +70,10 @@ class XMPPError(FortniteException):
 class PartyError(FortniteException):
     """This exception is raised when something regarding parties fails."""
     pass
+
+
+class PartyIsFull(FortniteException):
+    """This exception is raised when the bot attempts to join a full party."""
 
 
 class Forbidden(FortniteException):
@@ -123,6 +130,19 @@ class InviteeMaxFriendshipRequestsExceeded(FortniteException):
     hit the limit for the amount of friendship requests a user can have
     at a time.
     """
+    pass
+
+
+class FriendOffline(FortniteException):
+    """This exception is raised when an action that requires a friend to be
+    online is performed at an offline friend.
+    """
+    pass
+
+
+class InvalidOffer(FortniteException):
+    """This exception is raised when an invalid/outdated offer is
+    passed. Only offers currently in the item shop are valid."""
     pass
 
 

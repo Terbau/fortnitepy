@@ -113,6 +113,9 @@ class UserBase:
         if data:
             self._update(data)
 
+    def __hash__(self) -> int:
+        return hash(self._id)
+
     def __str__(self) -> str:
         return self.display_name
 

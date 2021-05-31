@@ -459,9 +459,24 @@ this decorator if you are in a subclass of :class:`Client`.
 	.. warning::
 
 		This event is automatically handled by the client which automatically always accepts the user. If you have this event referenced in your code the client won't automatically handle it anymore and you must handle it youself. 
+
+	.. note::
+
+		This event differs from :func:`event_party_join_request` by the fact that this event is fired whenever someone is in the middle of joining the party, while :func:`event_party_join_request` is called when someone explicitly requests to join your private party.
 	
 	:param confirmation: Confirmation object with accessible confirmation methods.
 	:type confirmation: :class:`PartyJoinConfirmation`
+
+.. function:: event_party_join_request(request)
+
+	This event is called when a friend requests to join your private party.
+
+	.. note::
+
+		This event differs from :func:`event_party_member_confirm` by the fact that this event is called when someone explicitly requests to join the bots party, while :func:`event_party_member_confirm` is an event that is fired whenever someone is in the middle of joining the party.
+
+	:param request: Request object.
+	:type request: :class:`PartyJoinRequest`
 
 .. function:: event_party_member_chatban(member, reason)
 
@@ -513,18 +528,18 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param after: The current party privacy.
 	:type after: :class:`Privacy`
 
-.. function:: event_party_team_swap(member, other)
+.. function:: event_party_member_team_swap(member, other)
 
 	.. note::
 
 		Because of how party teams work, you can swap team with another member without their permission. If you don't want this to be possible, you can set ``team_change_allowed`` to ``False`` in :class:`DefaultPartyConfig`.
 
-	This event is called whenever a party member swaps party team with another member. You can get their new positions from :attr:`PartyMember.position`.
+	This event is called whenever a party member swaps their position. If the member switches to a position that was taken my another member, the two members will swap positions. You can get their new positions from :attr:`PartyMember.position`.
 
 	:param member: The member that instigated the team swap.
 	:type member: :class:`PartyMember`
-	:param other: The member that was swapped teams with.
-	:type other: :class:`PartyMember`
+	:param other: The member that was swapped teams with. If no member was previously holding the position, this will be ``None``.
+	:type other: Optional[:class:`PartyMember`]
 
 .. function:: event_party_member_ready_change(member, before, after)
 
@@ -1026,6 +1041,14 @@ PartyJoinConfirmation
 .. autoclass:: PartyJoinConfirmation()
 	:members:
 
+PartyJoinRequest
+~~~~~~~~~~~~~~~~
+
+.. attributetable:: PartyJoinRequest
+
+.. autoclass:: PartyJoinRequest
+	:members:
+
 Presence
 ~~~~~~~~
 
@@ -1152,6 +1175,14 @@ Avatar
 .. autoclass:: Avatar()
 	:members:
 
+SquadAssignment
+~~~~~~~~~~~~~~~
+
+.. attributetable:: SquadAssignment
+
+.. autoclass:: SquadAssignment()
+	:members:
+
 
 Exceptions
 ----------
@@ -1170,6 +1201,8 @@ Exceptions
 
 .. autoexception:: PartyError
 
+.. autoexception:: PartyIsFull
+
 .. autoexception:: Forbidden
 
 .. autoexception:: NotFound
@@ -1183,3 +1216,7 @@ Exceptions
 .. autoexception:: InviteeMaxFriendshipsExceeded
 
 .. autoexception:: InviteeMaxFriendshipRequestsExceeded
+
+.. autoexception:: FriendOffline
+
+.. autoexception:: InvalidOffer

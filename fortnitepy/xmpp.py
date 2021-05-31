@@ -40,7 +40,8 @@ from typing import TYPE_CHECKING, Optional, Union, Awaitable, Any, Tuple
 
 from .errors import XMPPError, PartyError, HTTPException
 from .message import FriendMessage, PartyMessage
-from .party import Party, ReceivedPartyInvitation, PartyJoinConfirmation
+from .party import (Party, PartyJoinRequest, ReceivedPartyInvitation,
+                    PartyJoinConfirmation)
 from .presence import Presence
 from .enums import AwayStatus
 
@@ -900,6 +901,8 @@ class XMPPClient:
                 fetch_user_data=self.client.fetch_user_data_in_events,
             ))[0]
 
+        member.meta.has_been_updated = False
+
         fut = None
         if party.me is not None:
             party.me.do_on_member_join_patch()
@@ -923,6 +926,19 @@ class XMPPClient:
 
         if fut is not None:
             await fut
+
+        self.client.dispatch_event('internal_party_member_join', member)
+
+        if self.client.wait_for_member_meta_in_events:
+            if not member.meta.has_been_updated:
+                try:
+                    await self.client.wait_for(
+                        'internal_initial_party_member_meta',
+                        check=lambda m: m.id == member.id,
+                        timeout=2
+                    )
+                except asyncio.TimeoutError:
+                    pass
 
         self.client.dispatch_event('party_member_join', member)
 
@@ -1168,7 +1184,7 @@ class XMPPClient:
 
             try:
                 member = await self.client.wait_for(
-                    'party_member_join',
+                    'internal_party_member_join',
                     check=check,
                     timeout=1
                 )
@@ -1199,16 +1215,25 @@ class XMPPClient:
                 value = value()
             return value
 
-        _check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
-                  'pet', 'pickaxe', 'contrail', 'emote', 'emoji', 'banner',
-                  'battlepass_info', 'in_match', 'match_players_left',
-                  'enlightenments', 'corruption', 'outfit_variants',
-                  'backpack_variants', 'pickaxe_variants',
-                  'contrail_variants', 'lobby_map_marker_is_visible',
-                  'lobby_map_marker_coordinates',)
-        pre_values = {k: _getattr(member, k) for k in _check}
+        should_dispatch_extra_events = member.meta.has_been_updated
+        if should_dispatch_extra_events:
+            _check = ('ready', 'input', 'assisted_challenge', 'outfit',
+                      'backpack', 'pet', 'pickaxe', 'contrail', 'emote',
+                      'emoji', 'banner', 'battlepass_info', 'in_match',
+                      'match_players_left', 'enlightenments', 'corruption',
+                      'outfit_variants', 'backpack_variants',
+                      'pickaxe_variants', 'contrail_variants',
+                      'lobby_map_marker_is_visible',
+                      'lobby_map_marker_coordinates',)
+            pre_values = {k: _getattr(member, k) for k in _check}
 
         member.update(body)
+        if len(body['member_state_updated']) > 5 and not member.meta.has_been_updated:  # noqa
+            member.meta.has_been_updated = True
+            self.client.dispatch_event(
+                'internal_initial_party_member_meta',
+                member
+            )
 
         if party._default_config.team_change_allowed or not party.me.leader:
             req_j = body['member_state_updated'].get(
@@ -1217,29 +1242,44 @@ class XMPPClient:
             if req_j is not None:
                 req = json.loads(req_j)['MemberSquadAssignmentRequest']
                 version = req.get('version')
-                if version is not None and version != member._assignment_version:  # noqa
+
+                if member.id == self.client.user.id:
+                    assignment_version = party.me._assignment_version
+                else:
+                    assignment_version = member._assignment_version
+
+                if version is not None and version != assignment_version:
+                    new_positions = {
+                        member.id: req['targetAbsoluteIdx'],
+                    }
+
                     member._assignment_version = version
+                    if member.id == self.client.user.id:
+                        party.me._assignment_version = version
 
                     swap_member_id = req['swapTargetMemberId']
                     if swap_member_id != 'INVALID':
-                        new_positions = {
-                            member.id: req['targetAbsoluteIdx'],
-                            swap_member_id: req['startingAbsoluteIdx']
-                        }
-                        if party.me.leader:
-                            await party.refresh_squad_assignments(
-                                new_positions=new_positions
-                            )
+                        new_positions[swap_member_id] = req['startingAbsoluteIdx']  # noqa
 
-                        try:
-                            self.client.dispatch_event(
-                                'party_member_team_swap',
-                                *[party._members[k] for k in new_positions]
-                            )
-                        except KeyError:
-                            pass
+                    if party.me.leader:
+                        await party.refresh_squad_assignments(
+                            new_positions=new_positions
+                        )
+
+                    try:
+                        self.client.dispatch_event(
+                            'party_member_team_swap',
+                            *[party._members.get(k) for k in (member.id, swap_member_id)]  # noqa
+                        )
+                    except KeyError:
+                        pass
 
         self.client.dispatch_event('party_member_update', member)
+
+        # Only dispatch the events below if the update is not the initial
+        # party join one.
+        if not should_dispatch_extra_events:
+            return
 
         def _dispatch(key, member, pre_value, value):
             self.client.dispatch_event(
@@ -1301,6 +1341,34 @@ class XMPPClient:
             return await confirmation.confirm()
 
         self.client.dispatch_event('party_member_confirm', confirmation)
+
+    @dispatcher.event('com.epicgames.social.party.notification.v0.INITIAL_INTENTION')  # noqa
+    async def event_party_join_request_received(self, ctx: EventContext) -> None:  # noqa
+        body = ctx.body
+
+        user_id = body.get('requester_id')
+        if user_id != self.client.user.id:
+            await self.client._join_party_lock.wait()
+
+        party = self.client.party
+
+        if party is None:
+            return
+
+        if party.id != body.get('party_id'):
+            return
+
+        friend = self.client.get_friend(user_id)
+        if friend is None:
+            return
+
+        request = PartyJoinRequest(
+            self.client,
+            party,
+            friend,
+            body
+        )
+        self.client.dispatch_event('party_join_request', request)
 
     @dispatcher.event('com.epicgames.social.party.notification.v0.INVITE_DECLINED')  # noqa
     async def event_party_invite_declined(self, ctx: EventContext) -> None:

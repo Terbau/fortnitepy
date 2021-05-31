@@ -33,7 +33,7 @@ import time
 import functools
 
 from typing import TYPE_CHECKING, List, Optional, Any, Union, Tuple
-from urllib.parse import quote
+from urllib.parse import quote as urllibquote
 
 from .utils import MaybeLock
 from .errors import HTTPException
@@ -47,6 +47,12 @@ GRAPHQL_HTML_ERROR_PATTERN = re.compile(
     r'<title>((\d+).*)<\/title>',
     re.MULTILINE
 )
+
+
+def quote(string: str) -> str:
+    string = urllibquote(string)
+    string = string.replace('/', '%2F')
+    return string
 
 
 class HTTPRetryConfig:
@@ -433,7 +439,10 @@ class HTTPClient:
         if self.__session:
             event = create_aiohttp_closed_event(self.__session)
             await self.__session.close()
-            await event.wait()
+            try:
+                await asyncio.wait_for(event.wait(), timeout=2)
+            except asyncio.TimeoutError:
+                pass
 
     def create_connection(self) -> None:
         self.__session = aiohttp.ClientSession(
@@ -1209,6 +1218,16 @@ class HTTPClient:
         r = FortnitePublicService('/fortnite/api/storefront/v2/catalog')
         return await self.get(r)
 
+    async def fortnite_check_gift_eligibility(self,
+                                              user_id: str,
+                                              offer_id: str) -> Any:
+        r = FortnitePublicService(
+            '/fortnite/api/storefront/v2/gift/check_eligibility/recipient/{user_id}/offer/{offer_id}',  # noqa
+            user_id=user_id,
+            offer_id=offer_id,
+        )
+        return await self.get(r)
+
     async def fortnite_get_timeline(self) -> dict:
         r = FortnitePublicService('/fortnite/api/calendar/v1/timeline')
         return await self.get(r)
@@ -1544,6 +1563,18 @@ class HTTPClient:
              '{client_id}/join'),
             party_id=party_id,
             client_id=self.client.user.id
+        )
+        return await self.post(r, json=payload)
+
+    async def party_send_intention(self, user_id: str) -> dict:
+        payload = {
+            'urn:epic:invite:platformdata_s': '',
+        }
+
+        r = PartyService(
+            '/party/api/v1/Fortnite/members/{user_id}/intentions/{client_id}',
+            client_id=self.client.user.id,
+            user_id=user_id
         )
         return await self.post(r, json=payload)
 
