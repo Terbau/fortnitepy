@@ -6,6 +6,49 @@ Changelog
 Detailed version changes.
 
 
+v3.6.0
+------
+
+Changes
+~~~~~~~
+
+- (**Breaking**) Party member meta change events like :func:`event_party_member_outfit_change()` are no longer emitted by the initial meta update that is received when a member joins the party.
+- (**Breaking**) The "other" argument in :func:`event_party_member_team_swap()` can now be ``None`` if the member swapped to an empty position.
+
+Added
+~~~~~
+
+- (**Breaking**) Added :exc:`PartyIsFull` exception which is now raised by :class:`Client.join_party()`.
+- Added functionality related to the new "Request to join" feature.
+  - Added :meth:`Friend.request_to_join()`. Read the warning field in the docs before using it.
+  - Added :func:`event_party_join_request()`.
+- Completely reworked party squad assignments and added functionality related to it.
+  - Added the following kwargs to :class:`DefaultPartyConfig`:
+    - ``default_squad_assignment``
+    - ``position_priorities``
+    - ``reassign_positions_on_size_change``
+  - Added :meth:`ClientPartyMember.set_position()`.
+  - Added :meth:`ClientParty.set_squad_assignments()`. This can be used to "hide" certain members and also change their positions.
+  - Added :attr:`ClientParty.squad_assignments`.
+  - Added :attr:`PartyMember.hidden`.
+- Added kwarg ``wait_for_member_meta_in_events`` to :class:`Client`. It is ``True`` by default which introduces a ~1 sec delay to :func:`event_party_member_join()`.
+- Added :meth:`Friend.owns_offer()` which can be used to check if a friend owns an offer currently in the item-shop.
+- Added timestamps for season 16.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue that caused the client to think that it was party leader after promoting someone else.
+- Fixed a rare race condition that could cause :func:`event_party_member_promote()` to pass the new leaders object as the old one.
+- Fixed some applications not closing smoothly due to another bug fix.
+- Fixed a relatively hidden bug in :meth:`PartyMember.swap_position()`.
+
+Misc
+~~~~
+
+- Fixed :func:`event_party_member_team_swap()` having the incorrect name specified in the docs.
+
+
 v3.5.0
 ------
 
