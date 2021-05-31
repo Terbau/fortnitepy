@@ -3139,15 +3139,27 @@ class PartyBase:
         if found:
             self.config['privacy'] = found
 
-        captain_id = data.get('captain_id')
-        if captain_id is not None:
-            leader = self.leader
-            if leader is not None and captain_id != leader.id:
-                delt = datetime.datetime.utcnow() - leader._role_updated_at
-                if delt.total_seconds() > 3:
-                    member = self.get_member(captain_id)
-                    if member is not None:
-                        self._update_roles(member)
+        # Only update role if the client is not in the party. This is because
+        # we don't want the role being potentially updated before
+        # MEMBER_NEW_CAPTAIN is received which could cause the promote
+        # event to pass two of the same member objects. This piece of code
+        # is essentially just here to update roles of parties that the client
+        # doesn't receive events for.
+        if self.client.user.id not in self._members:
+            captain_id = data.get('captain_id')
+            if captain_id is not None:
+                leader = self.leader
+                if leader is not None and captain_id != leader.id:
+                    delt = datetime.datetime.utcnow() - leader._role_updated_at
+                    if delt.total_seconds() > 3:
+                        member = self.get_member(captain_id)
+                        if member is not None:
+                            self._update_roles(member)
+
+        if _update_squad_assignments:
+            if self.leader.id != self.client.user.id:
+                _assignments = json.loads(_assignments)['RawSquadAssignments']
+                self._update_squad_assignments(_assignments)
 
     def _update_roles(self, new_leader):
         for member in self._members.values():
