@@ -450,6 +450,7 @@ def run_multiple(clients: List['Client'], *,
     except KeyboardInterrupt:
 
         if not _stopped:
+            _stopped = True
             loop.run_until_complete(close_multiple(clients))
     finally:
         future.remove_done_callback(close)

@@ -439,7 +439,10 @@ class HTTPClient:
         if self.__session:
             event = create_aiohttp_closed_event(self.__session)
             await self.__session.close()
-            await event.wait()
+            try:
+                await asyncio.wait_for(event.wait(), timeout=2)
+            except asyncio.TimeoutError:
+                pass
 
     def create_connection(self) -> None:
         self.__session = aiohttp.ClientSession(
