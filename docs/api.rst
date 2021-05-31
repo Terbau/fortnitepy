@@ -528,18 +528,18 @@ this decorator if you are in a subclass of :class:`Client`.
 	:param after: The current party privacy.
 	:type after: :class:`Privacy`
 
-.. function:: event_party_team_swap(member, other)
+.. function:: event_party_member_team_swap(member, other)
 
 	.. note::
 
 		Because of how party teams work, you can swap team with another member without their permission. If you don't want this to be possible, you can set ``team_change_allowed`` to ``False`` in :class:`DefaultPartyConfig`.
 
-	This event is called whenever a party member swaps party team with another member. You can get their new positions from :attr:`PartyMember.position`.
+	This event is called whenever a party member swaps their position. If the member switches to a position that was taken my another member, the two members will swap positions. You can get their new positions from :attr:`PartyMember.position`.
 
 	:param member: The member that instigated the team swap.
 	:type member: :class:`PartyMember`
-	:param other: The member that was swapped teams with.
-	:type other: :class:`PartyMember`
+	:param other: The member that was swapped teams with. If no member was previously holding the position, this will be ``None``.
+	:type other: Optional[:class:`PartyMember`]
 
 .. function:: event_party_member_ready_change(member, before, after)
 

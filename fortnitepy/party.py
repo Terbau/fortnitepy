@@ -870,12 +870,13 @@ class PartyMemberMeta(MetaBase):
 
     def set_member_squad_assignment_request(self, current_pos: int,
                                             target_pos: int,
-                                            target_id: str,
-                                            version: int) -> Dict[str, Any]:
+                                            version: int,
+                                            target_id: Optional[str] = None
+                                            ) -> Dict[str, Any]:
         data = {
             'startingAbsoluteIdx': current_pos,
             'targetAbsoluteIdx': target_pos,
-            'swapTargetMemberId': target_id,
+            'swapTargetMemberId': target_id or 'INVALID',
             'version': version,
         }
         final = {'MemberSquadAssignmentRequest': data}
@@ -1893,7 +1894,7 @@ class PartyMember(PartyMemberBase):
     async def swap_position(self) -> None:
         """|coro|
 
-        Swaps the clients team position with this member.
+        Swaps the clients party position with this member.
 
         Raises
         ------
@@ -1901,12 +1902,12 @@ class PartyMember(PartyMemberBase):
             An error occured while requesting.
         """
         me = self.party.me
-        me._assignment_version += 1
-        prop = self.meta.set_member_squad_assignment_request(
+        version = me._assignment_version + 1
+        prop = me.meta.set_member_squad_assignment_request(
             me.position,
             self.position,
-            self.id,
-            me._assignment_version
+            version,
+            target_id=self.id,
         )
 
         if not me.edit_lock.locked():
@@ -2775,6 +2776,48 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             An error occured while requesting.
         """
         await self.set_assisted_challenge(quest="")
+
+    async def set_position(self, position: int) -> None:
+        """|coro|
+
+        The the clients party position.
+
+        Parameters
+        ----------
+        position: :class:`int`
+            An integer ranging from 0-15. If a position is already held by
+            someone else, then the client and the existing holder will swap
+            positions.
+
+        Raises
+        ------
+        ValueError
+            The passed position is out of bounds.
+        HTTPException
+            An error occured while requesting.
+        """
+        if position < 0 or position > 15:
+            raise ValueError('The passed position is out of bounds.')
+
+        target_id = None
+        for member, assignment in self.party.squad_assignments.items():
+            if assignment.position == position:
+                if member.id == self.id:
+                    return
+
+                target_id = member.id
+                break
+
+        version = self._assignment_version + 1
+        prop = self.meta.set_member_squad_assignment_request(
+            self.position,
+            position,
+            version,
+            target_id=target_id,
+        )
+
+        if not self.edit_lock.locked():
+            return await self.patch(updated=prop)
 
     async def set_in_match(self, *, players_left: int = 100,
                            started_at: datetime.timedelta = None) -> None:

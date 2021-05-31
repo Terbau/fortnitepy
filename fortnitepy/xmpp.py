@@ -1218,27 +1218,37 @@ class XMPPClient:
             if req_j is not None:
                 req = json.loads(req_j)['MemberSquadAssignmentRequest']
                 version = req.get('version')
-                if version is not None and version != member._assignment_version:  # noqa
+
+                if member.id == self.client.user.id:
+                    assignment_version = party.me._assignment_version
+                else:
+                    assignment_version = member._assignment_version
+
+                if version is not None and version != assignment_version:
+                    new_positions = {
+                        member.id: req['targetAbsoluteIdx'],
+                    }
+
                     member._assignment_version = version
+                    if member.id == self.client.user.id:
+                        party.me._assignment_version = version
 
                     swap_member_id = req['swapTargetMemberId']
                     if swap_member_id != 'INVALID':
-                        new_positions = {
-                            member.id: req['targetAbsoluteIdx'],
-                            swap_member_id: req['startingAbsoluteIdx']
-                        }
-                        if party.me.leader:
-                            await party.refresh_squad_assignments(
-                                new_positions=new_positions
-                            )
+                        new_positions[swap_member_id] = req['startingAbsoluteIdx']  # noqa
 
-                        try:
-                            self.client.dispatch_event(
-                                'party_member_team_swap',
-                                *[party._members[k] for k in new_positions]
-                            )
-                        except KeyError:
-                            pass
+                    if party.me.leader:
+                        await party.refresh_squad_assignments(
+                            new_positions=new_positions
+                        )
+
+                    try:
+                        self.client.dispatch_event(
+                            'party_member_team_swap',
+                            *[party._members.get(k) for k in (member.id, swap_member_id)]  # noqa
+                        )
+                    except KeyError:
+                        pass
 
         self.client.dispatch_event('party_member_update', member)
 
