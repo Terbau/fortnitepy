@@ -3421,6 +3421,8 @@ class ClientParty(PartyBase, Patchable):
 
         if new_leader.id == self.client.user.id:
             self.client.party.me.update_role('CAPTAIN')
+        else:
+            self.client.party.me.update_role(None)
 
     async def _update_members(self, members: Optional[list] = None,
                               remove_missing: bool = True,
