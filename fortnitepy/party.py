@@ -33,8 +33,9 @@ import datetime
 
 from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
                     Awaitable, Type)
-from .enums import Enum
+from collections import OrderedDict
 
+from .enums import Enum
 from .errors import PartyError, Forbidden, HTTPException, NotFound
 from .user import User
 from .friend import Friend
@@ -46,6 +47,48 @@ if TYPE_CHECKING:
     from .client import Client
 
 
+class SquadAssignment:
+    """Represents a party members squad assignment. A squad assignment
+    is basically a piece of information about which position a member
+    has in the party, which is directly related to party teams.
+
+    Parameters
+    ----------
+    position: Optional[:class:`int`]
+        The position a member should have in the party. If no position
+        is passed, a position will be automatically given according to
+        the position priorities set.
+    hidden: :class:`bool`
+        Whether or not the member should be hidden in the party.
+
+        .. warning::
+
+            Being hidden is not a native fortnite feature so be careful
+            when using this. It might lead to undesirable results.
+    """
+
+    __slots__ = ('position', 'hidden')
+
+    def __init__(self, *,
+                 position: Optional[int] = None,
+                 hidden: bool = False) -> None:
+        self.position = position
+        self.hidden = hidden
+
+    def __repr__(self):
+        return ('<SquadAssignment position={0.position!r} '
+                'hidden={0.hidden!r}>'.format(self))
+
+    @classmethod
+    def copy(cls, assignment):
+        self = cls.__new__(cls)
+
+        self.position = assignment.position
+        self.hidden = assignment.hidden
+
+        return self
+
+
 class DefaultPartyConfig:
     """Data class for the default party configuration used when a new party
     is created.
@@ -55,24 +98,42 @@ class DefaultPartyConfig:
     privacy: Optional[:class:`PartyPrivacy`]
         | The party privacy that should be used.
         | Defaults to: :attr:`PartyPrivacy.PUBLIC`
+    max_size: Optional[:class:`int`]
+        | The maximun party size. Valid party sizes must use a value
+        between 1 and 16.
+        | Defaults to ``16``
+    chat_enabled: Optional[:class:`bool`]
+        | Wether or not the party chat should be enabled for the party.
+        | Defaults to ``True``.
     team_change_allowed: :class:`bool`
         | Whether or not players should be able to manually swap party team
         with another player. This setting only works if the client is the
         leader of the party.
         | Defaults to ``True``
-    max_size: Optional[:class:`int`]
-        | The maximun party size. Valid party sizes must use a value
-        between 1 and 16.
-        | Defaults to ``16``
+    default_squad_assignment: :class:`SquadAssignment`
+        | The default squad assignment to use for new members. Squad assignments
+        holds information about a party member's current position and visibility.
+        Please note that setting a position in the default squad assignment
+        doesnt actually do anything and it will just be overridden.
+        | Defaults to ``SquadAssignment(hidden=False)``.
+    position_priorities: List[int]
+        | A list of exactly 16 ints all ranging from 0-15. When a new member
+        joins the party or a member is not defined in a squad assignment
+        request, it will automatically give the first available position
+        in this list.
+        | Defaults to a list of 0-15 in order.
+    reassign_positions_on_size_change: :class:`bool`
+        | Whether or not positions should be automatically reassigned if the party
+        size changes. Set this to ``False`` if you want members to keep their
+        positions unless manually changed. The reassignment is done according
+        to the position priorities.
+        | Defaults to ``True``.
     joinability: Optional[:class:`PartyJoinability`]
         | The joinability configuration that should be used.
         | Defaults to :attr:`PartyJoinability.OPEN`
     discoverability: Optional[:class:`PartyDiscoverability`]
         | The discoverability configuration that should be used.
         | Defaults to :attr:`PartyDiscoverability.ALL`
-    chat_enabled: Optional[:class:`bool`]
-        | Wether or not the party chat should be enabled for the party.
-        | Defaults to ``True``.
     invite_ttl: Optional[:class:`int`]
         | How many seconds the invite should be valid for before
         automatically becoming invalid.
@@ -107,6 +168,15 @@ class DefaultPartyConfig:
         Whether or not players are able to manually swap party team
         with another player. This setting only works if the client is the
         leader of the party.
+    default_squad_assignment: :class:`SquadAssignment`
+        The default squad assignment to use for new members and members
+        not specified in manual squad assignments requests.
+    position_priorities: List[:class:`int`]
+        A list containing exactly 16 integers ranging from 0-16 with no
+        duplicates. This is used for position assignments.
+    reassign_positions_on_size_change: :class:`bool`
+        Whether or not positions will be automatically reassigned when the
+        party size changes.
     cls: Type[:class:`ClientParty`]
         The default party object used to represent the client's party.
     """  # noqa
@@ -114,10 +184,46 @@ class DefaultPartyConfig:
         self.cls = kwargs.pop('cls', ClientParty)
         self._client = None
         self.team_change_allowed = kwargs.pop('team_change_allowed', True)
+        self.default_squad_assignment = kwargs.pop(
+            'default_squad_assignment',
+            SquadAssignment(hidden=False),
+        )
+
+        value = kwargs.pop('position_priorities', None)
+        if value is None:
+            self._position_priorities = list(range(16))
+        else:
+            self.position_priorities = value
+
+        self.reassign_positions_on_size_change = kwargs.pop(
+            'reassign_positions_on_size_change',
+            True
+        )
         self.meta = kwargs.pop('meta', [])
 
         self._config = {}
         self.update(kwargs)
+
+    @property
+    def position_priorities(self):
+        return self._position_priorities
+
+    @position_priorities.setter
+    def position_priorities(self, value):
+        def error():
+            raise ValueError(
+                'position priorities must include exactly 16 integers '
+                'ranging from 0-16.'
+            )
+
+        if len(value) != 16:
+            error()
+
+        for i in range(16):
+            if i not in value:
+                error()
+
+        self._position_priorities = value
 
     def _inject_client(self, client: 'Client') -> None:
         self._client = client
@@ -1202,9 +1308,16 @@ class PartyMemberBase(User):
         | 8-11 = Team 3
         | 12-15 = Team 4
         """
-        for pos_data in self.party.meta.squad_assignments:
-            if pos_data['memberId'] == self.id:
-                return pos_data['absoluteMemberIdx']
+        member = self.party.get_member(self.id)
+        return self.party.squad_assignments[member].position
+
+    @property
+    def hidden(self) -> bool:
+        """:class:`bool`: Whether or not the member is currently hidden in the
+        party. A member can only be hidden if a bot is the leader, therefore
+        this attribute rarely is used."""
+        member = self.party.get_member(self.id)
+        return self.party.squad_assignments[member].hidden
 
     @property
     def platform(self) -> Platform:
@@ -2819,6 +2932,7 @@ class PartyBase:
         self._id = data.get('id')
         self._members = {}
         self._applicants = data.get('applicants', [])
+        self._squad_assignments = OrderedDict()
 
         self._update_invites(data.get('invites', []))
         self._update_config(data.get('config'))
@@ -2901,6 +3015,13 @@ class PartyBase:
         """:class:`PartyPrivacy`: The currently set privacy of this party."""
         return self.meta.privacy
 
+    @property
+    def squad_assignments(self) -> Dict[PartyMember, SquadAssignment]:
+        """Dict[:class:`PartyMember`, :class:`SquadAssignment`]: The squad assignments
+        for this party. This includes information about a members position and
+        visibility."""
+        return self._squad_assignments
+
     def _add_member(self, member: PartyMember) -> None:
         self._members[member.id] = member
 
@@ -2921,6 +3042,18 @@ class PartyBase:
         """
         return self._members.get(user_id)
 
+    def _update_squad_assignments(self, raw):
+        results = OrderedDict()
+        for data in sorted(raw, key=lambda o: o['absoluteMemberIdx']):
+            member = self.get_member(data['memberId'])
+            if member is None:
+                continue
+
+            assignment = SquadAssignment(position=data['absoluteMemberIdx'])
+            results[member] = assignment
+
+        self._squad_assignments = results
+
     def _update(self, data: dict) -> None:
         try:
             config = data['config']
@@ -2934,6 +3067,13 @@ class PartyBase:
             }
 
         self._update_config({**self.config, **config})
+
+        _update_squad_assignments = False
+        key = 'Default:RawSquadAssignments_j'
+        _assignments = data['party_state_updated'].get(key)
+        if _assignments:
+            if _assignments != self.meta.schema.get(key, ''):
+                _update_squad_assignments = True
 
         self.meta.update(data['party_state_updated'], raw=True)
         self.meta.remove(data['party_state_removed'])
@@ -3424,69 +3564,143 @@ class ClientParty(PartyBase, Patchable):
         await super().edit_and_keep(*coros)
 
     def construct_squad_assignments(self,
-                                    new_positions: Dict[str, int] = {}
-                                    ) -> Dict[str, Any]:
-        existing = self.meta.squad_assignments
-        existing_ids = [d['memberId'] for d in existing]
-        taken_pos = set(new_positions.values())
-        to_assign = []
+                                    assignments: Optional[Dict[PartyMember, SquadAssignment]] = None,  # noqa
+                                    new_positions: Optional[Dict[str, int]] = None  # noqa
+                                    ) -> Dict[PartyMember, SquadAssignment]:
+        existing = self._squad_assignments
+
+        results = {}
+        already_assigned = set()
+
+        positions = self._default_config.position_priorities.copy()
+        reassign = self._default_config.reassign_positions_on_size_change
+        default_assignment = self._default_config.default_squad_assignment
+
+        def assign(member, assignment=None, position=True):
+            if assignment is None:
+                assignment = SquadAssignment.copy(default_assignment)
+                position = True
+
+            if str(position) not in ('True', 'False'):
+                assignment.position = position
+                positions.remove(position)
+            elif position:
+                assignment.position = positions.pop(0)
+            else:
+                try:
+                    positions.remove(assignment.position)
+                except ValueError:
+                    pass
+
+            results[member] = assignment
+            already_assigned.add(member.id)
+
+        if new_positions is not None:
+            for user_id, position in new_positions.items():
+                member = self.get_member(user_id)
+                if member is None:
+                    continue
+
+                assignment = existing.get(member)
+                assign(member, assignment, position=position)
+
+        if assignments is not None:
+            for m, assignment in assignments.items():
+                if assignment.position is not None:
+                    try:
+                        positions.remove(assignment.position)
+                    except ValueError:
+                        raise ValueError('Duplicate positions set.')
+                    else:
+                        assign(m, assignment, position=False)
+                else:
+                    assign(m, assignment)
 
         for member in self._members.values():
-            if member.id not in existing_ids:
-                to_assign.append(member)
-
-        new = []
-        for user_id, pos in new_positions.items():
-            new.append({
-                'memberId': user_id,
-                'absoluteMemberIdx': pos
-            })
-
-        i = 0
-
-        def increment():
-            nonlocal i
-
-            i += 1
-            while i in taken_pos:
-                i += 1
-
-        for member_data in existing:
-            user_id = member_data['memberId']
-            if user_id not in self._members:
+            if member.id in already_assigned:
                 continue
 
-            if user_id in new_positions:
+            assignment = existing.get(member)
+            should_reassign = reassign
+            if assignment and assignment.position not in positions:
+                should_reassign = True
+
+            assign(member, assignment, position=should_reassign)
+
+        results = OrderedDict(
+            sorted(results.items(), key=lambda o: o[1].position)
+        )
+
+        self._squad_assignments = results
+        return results
+
+    def _convert_squad_assignments(self, assignments):
+        results = []
+        for member, assignment in assignments.items():
+            if assignment.hidden:
                 continue
 
-            new.append({
-                'memberId': user_id,
-                'absoluteMemberIdx': i
-            })
-            increment()
-
-        assignments = list(sorted(new, key=lambda o: o['absoluteMemberIdx']))
-        if assignments:
-            last_pos = assignments[-1]['absoluteMemberIdx'] + 1
-        else:
-            last_pos = 0
-
-        for i, member in enumerate(to_assign, last_pos):
-            assignments.append({
+            results.append({
                 'memberId': member.id,
-                'absoluteMemberIdx': i
+                'absoluteMemberIdx': assignment.position,
             })
 
-        return self.meta.set_squad_assignments(assignments)
+        return results
+
+    def _construct_raw_squad_assignments(self,
+                                         assignments: Dict[PartyMember, SquadAssignment] = None,  # noqa
+                                         new_positions: Dict[str, int] = None,
+                                         could_be_edit: bool = False
+                                         ) -> Dict[str, Any]:
+        ret = self.construct_squad_assignments(
+            assignments=assignments,
+            new_positions=new_positions,
+            could_be_edit=could_be_edit,
+        )
+        raw = self._convert_squad_assignments(ret)
+        prop = self.meta.set_squad_assignments(raw)
+        return prop
 
     async def refresh_squad_assignments(self,
-                                        new_positions: Dict[str, int] = {},
+                                        assignments: Dict[PartyMember, SquadAssignment] = None,  # noqa
+                                        new_positions: Dict[str, int] = None,
                                         could_be_edit: bool = False) -> None:
-        prop = self.construct_squad_assignments(new_positions=new_positions)
+        prop = self._construct_raw_squad_assignments(
+            assignments=assignments,
+            new_positions=new_positions,
+            could_be_edit=could_be_edit,
+        )
 
         check = not self.edit_lock.locked() if could_be_edit else True
         if check:
             return await self.patch(updated=prop)
+
+    async def set_squad_assignments(self, assignments: Dict[PartyMember, SquadAssignment]) -> None:  # noqa
+        """|coro|
+
+        Sets squad assignments for members of the party.
+
+        Parameters
+        ----------
+        assignments: Dict[:class:`PartyMember`, :class:`SquadAssignment`]
+            Pre-defined assignments to set. If a member is missing from this
+            dict, they will be automatically added to the final request.
+
+            Example: ::
+
+                {
+                    member1 = fortnitepy.SquadAssignment(position=5),
+                    member2 = fortnitepy.SquadAssignment(hidden=True)
+                }
+
+        Raises
+        ------
+        ValueError
+            Duplicate positions were set in the assignments.
+        HTTPException
+            An error occured while requesting.
+        """
+        return await self.refresh_squad_assignments(assignments=assignments)
 
     async def _invite(self, friend: Friend) -> None:
         if friend.id in self._members:

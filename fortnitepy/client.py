@@ -2966,7 +2966,7 @@ class Client:
                     **default_schema,
                     **updated,
                     **edit_updated,
-                    **party.construct_squad_assignments(),
+                    **party._construct_raw_squad_assignments(),
                     **party.meta.set_voicechat_implementation('EOSVoiceChat')
                 },
                 deleted=[*deleted, *edit_deleted],

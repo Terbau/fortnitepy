@@ -1175,6 +1175,14 @@ Avatar
 .. autoclass:: Avatar()
 	:members:
 
+SquadAssignment
+~~~~~~~~~~~~~~~
+
+.. attributetable:: SquadAssignment
+
+.. autoclass:: SquadAssignment()
+	:members:
+
 
 Exceptions
 ----------
