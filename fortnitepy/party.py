@@ -3747,8 +3747,8 @@ class ClientParty(PartyBase, Patchable):
             Example: ::
 
                 {
-                    member1 = fortnitepy.SquadAssignment(position=5),
-                    member2 = fortnitepy.SquadAssignment(hidden=True)
+                    member1: fortnitepy.SquadAssignment(position=5),
+                    member2: fortnitepy.SquadAssignment(hidden=True)
                 }
 
         Raises
