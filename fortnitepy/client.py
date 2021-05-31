@@ -535,6 +535,11 @@ class Client:
             or simply is ``None`` on objects deriving from :class:`User`. Keep in
             mind that :attr:`User.id` always will be available. You can use
             :meth:`User.fetch()` to update all missing attributes.
+    wait_for_member_meta_in_events: :class:`bool`
+        Whether or not the client should wait for party member meta (information
+        about outfit, backpack etc.) before dispatching events like
+        :func:`event_party_member_join()`. If this is disabled then member objects
+        in the events won't have the correct meta. Defaults to ``True``.
 
     Attributes
     ----------
@@ -568,6 +573,7 @@ class Client:
         self.service_port = kwargs.get('xmpp_port', 5222)
         self.cache_users = kwargs.get('cache_users', True)
         self.fetch_user_data_in_events = kwargs.get('fetch_user_data_in_events', True)  # noqa
+        self.wait_for_member_meta_in_events = kwargs.get('wait_for_member_meta_in_events', True)  # noqa
 
         self.kill_other_sessions = True
         self.accept_eula = True

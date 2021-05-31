@@ -901,6 +901,8 @@ class XMPPClient:
                 fetch_user_data=self.client.fetch_user_data_in_events,
             ))[0]
 
+        member.meta.has_been_updated = False
+
         fut = None
         if party.me is not None:
             party.me.do_on_member_join_patch()
@@ -924,6 +926,19 @@ class XMPPClient:
 
         if fut is not None:
             await fut
+
+        self.client.dispatch_event('internal_party_member_join', member)
+
+        if self.client.wait_for_member_meta_in_events:
+            if not member.meta.has_been_updated:
+                try:
+                    await self.client.wait_for(
+                        'internal_initial_party_member_meta',
+                        check=lambda m: m.id == member.id,
+                        timeout=2
+                    )
+                except asyncio.TimeoutError:
+                    pass
 
         self.client.dispatch_event('party_member_join', member)
 
@@ -1169,7 +1184,7 @@ class XMPPClient:
 
             try:
                 member = await self.client.wait_for(
-                    'party_member_join',
+                    'internal_party_member_join',
                     check=check,
                     timeout=1
                 )
@@ -1200,16 +1215,25 @@ class XMPPClient:
                 value = value()
             return value
 
-        _check = ('ready', 'input', 'assisted_challenge', 'outfit', 'backpack',
-                  'pet', 'pickaxe', 'contrail', 'emote', 'emoji', 'banner',
-                  'battlepass_info', 'in_match', 'match_players_left',
-                  'enlightenments', 'corruption', 'outfit_variants',
-                  'backpack_variants', 'pickaxe_variants',
-                  'contrail_variants', 'lobby_map_marker_is_visible',
-                  'lobby_map_marker_coordinates',)
-        pre_values = {k: _getattr(member, k) for k in _check}
+        should_dispatch_extra_events = member.meta.has_been_updated
+        if should_dispatch_extra_events:
+            _check = ('ready', 'input', 'assisted_challenge', 'outfit',
+                      'backpack', 'pet', 'pickaxe', 'contrail', 'emote',
+                      'emoji', 'banner', 'battlepass_info', 'in_match',
+                      'match_players_left', 'enlightenments', 'corruption',
+                      'outfit_variants', 'backpack_variants',
+                      'pickaxe_variants', 'contrail_variants',
+                      'lobby_map_marker_is_visible',
+                      'lobby_map_marker_coordinates',)
+            pre_values = {k: _getattr(member, k) for k in _check}
 
         member.update(body)
+        if len(body['member_state_updated']) > 5 and not member.meta.has_been_updated:  # noqa
+            member.meta.has_been_updated = True
+            self.client.dispatch_event(
+                'internal_initial_party_member_meta',
+                member
+            )
 
         if party._default_config.team_change_allowed or not party.me.leader:
             req_j = body['member_state_updated'].get(
@@ -1251,6 +1275,11 @@ class XMPPClient:
                         pass
 
         self.client.dispatch_event('party_member_update', member)
+
+        # Only dispatch the events below if the update is not the initial
+        # party join one.
+        if not should_dispatch_extra_events:
+            return
 
         def _dispatch(key, member, pre_value, value):
             self.client.dispatch_event(

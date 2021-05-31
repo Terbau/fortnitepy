@@ -570,6 +570,7 @@ class PartyMemberMeta(MetaBase):
         self.member = member
 
         self.meta_ready_event = asyncio.Event()
+        self.has_been_updated = True
 
         self.def_character = DefaultCharactersChapter2.get_random_name()
         self.schema = {
