@@ -6,6 +6,15 @@ Changelog
 Detailed version changes.
 
 
+v3.6.1
+------
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed a critical crash issue introduced in v3.6.0.
+
+
 v3.6.0
 ------
 
