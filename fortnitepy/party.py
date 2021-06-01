@@ -3708,12 +3708,10 @@ class ClientParty(PartyBase, Patchable):
     def _construct_raw_squad_assignments(self,
                                          assignments: Dict[PartyMember, SquadAssignment] = None,  # noqa
                                          new_positions: Dict[str, int] = None,
-                                         could_be_edit: bool = False
                                          ) -> Dict[str, Any]:
         ret = self.construct_squad_assignments(
             assignments=assignments,
             new_positions=new_positions,
-            could_be_edit=could_be_edit,
         )
         raw = self._convert_squad_assignments(ret)
         prop = self.meta.set_squad_assignments(raw)
@@ -3726,7 +3724,6 @@ class ClientParty(PartyBase, Patchable):
         prop = self._construct_raw_squad_assignments(
             assignments=assignments,
             new_positions=new_positions,
-            could_be_edit=could_be_edit,
         )
 
         check = not self.edit_lock.locked() if could_be_edit else True
