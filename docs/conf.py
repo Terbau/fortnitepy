@@ -92,5 +92,5 @@ html_static_path = ['_static']
 
 
 def setup(app):
-    app.add_stylesheet('style.css')
-    app.add_javascript('custom.js')
+    app.add_css_file('style.css')
+    app.add_js_file('custom.js')
