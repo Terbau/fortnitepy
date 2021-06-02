@@ -1713,9 +1713,6 @@ class PartyMemberBase(User):
 
         Parameters
         ----------
-        item: :class:`str`
-            The variant item type. This defaults to ``AthenaCharacter`` which
-            is what you want to use if you are changing skin variants.
         config_overrides: Dict[:class:`str`, :class:`str`]
             A config that overrides the default config for the variant
             backend names. Example: ::
