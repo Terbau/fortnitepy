@@ -18,7 +18,7 @@ except FileNotFoundError:
 
 extras_require = {
     'docs': [
-        'sphinxcontrib_trio==1.1.0',
+        'sphinxcontrib_trio==1.1.2',
     ]
 }
 
