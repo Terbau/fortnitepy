@@ -19,6 +19,7 @@ except FileNotFoundError:
 extras_require = {
     'docs': [
         'sphinxcontrib_trio==1.1.2',
+        'furo==2021.4.11b34',
     ]
 }
 

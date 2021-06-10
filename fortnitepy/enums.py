@@ -216,6 +216,7 @@ class SeasonStartTimestamp(Enum):
     SEASON_14 = 1598486401
     SEASON_15 = 1606867201
     SEASON_16 = 1615852801
+    SEASON_17 = 1623110401
 
 
 class SeasonEndTimestamp(Enum):
@@ -234,6 +235,7 @@ class SeasonEndTimestamp(Enum):
     SEASON_13 = 1598486400
     SEASON_14 = 1606867200
     SEASON_15 = 1615852800
+    SEASON_16 = 1623110400
 
 
 class BattlePassStat(Enum):
@@ -242,7 +244,8 @@ class BattlePassStat(Enum):
     SEASON_13 = (('s13_social_bp_level', 's11_social_bp_level'), SeasonEndTimestamp.SEASON_13.value)
     SEASON_14 = ('s14_social_bp_level', SeasonEndTimestamp.SEASON_14.value)
     SEASON_15 = ('s15_social_bp_level', SeasonEndTimestamp.SEASON_15.value)
-    SEASON_16 = ('s16_social_bp_level', None)
+    SEASON_16 = ('s16_social_bp_level', SeasonEndTimestamp.SEASON_16.value)
+    SEASON_17 = ('s17_social_bp_level', None)
 
 
 class KairosBackgroundColorPreset(Enum):

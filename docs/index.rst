@@ -19,12 +19,21 @@ Extensions
   ext/commands/index.rst
 
 Other
-------
+-----
 
 .. toctree::
   :maxdepth: 3
 
   faq
+  usedby
+  help
+
+Changelogs
+-----------
+
+.. toctree::
+  :maxdepth: 2
+
   changelog
 
 

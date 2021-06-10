@@ -1,3 +1,12 @@
+function setTheme(themeToSet) {
+  localStorage.setItem('theme', themeToSet);
+  document.documentElement.setAttribute("data-theme", themeToSet);
+}
+
+function getCurrentTheme() {
+  return document.documentElement.getAttribute("data-theme");
+}
+
 $(document).ready(function () {
   var sections = $('div.section');
   var activeLink = null;
