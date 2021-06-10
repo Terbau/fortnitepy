@@ -1,6 +1,6 @@
 .. _fortnitepy_ext_commands:
 
-``fortnitepy.ext.commands`` -- Bot commands framework
+Commands Framework
 ====================================================
 
 This is the documentation for the bot commands framework ported from `discord.py <https://github.com/Rapptz/discord.py/>`_. If you ever need help, please do not

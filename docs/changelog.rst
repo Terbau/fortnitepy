@@ -627,8 +627,8 @@ Changes
 - Fixed an issue where constructing presences would fail in some cases due to an unexpected type.
 
 
-v2.0.1 - v2.0.3
----------------
+v2.0.1
+------
 
 Hotpatches to fix some overlooked major bugs.
 

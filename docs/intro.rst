@@ -1,5 +1,5 @@
-Introduction
-============
+Getting started
+===============
 
 Installation
 ------------
@@ -18,8 +18,22 @@ Installation
 
     python3 -m pip install fortnitepy
 
-Basic usage
------------
+Authentication
+--------------
+
+The get the bot working you must use one of several :ref:`authentication methods <authentication>`. If you do not know which one to use, you should stick with :class:`AdvancedAuth` which is used in all examples. :class:`AdvancedAuth` requires you to enter an authorization code upon the bots initial launch. When the bot has successfully authenticated, it will automatically generate credentials which can be used at a later point. That means you can launch your bot without any extra stuff needed after its first launch.
+
+**How to get an authorization code:**
+
+#. Log into an epic -games account of your choice `here <https://www.epicgames.com/id/logout?redirectUrl=https%3A//www.epicgames.com/id/login%3FredirectUrl%3Dhttps%253A%252F%252Fwww.epicgames.com%252Fid%252Fapi%252Fredirect%253FclientId%253D3446cd72694c4a4485d81b77adbb2141%2526responseType%253Dcode>`_.  
+#. Copy the hex part from the url that shows up as showcased by the image below.
+
+.. image:: https://raw.githubusercontent.com/Terbau/fortnitepy/dev/docs/resources/images/authorization_code.png
+
+**Note:** An authorization code expires after 5 minutes.
+
+Basic example
+-------------
 
 .. code-block:: python3
 

@@ -245,19 +245,19 @@ this decorator if you are in a subclass of :class:`Client`.
 
 .. function:: event_ready()
 
-    This event is called when the client has been successfully established and connected to all services.
-
-	.. warning::
-
-        This event is not called when the client starts in :class:`Client.close()`.
+	This event is called when the client .has been successfully established and connected to all services.
+	
+	.. note::
+	
+		This event is not called when the client starts in :class:`Client.close()`.
 
 .. function:: event_before_start()
 
 	This event is called and waited for before the client starts.
 
 	.. warning::
-
-        This event is not called when the client starts in :class:`Client.restart()`.
+	
+		This event is not called when the client starts in :class:`Client.restart()`.
 
 	.. note::
 

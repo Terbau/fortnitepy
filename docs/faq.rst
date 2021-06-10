@@ -3,9 +3,6 @@
 Frequently Asked Questions (FAQ)
 ================================
 
-.. contents:: Questions
-    :local:
-
 Authentication
 --------------
 
