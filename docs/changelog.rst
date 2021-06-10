@@ -6,6 +6,27 @@ Changelog
 Detailed version changes.
 
 
+v3.6.2
+------
+
+Added
+~~~~~
+
+- Added timestamps related to fortnite season 17.
+  - :attr:`SeasonStartTimestamp.SEASON_17`
+  - :attr:`SeasonEndTimestamp.SEASON_16`
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue where the client could attempt to clear an emote after it had already left the party.
+
+Misc
+~~~~
+
+- New documentation design. Woo.
+
+
 v3.6.1
 ------
 
