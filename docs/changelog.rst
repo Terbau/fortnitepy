@@ -6,6 +6,15 @@ Changelog
 Detailed version changes.
 
 
+v3.6.3
+------
+
+Bug fixes
+---------
+
+- Fixed an issue that made it possible for programs with ill intent to send events to the client.
+
+
 v3.6.2
 ------
 
