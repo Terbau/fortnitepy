@@ -177,6 +177,10 @@ class XMLProcessor:
     def _process_message(self, raw: str) -> Optional[Union[tuple, bool]]:
         tree = ElementTree.fromstring(raw)
 
+        # Only intercept messages sent by epic
+        if tree.get('from', '') != 'xmpp-admin@prod.ol.epicgames.com':
+            return False
+
         type_ = tree.get('type')
 
         # Only intercept messages with either no type attribute
