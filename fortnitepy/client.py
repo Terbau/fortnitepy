@@ -2122,7 +2122,8 @@ class Client:
         """
         await self.add_friend(user_id)
         friend = await self.wait_for('friend_add',
-                                     check=lambda f: f.id == user_id)
+                                     check=lambda f: f.id == user_id,
+                                     timeout = 60)
         return friend
 
     async def remove_or_decline_friend(self, user_id: str) -> None:
