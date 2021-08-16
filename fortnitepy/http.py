@@ -992,13 +992,13 @@ class HTTPClient:
     #           User Search           #
     ###################################
 
-    async def user_search_by_prefix(self, prefix: str, platform: str) -> list:
+    async def user_search_by_prefix(self, client_id: str, prefix: str, platform: str) -> list:
         params = {
             'prefix': prefix,
             'platform': platform
         }
 
-        r = UserSearchService('/api/v1/search')
+        r = UserSearchService('/api/v1/search/{client_id}', client_id=client_id)
         return await self.get(r, params=params)
 
     ###################################
