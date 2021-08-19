@@ -1532,6 +1532,7 @@ class Client:
             )
 
         res = await self.http.user_search_by_prefix(
+            self.user.id,
             prefix,
             platform.value
         )
