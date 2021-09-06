@@ -1532,6 +1532,7 @@ class Client:
             )
 
         res = await self.http.user_search_by_prefix(
+            self.user.id,
             prefix,
             platform.value
         )
@@ -2476,16 +2477,18 @@ class Client:
                                               end_time: Optional[DatetimeOrTimestamp] = None  # noqa
                                               ) -> List[dict]:
         chunks = [user_ids[i:i+51] for i in range(0, len(user_ids), 51)]
+        stats_chunks = [stats[i:i+20] for i in range(0, len(stats), 20)]
 
         tasks = []
         for chunk in chunks:
-            tasks.append(self.http.stats_get_multiple_v2(
-                chunk,
-                stats,
-                category=collection,
-                start_time=start_time,
-                end_time=end_time
-            ))
+            for stats_chunk in stats_chunks:
+                tasks.append(self.http.stats_get_multiple_v2(
+                    chunk,
+                    stats_chunk,
+                    category=collection,
+                    start_time=start_time,
+                    end_time=end_time
+                ))
 
         results = await asyncio.gather(*tasks)
         return [item for sub in results for item in sub]
@@ -2516,6 +2519,10 @@ class Client:
 
         res = {}
         for udata in results[1]:
+            if udata['accountId'] in res and res[udata['accountId']] is not None:
+                res[udata['accountId']].raw['stats'].update(udata['stats'])
+                continue
+
             r = [x for x in results[0] if x.id == udata['accountId']]
             user = r[0] if len(r) != 0 else None
             res[udata['accountId']] = (cls(user, udata)

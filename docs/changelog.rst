@@ -6,11 +6,22 @@ Changelog
 Detailed version changes.
 
 
+v3.6.4
+------
+
+Bug fixes
+~~~~~~~~~
+
+- Fixed ``parameter_required`` error on email/password login.
+- Fixed :meth:`Client.search_users()`.
+- Fixed fetch multiple stats methods to work with more than 20 stat keys at the same time.
+
+
 v3.6.3
 ------
 
 Bug fixes
----------
+~~~~~~~~~
 
 - Fixed an issue that made it possible for programs with ill intent to send events to the client.
 
