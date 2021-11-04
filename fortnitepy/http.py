@@ -929,9 +929,14 @@ class HTTPClient:
             'captcha': ''
         }
 
+        cookies = {
+            'EPIC_COUNTRY': 'US'
+        }
+
         return await self.post(EpicGames('/id/api/login'),
                                headers=headers,
-                               data=payload)
+                               data=payload,
+                               cookies=cookies)
 
     async def epicgames_mfa_login(self, method: str,
                                   code: str,
