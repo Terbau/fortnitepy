@@ -1977,7 +1977,8 @@ class Client:
         """
         await self.http.friends_unblock(user_id)
 
-    def is_id(self, value: str) -> bool:
+    @staticmethod
+    def is_id(value: str) -> bool:
         """Simple function that finds out if a :class:`str` is a valid id
 
         Parameters
@@ -1990,9 +1991,10 @@ class Client:
         :class:`bool`
             ``True`` if string is valid else ``False``
         """
-        return isinstance(value, str) and len(value) > 16
+        return isinstance(value, str) and len(value) > 16 and value.isalnum()
 
-    def is_display_name(self, val: str) -> bool:
+    @staticmethod
+    def is_display_name(value: str) -> bool:
         """Simple function that finds out if a :class:`str` is a valid displayname
 
         Parameters
@@ -2005,7 +2007,7 @@ class Client:
         :class:`bool`
             ``True`` if string is valid else ``False``
         """
-        return isinstance(val, str) and 3 <= len(val) <= 16
+        return isinstance(value, str) and 3 <= len(value) <= 16
 
     async def add_friend(self, user_id: str) -> None:
         """|coro|
