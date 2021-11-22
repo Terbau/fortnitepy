@@ -125,7 +125,7 @@ class StatsV2(_StatsBase):
         Parameters
         ----------
         data: :class:`dict`
-            A :class:`dict` which atleast includes the keys: ``kills``,
+            A :class:`dict` which at least includes the keys: ``kills``,
             ``matchesplayed`` and ``wins``.
 
         Returns
@@ -159,7 +159,7 @@ class StatsV2(_StatsBase):
         Parameters
         ----------
         data: :class:`dict`
-            A :class:`dict` which atleast includes the keys: matchesplayed`` and ``wins``.
+            A :class:`dict` which at least includes the keys: matchesplayed`` and ``wins``.
 
         Returns
         -------

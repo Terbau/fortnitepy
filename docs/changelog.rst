@@ -146,7 +146,7 @@ Bug Fixes
 
 - Fixed several bugs related to changes in python 3.9 that caused the version to be incompatible with fortnitepy.
 - Fixed what I believe to be (hopefully) the last remaining issues that caused :attr:`ClientParty.me` to be ``None`` in some rare cases.
-- Party leave and party join actions are now under the same lock which should elliminate some race conditions.
+- Party leave and party join actions are now under the same lock which should eliminate some race conditions.
 - Fixed an issue that caused aiohttp to spam noisy errors on shutdown when using :class:`asyncio.ProactorEventLoop`.
 - Fixed an issue where an error was raised if a meta property was missing.
 - Fixed websocket sessions not being correctly closed when reconnecting after an unexpected close.
@@ -453,11 +453,11 @@ Bug Fixes
 - Fixed an issue where bots were not able to join any new lobbies in some rare circumstances.
 - Fixed an issue that caused other users to not be able to rejoin or lookup the bots private party even when the user had already been a part of the party before.
 - Fixed an issue where :exc:`HTTPException` would sometimes fail at initializing because of a missing required value.
-- Fixed multiple issues regarding graphql error responses that was not correctly catched to raise an :exc:`HTTPException` and would raise an ugly error.
+- Fixed multiple issues regarding graphql error responses that was not correctly caught to raise an :exc:`HTTPException` and would raise an ugly error.
 - HTTP retries are now attempted for even more errors.
 - Fixed an issue where :attr:`PartyMember.connection` wasn't always updated to use the latest connection.
 - Improved the clients knowledge of which member is actually the party leader.
-- Fixed and improved lots of stuff regarding sudden connection loss including recovering and dispatching events, automatic party reconnect if the criterias is met and more.
+- Fixed and improved lots of stuff regarding sudden connection loss including recovering and dispatching events, automatic party reconnect if the criteria is met and more.
 - Fixed an issue where a member was removed from the party internally if their connection was lost but not expired.
 - Lowered the deadtime hard limit values for the xmpp connection before reconnecting.
 - Fixed a window where :attr:`ClientParty.me` could be ``None``.
@@ -491,7 +491,7 @@ Huge performance improvements and lots of bug fixes.
 Changed
 ~~~~~~~
 
-- Internal parsing of xmpp stanzas like presences and messages are now processed by a custom processor which bypasses aioxmpp's slow processing whenever possible. This is more noticable on accounts with lots of online friends. Internal tests are showing performance speeds to be more than three times faster than before.
+- Internal parsing of xmpp stanzas like presences and messages are now processed by a custom processor which bypasses aioxmpp's slow processing whenever possible. This is more noticeable on accounts with lots of online friends. Internal tests are showing performance speeds to be more than three times faster than before.
 
 Added
 ~~~~~
@@ -510,7 +510,7 @@ Removed
 Bug Fixes
 ~~~~~~~~~
 
-- Fixed lots of issues regarding the xmpp over websocket solution. The most noticable one is that xmpp will auto reconnect on errors and unexpected closings.
+- Fixed lots of issues regarding the xmpp over websocket solution. The most noticeable one is that xmpp will auto reconnect on errors and unexpected closings.
 - Fixed invalid refresh token sometimes crashing the bot while refreshing the session. NOTE: This only works when using :class:`DeviceAuth` or :class:`AdvancedAuth`.
 - Fixed an issue where stored meta changes from :attr:`DefaultPartyConfig.meta` wasn't always applied correctly when creating a new party.
 - Fixed an issue where some meta props wasn't always updated when using :meth:`ClientParty.edit()` or :meth:`ClientPartyMember.edit()`.
@@ -648,7 +648,7 @@ Changes
 - (**Breaking**) Renamed optional parameter ``prompt_exchange_code_if_invalid`` -> `prompt_code_if_invalid` for :class:`AdvancedAuth`.
 - (**Breaking**) Renamed optional parameter ``prompt_exchange_code_if_throttled`` -> `prompt_code_if_throttled` for :class:`AdvancedAuth`.
 - (**Breaking**) Renamed parameter ``exchange_code`` -> ``code`` for :class:`ExchangeCodeAuth`.
-- Updated all examples to use ``prompt_authorization_code`` since thats now the easiest method.
+- Updated all examples to use ``prompt_authorization_code`` since that's now the easiest method.
 
 
 v2.0.4
@@ -762,7 +762,7 @@ Bug Fixes
 - Fixed an issue where :attr:`PartyMember.platform` could be ``None`` in some rare cases.
 - Fixed an issue that crashed the client on startup if the clients display name contained arabic or other letters that are read in the other direction.
 
-Miscellanious
+Miscellaneous
 ~~~~~~~~~~~~~
 
 - Updated the build version.
@@ -875,7 +875,7 @@ Bug Fixes
 - Fixed an issue that caused the client to attempt to join two or more parties at a time.
 - Fixed an issue that in rare cases caused cache initialization to fail on startup and therefore break.
 - Fixed a race condition between two events that very rarely broke the clients party.
-- Readded detailed stack traces for :exc:`HTTPException` in most cases.
+- Read detailed stack traces for :exc:`HTTPException` in most cases.
 
 
 v1.5.4
@@ -900,7 +900,7 @@ Bug Fixes
 ~~~~~~~~~
 
 - Fixed an issue that caused auth refreshing not to work.
-- Silenced an unecessary error raised sometimes when the bot left a party.
+- Silenced an unnecessary error raised sometimes when the bot left a party.
 
 
 v1.5.2
@@ -1384,7 +1384,7 @@ Added
 - Added :meth:`Client.fetch_multiple_battleapss_levels` which fetches multiple userids battlepass levels at once.
 - Added :meth:`Client.fetch_battlepass_level` which fetches a userid's battlepass level.
 - You can now pass ``None`` to :meth:`ClientPartyMember.set_ready()` to make the client go into the Sitting Out state.
-- Added :attr:`PartyInvitation.net_cl` which returnes the net_cl that was sent with a party invitation.
+- Added :attr:`PartyInvitation.net_cl` which returns the net_cl that was sent with a party invitation.
 - Added :attr:`Presence.avatar` to get the cid of the friends Kairos avatar.
 - Added :attr:`Presence.avatar_colors` to get the background colors of the friends Kairos avatar.
 - Added :meth:`StatsV2.get_stats()` which is now the correct approach to getting the users stats mapped to platforms and gamemodes from the object. 
@@ -1436,7 +1436,7 @@ Added
 - Fortnite is now automatically bought for free on startup if the account does not already own it.
 - Added an example to showcase how you can have multiple clients running at the same time.
 - Added enumeration :class:`Platform`.
-- Added :attr:`Client.os`. You shouldnt ever need to change this but you could do it by passing a different value with the ``os`` keyword when initialising :class:`Client`.
+- Added :attr:`Client.os`. You shouldn't ever need to change this but you could do it by passing a different value with the ``os`` keyword when initialising :class:`Client`.
 - Added :attr:`PartyMember.outfit_variants` to get the raw outfit variants of this member.
 - Added :attr:`PartyMember.backpack_variants` to get the raw backpack variants of this member.
 - Added :attr:`PartyMember.pickaxe_variants` to get the raw pickaxe variants of this member.
@@ -1542,7 +1542,7 @@ Bug Fixes
 v0.5.2
 ------
 
-Internal changes 99% of you wont ever notice + some small bug fixes.
+Internal changes 99% of you won't ever notice + some small bug fixes.
 
 Refactored
 ~~~~~~~~~~
@@ -1618,9 +1618,9 @@ Bug Fixes
 - Fixed an issue where an error were sometimes raised due to attempting to create a new party while already in a another.
 - Fixed :meth:`PartyMember.set_assisted_challenge()` only taking a full path for the quest argument.
 - Fixed an issue where members of a party the client is joining would not have updated metas.
-- Fixed an issue where an unecessary error would be raised when sending a message to a party chat.
+- Fixed an issue where an unnecessary error would be raised when sending a message to a party chat.
 
-Miscellanious
+Miscellaneous
 ~~~~~~~~~~~~~
 
 - Added missing :func:`event_party_member_leave` to the event reference.
@@ -1677,7 +1677,7 @@ Bug Fixes
 - Fixed an issue where the client would fail to automatically recreate a party in some situations.
 - Fixed an issue where party presences was processed as a user presence.
 
-Miscellanious
+Miscellaneous
 ~~~~~~~~~~~~~
 
 - Added missing documentation to some functions.
@@ -1746,7 +1746,7 @@ Bug Fixes
 - Fixed an issue introduced with the Fortnite v9.40 update that made party invites not work.
 - Fixed an issue where the client would not make a new party if the client expires from an earlier party. (fix for fortnite ``error code -93`` upon attempting to join the clients party.)
 
-Miscellanious
+Miscellaneous
 ~~~~~~~~~~~~~
 
 - Added some enums and functions to make ready for StatsV1 support coming in a later update.

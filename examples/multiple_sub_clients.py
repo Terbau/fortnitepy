@@ -116,7 +116,7 @@ class MyClient(fortnitepy.Client):
                 all_ready_callback=lambda: print('All sub clients ready')
             )
         except fortnitepy.AuthException:
-            print('An error occured while starting sub clients. Closing gracefully.')
+            print('An error occurred while starting sub clients. Closing gracefully.')
             await self.close()
 
     async def event_before_close(self):

@@ -236,7 +236,7 @@ class Presence:
     status: :class:`str`
         The friend's status.
     in_kairos: :class:`bool`
-        Wether or not the friend is in kairos. If this is True, then quite a
+        Whether or not the friend is in kairos. If this is True, then quite a
         lot of the property attributes will be None or potentially something
         unexpected.
     playing: :class:`bool`
@@ -261,7 +261,7 @@ class Presence:
         The friend's party.
     gameplay_stats: Optional[:class:`PresenceGameplayStats`]
         The friend's gameplay stats. Will be ``None`` if no gameplay stats
-        are currently availble.
+        are currently available.
     avatar: :class:`Avatar`
         The avatar set in Kairos (Mobile app).
     homebase_rating: :class:`str`
@@ -317,7 +317,7 @@ class Presence:
         self.has_properties = raw_properties != {}
 
         # All values below will be "None" if properties is empty.
-        # The only expections are avatar and party which could have
+        # The only exceptions are avatar and party which could have
         # values as long as in_kairos is True.
 
         kairos_p = raw_properties.get('KairosProfile_s', {})

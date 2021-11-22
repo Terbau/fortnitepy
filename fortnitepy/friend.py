@@ -197,7 +197,7 @@ class Friend(FriendBase):
             will most likely not return True when calling it in
             :func:`event_friend_add()`. You could use :meth:`Client.wait_for()`
             to wait for the presence to be received but remember that if the
-            friend is infact offline, no presence will be received. You can add
+            friend is in fact offline, no presence will be received. You can add
             a timeout the method to make sure it won't wait forever.
 
         Returns
@@ -251,7 +251,7 @@ class Friend(FriendBase):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -276,7 +276,7 @@ class Friend(FriendBase):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -311,7 +311,7 @@ class Friend(FriendBase):
             The nickname contains too few/many characters or contains invalid
             characters.
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if not (3 <= len(nickname) <= 16):
             raise ValueError('Invalid nickname length')
@@ -334,7 +334,7 @@ class Friend(FriendBase):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         await self.client.http.friends_remove_nickname(self.id)
         self._nickname = None
@@ -356,7 +356,7 @@ class Friend(FriendBase):
             The note contains too few/many characters or contains invalid
             characters.
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if not (3 <= len(note) <= 255):
             raise ValueError('Invalid note length')
@@ -379,7 +379,7 @@ class Friend(FriendBase):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         await self.client.http.friends_remove_note(self.id)
         self._note = None
@@ -478,7 +478,7 @@ class Friend(FriendBase):
         FriendOffline
             The friend you requested to join is offline.
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         try:
             await self.client.http.party_send_intention(self.id)
@@ -508,7 +508,7 @@ class Friend(FriendBase):
             An invalid/outdated offer_id was passed. Only offers currently in
             the item shop are valid.
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------

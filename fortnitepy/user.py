@@ -191,7 +191,7 @@ class UserBase:
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         result = await self.client.http.account_graphql_get_multiple_by_user_id(  # noqa
             (self.id,),
@@ -227,7 +227,7 @@ class UserBase:
             ``Settings`` -> ``Account and Privacy`` -> ``Show on career
             leaderboard``
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -267,7 +267,7 @@ class UserBase:
             ``Settings`` -> ``Account and Privacy`` -> ``Show on career
             leaderboard``
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -317,7 +317,7 @@ class UserBase:
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -529,7 +529,7 @@ class User(UserBase):
             The client is not allowed to send friendship requests to the user
             because of the users settings.
         HTTPException
-            An error occured while requesting to add this friend.
+            An error occurred while requesting to add this friend.
         """
         await self.client.add_friend(self.id)
 
@@ -596,9 +596,9 @@ class SacSearchEntryUser(User):
     slug: :class:`str`
         The slug (creator code) that matched.
     active: :class:`bool`
-        Wether or not the creator code is active or not.
+        Whether or not the creator code is active or not.
     verified: :class:`bool`
-        Wether or not the creator code is verified or not.
+        Whether or not the creator code is verified or not.
     """
     def __init__(self, client: 'Client',
                  user_data: dict,

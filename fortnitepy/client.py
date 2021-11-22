@@ -154,7 +154,7 @@ async def _start_client(client: 'Client', *,
                         error_after(client, e)
                     return
 
-                message = ('An exception occured while running client '
+                message = ('An exception occurred while running client '
                            '{0}'.format(identifier))
                 return loop.call_exception_handler({
                     'message': message,
@@ -253,7 +253,7 @@ async def start_multiple(clients: List['Client'], *,
         Raised if invalid credentials in any form was passed or some
         other misc failure.
     HTTPException
-        A request error occured while logging in.
+        A request error occurred while logging in.
     """  # noqa
     loop = asyncio.get_event_loop()
 
@@ -404,7 +404,7 @@ def run_multiple(clients: List['Client'], *,
         Raised if invalid credentials in any form was passed or some
         other misc failure.
     HTTPException
-        A request error occured while logging in.
+        A request error occurred while logging in.
     """  # noqa
     loop = asyncio.get_event_loop()
     _closing = False
@@ -759,7 +759,7 @@ class Client:
             Raised if invalid credentials in any form was passed or some
             other misc failure.
         HTTPException
-            A request error occured while logging in.
+            A request error occurred while logging in.
         """
         loop = self.loop
         _stopped = False
@@ -842,7 +842,7 @@ class Client:
             Raised if invalid credentials in any form was passed or some
             other misc failure.
         HTTPException
-            A request error occured while logging in.
+            A request error occurred while logging in.
         """
 
         if self._first_start:
@@ -963,7 +963,7 @@ class Client:
                 await self.http.account_sessions_kill_token(token)
             except HTTPException:
                 # All exchanged sessions should be killed when the original
-                # session is killed, but this doesn't seem to be consistant.
+                # session is killed, but this doesn't seem to be consistent.
                 # The solution is to attempt to kill each token and then just
                 # catch 401.
                 pass
@@ -1016,7 +1016,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while logging out.
+            An error occurred while logging out.
         """
         if dispatch_close:
             await asyncio.gather(
@@ -1048,7 +1048,7 @@ class Client:
             Raised if invalid credentials in any form was passed or some
             other misc failure.
         HTTPException
-            A request error occured while logging in.
+            A request error occurred while logging in.
         """
         self._reauth_lock.priority += 1
         priority = self._reauth_lock.priority
@@ -1205,7 +1205,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting the user.
+            An error occurred while requesting the user.
 
         Returns
         -------
@@ -1264,7 +1264,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting the user.
+            An error occurred while requesting the user.
 
         Returns
         -------
@@ -1308,7 +1308,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting the user.
+            An error occurred while requesting the user.
 
         Returns
         -------
@@ -1354,7 +1354,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting user information.
+            An error occurred while requesting user information.
 
         Returns
         -------
@@ -1469,7 +1469,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting the user.
+            An error occurred while requesting the user.
 
         Returns
         -------
@@ -1518,7 +1518,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -1567,7 +1567,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting fortnite's services.
+            An error occurred while requesting fortnite's services.
 
         Returns
         -------
@@ -1934,7 +1934,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while fetching blocklist.
+            An error occurred while fetching blocklist.
 
         Returns
         -------
@@ -2041,7 +2041,7 @@ class Client:
             The client is not allowed to send friendship requests to the user
             because of the users settings.
         HTTPException
-            An error occured while requesting to add this friend.
+            An error occurred while requesting to add this friend.
         """
         try:
             await self.http.friends_add_or_accept(user_id)
@@ -2114,7 +2114,7 @@ class Client:
             The client is not allowed to send friendship requests to the user
             because of the users settings.
         HTTPException
-            An error occured while requesting to accept this friend.
+            An error occurred while requesting to accept this friend.
 
         Returns
         -------
@@ -2446,7 +2446,7 @@ class Client:
             |  ``Settings`` -> ``Account and Privacy`` -> ``Show on career
             leaderboard``
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -2600,7 +2600,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -2654,7 +2654,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -2715,7 +2715,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -2804,7 +2804,7 @@ class Client:
         Forbidden
             User has private career board.
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -2864,7 +2864,7 @@ class Client:
         ValueError
             You passed an invalid/non-accepted stat argument.
         HTTPException
-            An error occured when requesting.
+            An error occurred when requesting.
 
         Returns
         -------
@@ -2910,9 +2910,9 @@ class Client:
                             config: Optional[dict] = None,
                             acquire: bool = True,
                             priority: int = 0) -> ClientParty:
-        aquiring = not self.auth._refresh_lock.locked() and acquire
+        acquiring = not self.auth._refresh_lock.locked() and acquire
         try:
-            if aquiring:
+            if acquiring:
                 await self._join_party_lock.acquire()
 
             if isinstance(config, dict):
@@ -2992,7 +2992,7 @@ class Client:
             return party
 
         finally:
-            if aquiring:
+            if acquiring:
                 self._join_party_lock.release()
 
     def is_creating_party(self) -> bool:
@@ -3246,7 +3246,7 @@ class Client:
             The returned data was empty. Most likely because service_id is not
             valid.
         HTTPException
-            An error occured when requesting.
+            An error occurred when requesting.
 
         Returns
         -------
@@ -3280,7 +3280,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured when requesting.
+            An error occurred when requesting.
 
         Returns
         -------
@@ -3298,7 +3298,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured when requesting.
+            An error occurred when requesting.
 
         Returns
         -------
@@ -3326,7 +3326,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
@@ -3358,7 +3358,7 @@ class Client:
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
 
         Returns
         -------
