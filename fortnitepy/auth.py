@@ -416,7 +416,6 @@ class EmailAndPasswordAuth(Auth):
                 async with _prompt_lock:
                     code = await ainput(
                         'Please enter the 2fa code:\n',
-                        loop=self.client.loop
                     )
 
             try:
@@ -1033,7 +1032,6 @@ class AdvancedAuth(Auth):
                 async with _prompt_lock:
                     code = await ainput(
                         text,
-                        loop=self.client.loop
                     )
 
             if (prompted and self.prompt_exchange_code) or self.exchange_code_ready():  # noqa
