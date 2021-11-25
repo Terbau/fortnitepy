@@ -33,7 +33,6 @@ import uuid
 import itertools
 import unicodedata
 import aiohttp
-import collections
 
 from xml.etree import ElementTree
 from collections import defaultdict
@@ -555,13 +554,16 @@ def _patched_done_handler(self, task):
 aioxmpp.node.Client._main_impl = _patched_main_impl
 aioxmpp.stream.StanzaStream._done_handler = _patched_done_handler
 
+
 # Temporary hacks for 3.10 support
 def _patched_loopboundmixin_init(self, *, loop=asyncio.mixins._marker):
     pass
 
+
 _original_wait = asyncio.wait
 
-async def _patched_asyncio_wait(fs, *, timeout=None, return_when=asyncio.ALL_COMPLETED, loop=None):
+
+async def _patched_asyncio_wait(fs, *, timeout=None, return_when=asyncio.ALL_COMPLETED, loop=None):  # noqa
     return await _original_wait(fs, timeout=timeout, return_when=return_when)
 
 asyncio.mixins._LoopBoundMixin.__init__ = _patched_loopboundmixin_init
