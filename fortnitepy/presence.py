@@ -223,8 +223,8 @@ class Presence:
     client: :class:`Client`
         The client.
     available: :class:`bool`
-        The availability of this presence. ``True`` if presence is available,
-        ``False`` if user went unavailable.
+        Whether or not the user is online. ``True`` if the friend **is** or
+        **went** online, ``False`` if the friend **went** offline.
     away: :class:`AwayStatus`
         The users away status.
     friend: :class:`Friend`

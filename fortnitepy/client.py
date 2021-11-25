@@ -661,6 +661,39 @@ class Client:
         # fortnite's services expect three digit precision on millis
         return iso[:23] + 'Z'
 
+    @staticmethod
+    def is_id(value: str) -> bool:
+        """Simple function that finds out if a :class:`str` is a valid id to
+        use with fortnite services.
+
+        Parameters
+        ----------
+        value: :class:`str`
+            The string you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if string is valid else ``False``
+        """
+        return isinstance(value, str) and bool(uuid_match_comp.match(value))
+
+    @staticmethod
+    def is_display_name(value: str) -> bool:
+        """Simple function that finds out if a :class:`str` is a valid displayname
+
+        Parameters
+        ----------
+        value: :class:`str`
+            The string you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if string is valid else ``False``
+        """
+        return isinstance(value, str) and 3 <= len(value) <= 16
+
     @property
     def default_party_config(self) -> DefaultPartyConfig:
         return self._default_party_config
@@ -1980,37 +2013,6 @@ class Client:
         """
         await self.http.friends_unblock(user_id)
 
-    def is_id(self, value: str) -> bool:
-        """Simple function that finds out if a :class:`str` is a valid id to
-        use with fortnite services.
-
-        Parameters
-        ----------
-        value: :class:`str`
-            The string you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if string is valid else ``False``
-        """
-        return isinstance(value, str) and bool(uuid_match_comp.match(value))
-
-    def is_display_name(self, value: str) -> bool:
-        """Simple function that finds out if a :class:`str` is a valid displayname
-
-        Parameters
-        ----------
-        value: :class:`str`
-            The string you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if string is valid else ``False``
-        """
-        return isinstance(value, str) and 3 <= len(value) <= 16
-
     async def add_friend(self, user_id: str) -> None:
         """|coro|
 
@@ -2523,7 +2525,7 @@ class Client:
 
         res = {}
         for udata in results[1]:
-            if udata['accountId'] in res and res[udata['accountId']] is not None:
+            if udata['accountId'] in res and res[udata['accountId']] is not None:  # noqa
                 res[udata['accountId']].raw['stats'].update(udata['stats'])
                 continue
 
