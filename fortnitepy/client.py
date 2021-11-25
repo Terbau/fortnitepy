@@ -30,6 +30,7 @@ import sys
 import signal
 import logging
 import time
+import re
 
 from aioxmpp import JID
 from typing import Union, Optional, Any, Awaitable, Callable, Dict, List, Tuple
@@ -59,6 +60,8 @@ from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
 from .utils import LockEvent, MaybeLock
 
 log = logging.getLogger(__name__)
+
+uuid_match_comp = re.compile(r'^[a-f0-9]{32}$')
 
 
 # all credit for this function goes to discord.py.
@@ -1978,7 +1981,8 @@ class Client:
         await self.http.friends_unblock(user_id)
 
     def is_id(self, value: str) -> bool:
-        """Simple function that finds out if a :class:`str` is a valid id
+        """Simple function that finds out if a :class:`str` is a valid id to
+        use with fortnite services.
 
         Parameters
         ----------
@@ -1990,9 +1994,9 @@ class Client:
         :class:`bool`
             ``True`` if string is valid else ``False``
         """
-        return isinstance(value, str) and len(value) > 16
+        return isinstance(value, str) and bool(uuid_match_comp.match(value))
 
-    def is_display_name(self, val: str) -> bool:
+    def is_display_name(self, value: str) -> bool:
         """Simple function that finds out if a :class:`str` is a valid displayname
 
         Parameters
@@ -2005,7 +2009,7 @@ class Client:
         :class:`bool`
             ``True`` if string is valid else ``False``
         """
-        return isinstance(val, str) and 3 <= len(val) <= 16
+        return isinstance(value, str) and 3 <= len(value) <= 16
 
     async def add_friend(self, user_id: str) -> None:
         """|coro|
