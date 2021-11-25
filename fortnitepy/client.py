@@ -717,6 +717,11 @@ class Client:
         return list(self._friends.values())
 
     @property
+    def friend_count(self) -> int:
+        """:class:`int`: The amount of friends the bot currently has."""
+        return len(self._friends)
+
+    @property
     def pending_friends(self) -> List[Union[IncomingPendingFriend,
                                             OutgoingPendingFriend]]:
         """List[Union[:class:`IncomingPendingFriend`,
@@ -733,11 +738,23 @@ class Client:
         return list(self._pending_friends.values())
 
     @property
+    def pending_friend_count(self) -> int:
+        """:class:`int`: The amount of pending friends the bot currently has.
+        """
+        return len(self._pending_friends)
+
+    @property
     def incoming_pending_friends(self) -> List[IncomingPendingFriend]:
         """List[:class:`IncomingPendingFriend`]: A list of the clients
         incoming pending friends.
         """
         return [pf for pf in self._pending_friends.values() if pf.incoming]
+
+    @property
+    def incoming_pending_friend_count(self) -> int:
+        """:class:`int`: The amount of active incoming pending friends the bot
+        currently has received."""
+        return len(self.incoming_pending_friends)
 
     @property
     def outgoing_pending_friends(self) -> List[OutgoingPendingFriend]:
@@ -747,11 +764,23 @@ class Client:
         return [pf for pf in self._pending_friends.values() if pf.outgoing]
 
     @property
+    def outgoing_pending_friend_count(self) -> int:
+        """:class:`int`: The amount of active outgoing pending friends the bot
+        has sent."""
+        return len(self.outgoing_pending_friends)
+
+    @property
     def blocked_users(self) -> List[BlockedUser]:
         """List[:class:`BlockedUser`]: A list of the users client has
         as blocked.
         """
         return list(self._blocked_users.values())
+
+    @property
+    def blocked_user_count(self) -> int:
+        """:class:`int`: The amount of blocked users the bot currently has
+        blocked."""
+        return len(self._blocked_users)
 
     @property
     def presences(self) -> List[Presence]:
