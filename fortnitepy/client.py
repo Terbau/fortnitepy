@@ -3196,8 +3196,8 @@ class Client:
                 await self._create_party(acquire=False)
                 raise
 
-    async def set_presence(self, status: str, *,
-                           away: AwayStatus = AwayStatus.ONLINE) -> None:
+    def set_presence(self, status: str, *,
+                     away: AwayStatus = AwayStatus.ONLINE) -> None:
         """|coro|
 
         Sends and sets the status. This status message will override all other
@@ -3220,10 +3220,7 @@ class Client:
 
         self.status = status
         self.away = away
-        await self.xmpp.send_presence(
-            status=status,
-            show=away.value
-        )
+        self.party.update_presence()
 
     async def send_presence(self, status: Union[str, dict], *,
                             away: AwayStatus = AwayStatus.ONLINE,
