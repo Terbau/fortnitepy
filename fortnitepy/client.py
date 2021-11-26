@@ -33,7 +33,8 @@ import time
 import re
 
 from aioxmpp import JID
-from typing import Union, Optional, Any, Awaitable, Callable, Dict, List, Tuple
+from typing import (Iterable, Union, Optional, Any, Awaitable, Callable, Dict,
+                    List, Tuple)
 
 from .errors import (PartyError, HTTPException, NotFound, Forbidden,
                      DuplicateFriendship, FriendshipRequestAlreadySent,
@@ -261,7 +262,7 @@ async def start_multiple(clients: List['Client'], *,
     loop = asyncio.get_event_loop()
 
     async def waiter(client):
-        done, pending = await asyncio.wait(
+        _, pending = await asyncio.wait(
             (client.wait_until_ready(), client.wait_until_closed()),
             return_when=asyncio.FIRST_COMPLETED
         )
@@ -322,7 +323,7 @@ async def start_multiple(clients: List['Client'], *,
         raise done_task.exception()
 
 
-async def close_multiple(clients: List['Client']) -> None:
+async def close_multiple(clients: Iterable['Client']) -> None:
     """|coro|
 
     Closes multiple clients at the same time by calling :meth:`Client.close()`
@@ -330,9 +331,9 @@ async def close_multiple(clients: List['Client']) -> None:
 
     Parameters
     ----------
-    clients: List[:class:`Client`]
-        A list of the clients you wish to close. If a client is already closing
-        or closed, it will get skipped without raising an error.
+    clients: Iterable[:class:`Client`]
+        An iterable of the clients you wish to close. If a client is already
+        closing or closed, it will get skipped without raising an error.
     """
     loop = asyncio.get_event_loop()
 
@@ -802,7 +803,7 @@ class Client:
             logger.setLevel(level=logging.ERROR)
 
     def register_methods(self) -> None:
-        methods = [func for func in dir(self) if callable(getattr(self, func))]
+        methods = (func for func in dir(self) if callable(getattr(self, func)))
         for method_name in methods:
             if method_name.startswith(self.event_prefix):
                 event = method_name[len(self.event_prefix):]
@@ -936,7 +937,7 @@ class Client:
             self.dispatch_event('ready')
 
         async def waiter(task):
-            done, pending = await asyncio.wait(
+            done, _ = await asyncio.wait(
                 (task, self._exception_future),
                 return_when=asyncio.FIRST_COMPLETED
             )
@@ -1238,7 +1239,7 @@ class Client:
 
         await self._create_party(priority=priority)
 
-    async def fetch_user_by_display_name(self, display_name, *,
+    async def fetch_user_by_display_name(self, display_name: str, *,
                                          cache: bool = False,
                                          raw: bool = False
                                          ) -> Optional[User]:
@@ -1303,7 +1304,7 @@ class Client:
 
     fetch_profile_by_display_name = fetch_user_by_display_name
 
-    async def fetch_users_by_display_name(self, display_name, *,
+    async def fetch_users_by_display_name(self, display_name: str, *,
                                           raw: bool = False
                                           ) -> Optional[User]:
         """|coro|
@@ -1388,7 +1389,7 @@ class Client:
 
     fetch_profile = fetch_user
 
-    async def fetch_users(self, users, *,
+    async def fetch_users(self, users: Iterable[str], *,
                           cache: bool = False,
                           raw: bool = False) -> List[User]:
         """|coro|
@@ -1398,8 +1399,8 @@ class Client:
 
         Parameters
         ----------
-        users: List[:class:`str`]
-            A list/tuple containing ids/displaynames.
+        users: Iterable[:class:`str`]
+            An iterable containing ids/displaynames.
         cache: :class:`bool`
             If set to True it will try to get the users from the friends or
             user cache and fall back to an api request if not found.
@@ -1426,9 +1427,6 @@ class Client:
         List[:class:`User`]
             Users requested. Only users that are found gets returned.
         """
-        if len(users) == 0:
-            return []
-
         _users = []
         new = []
         tasks = []
@@ -1461,6 +1459,9 @@ class Client:
                         continue
                 new.append(elem)
 
+        if not _users and not new and not tasks:
+            return []
+
         if len(tasks) > 0:
             pfs = await asyncio.gather(*tasks)
             for p_data in pfs:
@@ -1476,12 +1477,12 @@ class Client:
                             break
 
         chunk_tasks = []
-        chunks = [new[i:i + 100] for i in range(0, len(new), 100)]
+        chunks = (new[i:i + 100] for i in range(0, len(new), 100))
         for chunk in chunks:
             task = self.http.account_graphql_get_multiple_by_user_id(chunk)
             chunk_tasks.append(task)
 
-        if len(chunks) > 0:
+        if len(chunk_tasks) > 0:
             d = await asyncio.gather(*chunk_tasks)
             for results in d:
                 for result in results['accounts']:
@@ -1602,7 +1603,7 @@ class Client:
             platform.value
         )
 
-        user_ids = [d['accountId'] for d in res]
+        user_ids = (d['accountId'] for d in res)
         users = await self.fetch_users(user_ids, raw=True)
         lookup = {p['id']: p for p in users}
 
@@ -1642,9 +1643,9 @@ class Client:
         """
         res = await self.http.payment_website_search_sac_by_slug(slug)
 
-        user_ids = [e['id'] for e in res]
+        user_ids = (e['id'] for e in res)
         users = await self.fetch_users(
-            list(user_ids),
+            user_ids,
             raw=True
         )
         lookup = {p['id']: p for p in users}
@@ -1676,7 +1677,7 @@ class Client:
         raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
 
         ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
-        chunks = [ids[i:i + 100] for i in range(0, len(ids), 100)]
+        chunks = (ids[i:i + 100] for i in range(0, len(ids), 100))
 
         users = {}
         tasks = [

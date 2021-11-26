@@ -375,7 +375,7 @@ class Presence:
         if self.server_player_count is not None:
             self.server_player_count = int(self.server_player_count)
 
-        if 'FortGameplayStats_j' in raw_properties.keys():
+        if 'FortGameplayStats_j' in raw_properties:
             self.gameplay_stats = PresenceGameplayStats(
                 self.friend,
                 raw_properties['FortGameplayStats_j'],
@@ -385,7 +385,7 @@ class Presence:
             self.gameplay_stats = None
 
         key = None
-        for k in raw_properties.keys():
+        for k in raw_properties:
             if re.search(r'party\.joininfodata\.\d+_j', k) is not None:
                 key = k
 

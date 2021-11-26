@@ -31,8 +31,8 @@ import re
 import functools
 import datetime
 
-from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
-                    Awaitable, Type)
+from typing import (TYPE_CHECKING, Iterable, Optional, Any, List, Dict, Union,
+                    Tuple, Awaitable, Type)
 from collections import OrderedDict
 
 from .enums import Enum
@@ -552,7 +552,7 @@ class MetaBase:
         for prop, value in schema.items():
             self.set_prop(prop, value, raw=raw)
 
-    def remove(self, schema: Union[List[str], Dict[str, Any]]) -> None:
+    def remove(self, schema: Iterable[str]) -> None:
         for prop in schema:
             try:
                 del self.schema[prop]
@@ -3411,9 +3411,9 @@ class ClientParty(PartyBase, Patchable):
         return _default_status
 
     def update_presence(self, text: Optional[str] = None) -> None:
-        data = self.construct_presence(text=text)
-
         if self.client.status is not False:
+            data = self.construct_presence(text=text)
+
             self.last_raw_status = data
             self.client.xmpp.set_presence(
                 status=self.last_raw_status,
@@ -3845,7 +3845,7 @@ class ClientParty(PartyBase, Patchable):
 
         data = await self.client.http.party_lookup(self.id)
 
-        user_ids = [r['sent_to'] for r in data['invites']]
+        user_ids = (r['sent_to'] for r in data['invites'])
         users = await self.client.fetch_users(user_ids, cache=True)
 
         invites = []
