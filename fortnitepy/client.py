@@ -1338,6 +1338,9 @@ class Client:
             A list containing all payloads found for this user.
         """
         res = await self.http.account_graphql_get_by_display_name(display_name)
+        if raw:
+            return res['account']
+
         return [User(self, account) for account in res['account']]
 
     fetch_profiles_by_display_name = fetch_users_by_display_name
