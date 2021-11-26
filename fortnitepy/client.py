@@ -3254,6 +3254,29 @@ class Client:
             to=to
         )
 
+    async def set_platform(self, platform: Platform) -> None:
+        """|coro|
+
+        Sets and updates the clients platform. This method is slow (~2-3s) as
+        changing platform requires a full authentication refresh.
+
+        Parameters
+        ----------
+        platform: :class:`Platform`
+            The platform to set.
+
+        Raises
+        ------
+        HTTPException
+            An error occurred when requesting.
+        """
+        self.platform = platform
+
+        await asyncio.gather(
+            self.auth.run_refresh(),
+            self.wait_for('muc_enter'),
+        )
+
     def set_avatar(self, avatar: Avatar) -> None:
         """Sets the client's avatar and updates it for all friends.
 
