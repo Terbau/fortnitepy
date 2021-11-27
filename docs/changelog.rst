@@ -875,7 +875,7 @@ Bug Fixes
 - Fixed an issue that caused the client to attempt to join two or more parties at a time.
 - Fixed an issue that in rare cases caused cache initialization to fail on startup and therefore break.
 - Fixed a race condition between two events that very rarely broke the clients party.
-- Read detailed stack traces for :exc:`HTTPException` in most cases.
+- Re-added detailed stack traces for :exc:`HTTPException` in most cases.
 
 
 v1.5.4
