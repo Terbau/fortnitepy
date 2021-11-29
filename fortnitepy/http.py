@@ -590,7 +590,7 @@ class HTTPClient:
 
         return data
 
-    def get_retry_after(self, exc):
+    def get_retry_after(self, exc: HTTPException) -> Optional[int]:
         retry_after = exc.response.headers.get('Retry-After')
         if retry_after is not None:
             return int(retry_after)
@@ -1406,7 +1406,7 @@ class HTTPClient:
     #             Party               #
     ###################################
 
-    async def party_disconnect(self, party_id: str, user_id: str):
+    async def party_disconnect(self, party_id: str, user_id: str) -> dict:
         r = PartyService(
             'party/api/v1/Fortnite/parties/{party_id}/members/{user_id}/disconnect',  # noqa
             party_id=party_id,

@@ -75,12 +75,12 @@ class SquadAssignment:
         self.position = position
         self.hidden = hidden
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ('<SquadAssignment position={0.position!r} '
                 'hidden={0.hidden!r}>'.format(self))
 
     @classmethod
-    def copy(cls, assignment):
+    def copy(cls, assignment: 'SquadAssignment') -> 'SquadAssignment':
         self = cls.__new__(cls)
 
         self.position = assignment.position
@@ -205,7 +205,7 @@ class DefaultPartyConfig:
         self.update(kwargs)
 
     @property
-    def position_priorities(self):
+    def position_priorities(self) -> List[int]:
         return self._position_priorities
 
     @position_priorities.setter
@@ -2918,7 +2918,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
-    async def clear_lobby_map_marker(self):
+    async def clear_lobby_map_marker(self) -> None:
         """|coro|
 
         Clears and hides the clients current lobby map marker.
@@ -3089,7 +3089,7 @@ class PartyBase:
         """
         return self._members.get(user_id)
 
-    def _update_squad_assignments(self, raw):
+    def _update_squad_assignments(self, raw: dict) -> None:
         results = OrderedDict()
         for data in sorted(raw, key=lambda o: o['absoluteMemberIdx']):
             member = self.get_member(data['memberId'])
@@ -3164,7 +3164,7 @@ class PartyBase:
                 _assignments = json.loads(_assignments)['RawSquadAssignments']
                 self._update_squad_assignments(_assignments)
 
-    def _update_roles(self, new_leader):
+    def _update_roles(self, new_leader: PartyMemberBase) -> None:
         for member in self._members.values():
             member.update_role(None)
 
@@ -3431,7 +3431,7 @@ class ClientParty(PartyBase, Patchable):
     def _update_revision(self, revision: int) -> None:
         self.revision = revision
 
-    def _update_roles(self, new_leader):
+    def _update_roles(self, new_leader: PartyMemberBase) -> None:
         super()._update_roles(new_leader)
 
         if new_leader.id == self.client.user.id:
@@ -3695,7 +3695,7 @@ class ClientParty(PartyBase, Patchable):
         self._squad_assignments = results
         return results
 
-    def _convert_squad_assignments(self, assignments):
+    def _convert_squad_assignments(self, assignments: dict) -> List[dict]:
         results = []
         for member, assignment in assignments.items():
             if assignment.hidden:

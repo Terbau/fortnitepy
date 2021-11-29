@@ -2338,7 +2338,7 @@ class Client:
         handlers = self._events.get(event.lower())
         return handlers is not None and len(handlers) > 0
 
-    def _event_has_destination(self, event):
+    def _event_has_destination(self, event: str) -> bool:
         if event in self._listeners:
             return True
         elif self._event_has_handler(event):

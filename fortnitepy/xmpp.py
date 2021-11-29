@@ -1475,7 +1475,7 @@ class XMPPClient:
 
         self.client.dispatch_event('friend_presence', before_pres, _pres)
 
-    def on_stream_established(self):
+    def on_stream_established(self) -> None:
         self.client.dispatch_event('xmpp_session_establish')
 
         async def on_establish():
@@ -1496,7 +1496,7 @@ class XMPPClient:
         self._is_suspended = False
         self.client.loop.create_task(on_establish())
 
-    def on_stream_suspended(self, reason):
+    def on_stream_suspended(self, reason: Optional[Exception]) -> None:
         jid = self.xmpp_client.local_jid
         resource = jid.resource[:-32] + (uuid.uuid4().hex).upper()
         self.xmpp_client._local_jid = jid.replace(resource=resource)
@@ -1518,7 +1518,7 @@ class XMPPClient:
         self._is_suspended = True
         self.client.dispatch_event('xmpp_session_lost')
 
-    def on_stream_destroyed(self, reason=None):
+    def on_stream_destroyed(self, reason: Optional[Exception] = None) -> None:
         if not self._is_suspended:
             task = self._reconnect_recover_task
             if task is not None and not task.cancelled():

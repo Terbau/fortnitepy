@@ -210,7 +210,7 @@ class Friend(FriendBase):
             return False
         return pres.available
 
-    def _online_check(self, available):
+    def _online_check(self, available: bool) -> bool:
         def check(b, a):
             if a.friend.id != self.id:
                 return False
