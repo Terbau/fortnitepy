@@ -1489,9 +1489,17 @@ class XMPPClient:
                 except asyncio.TimeoutError:
                     pass
 
+        async def run_reconnect():
+            now = datetime.datetime.utcnow()
+            secs = (now - self._last_disconnected_at).total_seconds()
+            if secs >= self.client.default_party_member_config.offline_ttl:
+                return await self.client._create_party()
+
+            await self.client._reconnect_to_party()
+
         if self._is_suspended:
             self.client.dispatch_event('xmpp_session_reconnect')
-            self.client.loop.create_task(self.client._reconnect_to_party())
+            self.client.loop.create_task(run_reconnect())
 
         self._is_suspended = False
         self.client.loop.create_task(on_establish())

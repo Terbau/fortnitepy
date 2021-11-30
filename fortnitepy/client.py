@@ -545,6 +545,11 @@ class Client:
         about outfit, backpack etc.) before dispatching events like
         :func:`event_party_member_join()`. If this is disabled then member objects
         in the events won't have the correct meta. Defaults to ``True``.
+    leave_party_at_shutdown: :class:`bool`
+        Whether or not the client should leave its current party at shutdown. If this
+        is set to false, then the client will attempt to reconnect to the party on a
+        startup. If :attr:`DefaultPartyMemberConfig.offline_ttl` is exceeded before
+        a reconnect is attempted, then the client will create a new party at startup.
 
     Attributes
     ----------
@@ -579,6 +584,7 @@ class Client:
         self.cache_users = kwargs.get('cache_users', True)
         self.fetch_user_data_in_events = kwargs.get('fetch_user_data_in_events', True)  # noqa
         self.wait_for_member_meta_in_events = kwargs.get('wait_for_member_meta_in_events', True)  # noqa
+        self.leave_party_at_shutdown = kwargs.get('leave_party_at_shutdown', True)  # noqa
 
         self.kill_other_sessions = True
         self.accept_eula = True
@@ -1010,11 +1016,12 @@ class Client:
                      priority: int = 0) -> None:
         self._closing = True
 
-        try:
-            if self.party is not None:
-                await self.party._leave(priority=priority)
-        except Exception:
-            pass
+        if self.leave_party_at_shutdown:
+            try:
+                if self.party is not None:
+                    await self.party._leave(priority=priority)
+            except Exception:
+                pass
 
         try:
             await self.xmpp.close()
@@ -1233,6 +1240,31 @@ class Client:
             priority=priority
         )
         if len(data['current']) > 0:
+            if not self.leave_party_at_shutdown:
+                current = data['current'][0]
+
+                member_d = None
+                for member_data in current['members']:
+                    if member_data['account_id'] == self.auth.account_id:
+                        member_d = member_data
+                        break
+
+                if member_d is not None:
+                    newest_conn = max(
+                        member_data['connections'],
+                        key=lambda o: self.from_iso(o['connected_at']),
+                    )
+
+                    try:
+                        disc_at = self.from_iso(newest_conn['disconnected_at'])
+                    except KeyError:
+                        pass
+                    else:
+                        now = datetime.datetime.utcnow()
+                        total_seconds = (now - disc_at).total_seconds()
+                        if total_seconds < newest_conn.get('offline_ttl', 30):
+                            return await self._reconnect_to_party(data=data)
+
             party = self.construct_party(data['current'][0])
             await party._leave(priority=priority)
             log.debug('Left old party')
@@ -2922,15 +2954,12 @@ class Client:
 
         return data['entries']
 
-    async def _reconnect_to_party(self):
-        now = datetime.datetime.utcnow()
-        secs = (now - self.xmpp._last_disconnected_at).total_seconds()
-        if secs >= self.default_party_member_config.offline_ttl:
-            return await self._create_party()
+    async def _reconnect_to_party(self, data: Optional[dict] = None) -> None:
+        if data is None:
+            data = await self.http.party_lookup_user(
+                self.user.id
+            )
 
-        data = await self.http.party_lookup_user(
-            self.user.id
-        )
         if data['current']:
             party_data = data['current'][0]
             async with self._join_party_lock:
