@@ -138,6 +138,9 @@ class DefaultPartyConfig:
         | How many seconds the invite should be valid for before
         automatically becoming invalid.
         | Defaults to ``14400``
+    intention_ttl: Optional[:class:`int`]
+        | How many seconds an intention should last.
+        | Defaults to ``60``
     sub_type: Optional[:class:`str`]
         | The sub type the party should use.
         | Defaults to ``'default'``
@@ -240,6 +243,7 @@ class DefaultPartyConfig:
             'discoverability': PartyDiscoverability.ALL.value,
             'max_size': 16,
             'invite_ttl_seconds': 14400,
+            'intention_ttl': 60,
             'chat_enabled': True,
             'join_confirmation': False,
             'sub_type': 'default',
