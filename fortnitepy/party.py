@@ -5,7 +5,7 @@ MIT License
 
 Copyright (c) 2019-2021 Terbau
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
+Permission is hereby granted, free of charge, to any person obtaining a copyin
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -1145,7 +1145,7 @@ class PartyMeta(MetaBase):
                 info['tournamentId'],
                 info['eventWindowId'],
                 info['regionId'],
-                info['mnemonic'])
+                info.get('mnemonic', ''))
 
     @property
     def squad_fill(self) -> bool:
