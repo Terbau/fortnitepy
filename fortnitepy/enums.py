@@ -180,6 +180,7 @@ class UserSearchPlatform(Enum):
     EPIC_GAMES  = 'epic'
     PLAYSTATION = 'psn'
     XBOX        = 'xbl'
+    STEAM       = 'steam'
 
 
 class UserSearchMatchType(Enum):
