@@ -6,6 +6,15 @@ Changelog
 Detailed version changes.
 
 
+v3.6.5
+------
+
+Added
+~~~~~
+
+- :attr:`UserSearchPlatform.STEAM`
+
+
 v3.6.4
 ------
 

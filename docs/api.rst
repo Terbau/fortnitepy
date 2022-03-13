@@ -153,6 +153,7 @@ Enumerations
 		This represents all platforms that use epic games as account service like PC and Mobile.
 	.. attribute:: PLAYSTATION
 	.. attribute:: XBOX
+	.. attribute:: STEAM
 
 
 .. class:: ProfileSearchMatchType
