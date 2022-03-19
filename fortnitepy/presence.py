@@ -268,7 +268,7 @@ class Presence:
         The friend's homebase rating
     lfg: :class:`bool`
         ``True`` if the friend is currently looking for a game.
-    sub_game: :class:`str`
+    sub_game: :class:`int`
         The friend's current subgame.
     in_unjoinable_match: :class:`bool`
         ``True`` if friend is in unjoinable match else ``False``.
