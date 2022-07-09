@@ -32,7 +32,7 @@ import re
 import time
 import functools
 
-from typing import TYPE_CHECKING, List, Optional, Any, Union, Tuple
+from typing import TYPE_CHECKING, Iterable, List, Optional, Any, Union, Tuple
 from urllib.parse import quote as urllibquote
 
 from .utils import MaybeLock
@@ -590,7 +590,7 @@ class HTTPClient:
 
         return data
 
-    def get_retry_after(self, exc):
+    def get_retry_after(self, exc: HTTPException) -> Optional[int]:
         retry_after = exc.response.headers.get('Retry-After')
         if retry_after is not None:
             return int(retry_after)
@@ -997,13 +997,16 @@ class HTTPClient:
     #           User Search           #
     ###################################
 
-    async def user_search_by_prefix(self, client_id: str, prefix: str, platform: str) -> list:
+    async def user_search_by_prefix(self, client_id: str, prefix: str, platform: str) -> list:  # noqa
         params = {
             'prefix': prefix,
             'platform': platform
         }
 
-        r = UserSearchService('/api/v1/search/{client_id}', client_id=client_id)
+        r = UserSearchService(
+            '/api/v1/search/{client_id}',
+            client_id=client_id
+        )
         return await self.get(r, params=params)
 
     ###################################
@@ -1103,7 +1106,7 @@ class HTTPClient:
         return await self.get(r, **kwargs)
 
     async def account_get_multiple_by_user_id(self,
-                                              user_ids: List[str]) -> list:
+                                              user_ids: Iterable[str]) -> list:
         params = [('accountId', user_id) for user_id in user_ids]
         r = AccountPublicService('/account/api/public/account')
         return await self.get(r, params=params)
@@ -1403,7 +1406,7 @@ class HTTPClient:
     #             Party               #
     ###################################
 
-    async def party_disconnect(self, party_id: str, user_id: str):
+    async def party_disconnect(self, party_id: str, user_id: str) -> dict:
         r = PartyService(
             'party/api/v1/Fortnite/parties/{party_id}/members/{user_id}/disconnect',  # noqa
             party_id=party_id,

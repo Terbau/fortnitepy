@@ -223,8 +223,8 @@ class Presence:
     client: :class:`Client`
         The client.
     available: :class:`bool`
-        The availability of this presence. ``True`` if presence is available,
-        ``False`` if user went unavailable.
+        Whether or not the user is online. ``True`` if the friend **is** or
+        **went** online, ``False`` if the friend **went** offline.
     away: :class:`AwayStatus`
         The users away status.
     friend: :class:`Friend`
@@ -375,7 +375,7 @@ class Presence:
         if self.server_player_count is not None:
             self.server_player_count = int(self.server_player_count)
 
-        if 'FortGameplayStats_j' in raw_properties.keys():
+        if 'FortGameplayStats_j' in raw_properties:
             self.gameplay_stats = PresenceGameplayStats(
                 self.friend,
                 raw_properties['FortGameplayStats_j'],
@@ -385,7 +385,7 @@ class Presence:
             self.gameplay_stats = None
 
         key = None
-        for k in raw_properties.keys():
+        for k in raw_properties:
             if re.search(r'party\.joininfodata\.\d+_j', k) is not None:
                 key = k
 

@@ -50,6 +50,18 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+_party_meta_attrs = {'playlist_info': 'playlist', 'squad_fill': None,
+                     'privacy': None}
+
+_member_meta_attrs = ('ready', 'input', 'assisted_challenge', 'outfit',
+                      'backpack', 'pet', 'pickaxe', 'contrail', 'emote',
+                      'emoji', 'banner', 'battlepass_info', 'in_match',
+                      'match_players_left', 'enlightenments', 'corruption',
+                      'outfit_variants', 'backpack_variants',
+                      'pickaxe_variants', 'contrail_variants',
+                      'lobby_map_marker_is_visible',
+                      'lobby_map_marker_coordinates',)
+
 
 def is_RandALCat(c: str) -> bool:
     return unicodedata.bidirectional(c) in ('R', 'AL')
@@ -68,46 +80,50 @@ class EventContext:
 
 
 class EventDispatcher:
-    def __init__(self) -> None:
-        self._listeners = defaultdict(list)
-        self._presence_listeners = []
-        self.interactions_enabled = False
+    listeners = defaultdict(list)
+    presence_listeners = []
+    interactions_enabled = False
 
-    def process_presence(self, client, *args) -> None:
-        for coro in self._presence_listeners:
+    @classmethod
+    def process_presence(cls, client, *args) -> None:
+        for coro in cls.presence_listeners:
             if __name__ == coro.__module__:
                 asyncio.ensure_future(coro(client.xmpp, *args))
             else:
                 asyncio.ensure_future(coro(*args))
 
-    def presence(self) -> Awaitable:
+    @classmethod
+    def presence(cls) -> Awaitable:
         def decorator(coro: Awaitable) -> Awaitable:
-            self.add_presence_handler(coro)
+            cls.add_presence_handler(coro)
             return coro
         return decorator
 
-    def add_presence_handler(self, coro: Awaitable) -> None:
-        if coro not in self._presence_listeners:
-            self._presence_listeners.append(coro)
+    @classmethod
+    def add_presence_handler(cls, coro: Awaitable) -> None:
+        if coro not in cls.presence_listeners:
+            cls.presence_listeners.append(coro)
 
-    def remove_presence_handler(self, coro: Awaitable) -> None:
-        self._presence_listeners = [
-            c for c in self._presence_listeners if c is not coro
+    @classmethod
+    def remove_presence_handler(cls, coro: Awaitable) -> None:
+        cls.presence_listeners = [
+            c for c in cls.presence_listeners if c is not coro
         ]
 
-    def process_event(self, client: 'Client', raw_body: dict) -> None:
+    @classmethod
+    def process_event(cls, client: 'Client', raw_body: dict) -> None:
         body = json.loads(raw_body)
 
         type_ = body.get('type')
         if type_ is None:
-            if self.interactions_enabled:
+            if cls.interactions_enabled:
                 for interaction in body['interactions']:
-                    self.process_event(client, interaction)
+                    cls.process_event(client, interaction)
             return
 
         log.debug('Received event `{}` with body `{}`'.format(type_, body))
 
-        coros = self._listeners.get(type_, [])
+        coros = cls.listeners.get(type_, [])
         for coro in coros:
             ctx = EventContext(client, body)
 
@@ -116,25 +132,29 @@ class EventDispatcher:
             else:
                 asyncio.ensure_future(coro(ctx))
 
-    def event(self, event: str) -> Awaitable:
+    @classmethod
+    def event(cls, event: str) -> Awaitable:
         def decorator(coro: Awaitable) -> Awaitable:
-            self.add_event_handler(event, coro)
+            cls.add_event_handler(event, coro)
             return coro
         return decorator
 
-    def add_event_handler(self, event: str, coro: Awaitable) -> None:
-        self._listeners[event].append(coro)
+    @classmethod
+    def add_event_handler(cls, event: str, coro: Awaitable) -> None:
+        cls.listeners[event].append(coro)
         log.debug('Added handler for {0} to {1}'.format(event, coro))
 
-    def remove_event_handler(self, event: str, coro: Awaitable) -> None:
-        handlers = [c for c in self._listeners[event] if c is not coro]
+    @classmethod
+    def remove_event_handler(cls, event: str, coro: Awaitable) -> None:
+        handlers = [c for c in cls.listeners[event] if c is not coro]
         log.debug('Removed {0} handler(s) for {1}'.format(
-            len(self._listeners[event]) - len(handlers),
+            len(cls.listeners[event]) - len(handlers),
             event
         ))
-        self._listeners[event] = handlers
+        cls.listeners[event] = handlers
 
 
+# Not really used anymore, but it won't get removed as people might rely on it.
 dispatcher = EventDispatcher()
 
 
@@ -270,12 +290,12 @@ class WebsocketTransport:
                     else:
                         type_ = ret[0]
                         if type_ == 'presence':
-                            dispatcher.process_presence(
+                            EventDispatcher.process_presence(
                                 self.client,
                                 *ret[1]
                             )
                         elif type_ == 'message':
-                            dispatcher.process_event(
+                            EventDispatcher.process_event(
                                 self.client,
                                 *ret[1]
                             )
@@ -554,6 +574,21 @@ def _patched_done_handler(self, task):
 aioxmpp.node.Client._main_impl = _patched_main_impl
 aioxmpp.stream.StanzaStream._done_handler = _patched_done_handler
 
+# Temporary hacks for 3.10 support
+if hasattr(aioxmpp, 'mixins'):
+    def _patched_loopboundmixin_init(self, *, loop=asyncio.mixins._marker):
+        pass
+
+
+    _original_wait = asyncio.wait
+
+
+    async def _patched_asyncio_wait(fs, *, timeout=None, return_when=asyncio.ALL_COMPLETED, loop=None):  # noqa
+        return await _original_wait(fs, timeout=timeout, return_when=return_when)
+
+    asyncio.mixins._LoopBoundMixin.__init__ = _patched_loopboundmixin_init
+    asyncio.wait = _patched_asyncio_wait
+
 
 class XMPPClient:
     def __init__(self, client: 'Client', ws_connector=None) -> None:
@@ -660,7 +695,7 @@ class XMPPClient:
         except ValueError:
             pass
 
-    @dispatcher.event('com.epicgames.friends.core.apiobjects.Friend')
+    @EventDispatcher.event('com.epicgames.friends.core.apiobjects.Friend')
     async def friend_event(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -731,7 +766,7 @@ class XMPPClient:
 
             self.client.dispatch_event('friend_request', pf)
 
-    @dispatcher.event('FRIENDSHIP_REMOVE')
+    @EventDispatcher.event('FRIENDSHIP_REMOVE')
     async def friend_remove_event(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -779,7 +814,7 @@ class XMPPClient:
         except KeyError:
             pass
 
-    @dispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryAdded')  # noqa
+    @EventDispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryAdded')  # noqa
     async def event_blocklist_added(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -797,7 +832,7 @@ class XMPPClient:
         })
         self.client.dispatch_event('user_block', blocked_user)
 
-    @dispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryRemoved')  # noqa
+    @EventDispatcher.event('com.epicgames.friends.core.apiobjects.BlockListEntryRemoved')  # noqa
     async def event_blocklist_remove(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -821,7 +856,7 @@ class XMPPClient:
 
         self.client.dispatch_event('user_unblock', user)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.PING')
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.PING')
     async def event_ping_received(self, ctx: EventContext) -> None:
         body = ctx.body
         pinger = body['pinger_id']
@@ -877,7 +912,7 @@ class XMPPClient:
         )
         self.client.dispatch_event('party_invite', invitation)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_JOINED')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_JOINED')  # noqa
     async def event_party_member_joined(self,
                                         ctx: EventContext) -> None:
         body = ctx.body
@@ -946,7 +981,7 @@ class XMPPClient:
 
         self.client.dispatch_event('party_member_join', member)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_LEFT')
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_LEFT')  # noqa
     async def event_party_member_left(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -973,7 +1008,7 @@ class XMPPClient:
 
         self.client.dispatch_event('party_member_leave', member)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_KICKED')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_KICKED')  # noqa
     async def event_party_member_kicked(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -1006,7 +1041,7 @@ class XMPPClient:
 
         self.client.dispatch_event('party_member_kick', member)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_DISCONNECTED')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_DISCONNECTED')  # noqa
     async def event_party_member_disconnected(self, ctx: EventContext) -> None:
         body = ctx.body
         user_id = body.get('account_id')
@@ -1041,7 +1076,7 @@ class XMPPClient:
         member._update_connection(body.get('connection'))
         self.client.dispatch_event('party_member_zombie', member)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_EXPIRED')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_EXPIRED')  # noqa
     async def event_party_member_expired(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -1072,7 +1107,7 @@ class XMPPClient:
 
         self.client.dispatch_event('party_member_expire', member)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_CONNECTED')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_CONNECTED')  # noqa
     async def event_party_member_connected(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -1098,7 +1133,7 @@ class XMPPClient:
 
         self.client.dispatch_event('party_member_reconnect', member)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_NEW_CAPTAIN')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_NEW_CAPTAIN')  # noqa
     async def event_party_new_captain(self, ctx: EventContext) -> None:
         body = ctx.body
         party = ctx.party
@@ -1125,7 +1160,7 @@ class XMPPClient:
         party.update_presence()
         self.client.dispatch_event('party_member_promote', old_leader, member)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.PARTY_UPDATED')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.PARTY_UPDATED')  # noqa
     async def event_party_updated(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -1147,9 +1182,7 @@ class XMPPClient:
                 value = value()
             return value
 
-        _check = {'playlist_info': 'playlist', 'squad_fill': None,
-                  'privacy': None}
-        pre_values = {k: _getattr(party, k) for k in _check.keys()}
+        pre_values = {k: _getattr(party, k) for k in _party_meta_attrs}
 
         party._update(body)
         self.client.dispatch_event('party_update', party)
@@ -1158,13 +1191,13 @@ class XMPPClient:
             value = _getattr(party, key)
             if pre_value != value:
                 self.client.dispatch_event(
-                    'party_{0}_change'.format(_check[key] or key),
+                    'party_{0}_change'.format(_party_meta_attrs[key] or key),
                     party,
                     pre_value,
                     value
                 )
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_STATE_UPDATED')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_STATE_UPDATED')  # noqa
     async def event_party_member_state_updated(self,
                                                ctx: EventContext) -> None:
         body = ctx.body
@@ -1221,15 +1254,7 @@ class XMPPClient:
 
         should_dispatch_extra_events = member.meta.has_been_updated
         if should_dispatch_extra_events:
-            _check = ('ready', 'input', 'assisted_challenge', 'outfit',
-                      'backpack', 'pet', 'pickaxe', 'contrail', 'emote',
-                      'emoji', 'banner', 'battlepass_info', 'in_match',
-                      'match_players_left', 'enlightenments', 'corruption',
-                      'outfit_variants', 'backpack_variants',
-                      'pickaxe_variants', 'contrail_variants',
-                      'lobby_map_marker_is_visible',
-                      'lobby_map_marker_coordinates',)
-            pre_values = {k: _getattr(member, k) for k in _check}
+            pre_values = {k: _getattr(member, k) for k in _member_meta_attrs}
 
         member.update(body)
         if len(body['member_state_updated']) > 5 and not member.meta.has_been_updated:  # noqa
@@ -1309,7 +1334,7 @@ class XMPPClient:
             if not compare(pre_value, value):
                 _dispatch(key, member, pre_value, value)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_REQUIRE_CONFIRMATION')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.MEMBER_REQUIRE_CONFIRMATION')  # noqa
     async def event_party_member_require_confirmation(self,
                                                       ctx: EventContext
                                                       ) -> None:
@@ -1346,7 +1371,7 @@ class XMPPClient:
 
         self.client.dispatch_event('party_member_confirm', confirmation)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.INITIAL_INTENTION')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.INITIAL_INTENTION')  # noqa
     async def event_party_join_request_received(self, ctx: EventContext) -> None:  # noqa
         body = ctx.body
 
@@ -1374,7 +1399,7 @@ class XMPPClient:
         )
         self.client.dispatch_event('party_join_request', request)
 
-    @dispatcher.event('com.epicgames.social.party.notification.v0.INVITE_DECLINED')  # noqa
+    @EventDispatcher.event('com.epicgames.social.party.notification.v0.INVITE_DECLINED')  # noqa
     async def event_party_invite_declined(self, ctx: EventContext) -> None:
         body = ctx.body
 
@@ -1382,7 +1407,7 @@ class XMPPClient:
         if friend is not None:
             self.client.dispatch_event('party_invite_decline', friend)
 
-    @dispatcher.presence()
+    @EventDispatcher.presence()
     async def process_presence(self, user_id: str,
                                platform: str,
                                type_: str,
@@ -1450,7 +1475,7 @@ class XMPPClient:
 
         self.client.dispatch_event('friend_presence', before_pres, _pres)
 
-    def on_stream_established(self):
+    def on_stream_established(self) -> None:
         self.client.dispatch_event('xmpp_session_establish')
 
         async def on_establish():
@@ -1464,14 +1489,22 @@ class XMPPClient:
                 except asyncio.TimeoutError:
                     pass
 
+        async def run_reconnect():
+            now = datetime.datetime.utcnow()
+            secs = (now - self._last_disconnected_at).total_seconds()
+            if secs >= self.client.default_party_member_config.offline_ttl:
+                return await self.client._create_party()
+
+            await self.client._reconnect_to_party()
+
         if self._is_suspended:
             self.client.dispatch_event('xmpp_session_reconnect')
-            self.client.loop.create_task(self.client._reconnect_to_party())
+            self.client.loop.create_task(run_reconnect())
 
         self._is_suspended = False
         self.client.loop.create_task(on_establish())
 
-    def on_stream_suspended(self, reason):
+    def on_stream_suspended(self, reason: Optional[Exception]) -> None:
         jid = self.xmpp_client.local_jid
         resource = jid.resource[:-32] + (uuid.uuid4().hex).upper()
         self.xmpp_client._local_jid = jid.replace(resource=resource)
@@ -1493,7 +1526,7 @@ class XMPPClient:
         self._is_suspended = True
         self.client.dispatch_event('xmpp_session_lost')
 
-    def on_stream_destroyed(self, reason=None):
+    def on_stream_destroyed(self, reason: Optional[Exception] = None) -> None:
         if not self._is_suspended:
             task = self._reconnect_recover_task
             if task is not None and not task.cancelled():
@@ -1649,7 +1682,7 @@ class XMPPClient:
             self.xmpp_client.local_jid.resource
         )
 
-        room, fut = self.muc_service.join(
+        room, _ = self.muc_service.join(
             muc_jid,
             nick
         )

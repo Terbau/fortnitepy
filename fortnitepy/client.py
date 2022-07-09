@@ -30,9 +30,11 @@ import sys
 import signal
 import logging
 import time
+import re
 
 from aioxmpp import JID
-from typing import Union, Optional, Any, Awaitable, Callable, Dict, List, Tuple
+from typing import (Iterable, Union, Optional, Any, Awaitable, Callable, Dict,
+                    List, Tuple)
 
 from .errors import (PartyError, HTTPException, NotFound, Forbidden,
                      DuplicateFriendship, FriendshipRequestAlreadySent,
@@ -59,6 +61,8 @@ from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
 from .utils import LockEvent, MaybeLock
 
 log = logging.getLogger(__name__)
+
+uuid_match_comp = re.compile(r'^[a-f0-9]{32}$')
 
 
 # all credit for this function goes to discord.py.
@@ -258,7 +262,7 @@ async def start_multiple(clients: List['Client'], *,
     loop = asyncio.get_event_loop()
 
     async def waiter(client):
-        done, pending = await asyncio.wait(
+        _, pending = await asyncio.wait(
             (client.wait_until_ready(), client.wait_until_closed()),
             return_when=asyncio.FIRST_COMPLETED
         )
@@ -319,7 +323,7 @@ async def start_multiple(clients: List['Client'], *,
         raise done_task.exception()
 
 
-async def close_multiple(clients: List['Client']) -> None:
+async def close_multiple(clients: Iterable['Client']) -> None:
     """|coro|
 
     Closes multiple clients at the same time by calling :meth:`Client.close()`
@@ -327,9 +331,9 @@ async def close_multiple(clients: List['Client']) -> None:
 
     Parameters
     ----------
-    clients: List[:class:`Client`]
-        A list of the clients you wish to close. If a client is already closing
-        or closed, it will get skipped without raising an error.
+    clients: Iterable[:class:`Client`]
+        An iterable of the clients you wish to close. If a client is already
+        closing or closed, it will get skipped without raising an error.
     """
     loop = asyncio.get_event_loop()
 
@@ -541,6 +545,11 @@ class Client:
         about outfit, backpack etc.) before dispatching events like
         :func:`event_party_member_join()`. If this is disabled then member objects
         in the events won't have the correct meta. Defaults to ``True``.
+    leave_party_at_shutdown: :class:`bool`
+        Whether or not the client should leave its current party at shutdown. If this
+        is set to false, then the client will attempt to reconnect to the party on a
+        startup. If :attr:`DefaultPartyMemberConfig.offline_ttl` is exceeded before
+        a reconnect is attempted, then the client will create a new party at startup.
 
     Attributes
     ----------
@@ -575,6 +584,7 @@ class Client:
         self.cache_users = kwargs.get('cache_users', True)
         self.fetch_user_data_in_events = kwargs.get('fetch_user_data_in_events', True)  # noqa
         self.wait_for_member_meta_in_events = kwargs.get('wait_for_member_meta_in_events', True)  # noqa
+        self.leave_party_at_shutdown = kwargs.get('leave_party_at_shutdown', True)  # noqa
 
         self.kill_other_sessions = True
         self.accept_eula = True
@@ -658,6 +668,39 @@ class Client:
         # fortnite's services expect three digit precision on millis
         return iso[:23] + 'Z'
 
+    @staticmethod
+    def is_id(value: str) -> bool:
+        """Simple function that finds out if a :class:`str` is a valid id to
+        use with fortnite services.
+
+        Parameters
+        ----------
+        value: :class:`str`
+            The string you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if string is valid else ``False``
+        """
+        return isinstance(value, str) and bool(uuid_match_comp.match(value))
+
+    @staticmethod
+    def is_display_name(value: str) -> bool:
+        """Simple function that finds out if a :class:`str` is a valid displayname
+
+        Parameters
+        ----------
+        value: :class:`str`
+            The string you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if string is valid else ``False``
+        """
+        return isinstance(value, str) and 3 <= len(value) <= 16
+
     @property
     def default_party_config(self) -> DefaultPartyConfig:
         return self._default_party_config
@@ -681,6 +724,11 @@ class Client:
         return list(self._friends.values())
 
     @property
+    def friend_count(self) -> int:
+        """:class:`int`: The amount of friends the bot currently has."""
+        return len(self._friends)
+
+    @property
     def pending_friends(self) -> List[Union[IncomingPendingFriend,
                                             OutgoingPendingFriend]]:
         """List[Union[:class:`IncomingPendingFriend`,
@@ -697,11 +745,23 @@ class Client:
         return list(self._pending_friends.values())
 
     @property
+    def pending_friend_count(self) -> int:
+        """:class:`int`: The amount of pending friends the bot currently has.
+        """
+        return len(self._pending_friends)
+
+    @property
     def incoming_pending_friends(self) -> List[IncomingPendingFriend]:
         """List[:class:`IncomingPendingFriend`]: A list of the clients
         incoming pending friends.
         """
         return [pf for pf in self._pending_friends.values() if pf.incoming]
+
+    @property
+    def incoming_pending_friend_count(self) -> int:
+        """:class:`int`: The amount of active incoming pending friends the bot
+        currently has received."""
+        return len(self.incoming_pending_friends)
 
     @property
     def outgoing_pending_friends(self) -> List[OutgoingPendingFriend]:
@@ -711,11 +771,23 @@ class Client:
         return [pf for pf in self._pending_friends.values() if pf.outgoing]
 
     @property
+    def outgoing_pending_friend_count(self) -> int:
+        """:class:`int`: The amount of active outgoing pending friends the bot
+        has sent."""
+        return len(self.outgoing_pending_friends)
+
+    @property
     def blocked_users(self) -> List[BlockedUser]:
         """List[:class:`BlockedUser`]: A list of the users client has
         as blocked.
         """
         return list(self._blocked_users.values())
+
+    @property
+    def blocked_user_count(self) -> int:
+        """:class:`int`: The amount of blocked users the bot currently has
+        blocked."""
+        return len(self._blocked_users)
 
     @property
     def presences(self) -> List[Presence]:
@@ -737,7 +809,7 @@ class Client:
             logger.setLevel(level=logging.ERROR)
 
     def register_methods(self) -> None:
-        methods = [func for func in dir(self) if callable(getattr(self, func))]
+        methods = (func for func in dir(self) if callable(getattr(self, func)))
         for method_name in methods:
             if method_name.startswith(self.event_prefix):
                 event = method_name[len(self.event_prefix):]
@@ -871,7 +943,7 @@ class Client:
             self.dispatch_event('ready')
 
         async def waiter(task):
-            done, pending = await asyncio.wait(
+            done, _ = await asyncio.wait(
                 (task, self._exception_future),
                 return_when=asyncio.FIRST_COMPLETED
             )
@@ -944,11 +1016,12 @@ class Client:
                      priority: int = 0) -> None:
         self._closing = True
 
-        try:
-            if self.party is not None:
-                await self.party._leave(priority=priority)
-        except Exception:
-            pass
+        if self.leave_party_at_shutdown:
+            try:
+                if self.party is not None:
+                    await self.party._leave(priority=priority)
+            except Exception:
+                pass
 
         try:
             await self.xmpp.close()
@@ -1167,13 +1240,38 @@ class Client:
             priority=priority
         )
         if len(data['current']) > 0:
+            if not self.leave_party_at_shutdown:
+                current = data['current'][0]
+
+                member_d = None
+                for member_data in current['members']:
+                    if member_data['account_id'] == self.auth.account_id:
+                        member_d = member_data
+                        break
+
+                if member_d is not None:
+                    newest_conn = max(
+                        member_data['connections'],
+                        key=lambda o: self.from_iso(o['connected_at']),
+                    )
+
+                    try:
+                        disc_at = self.from_iso(newest_conn['disconnected_at'])
+                    except KeyError:
+                        pass
+                    else:
+                        now = datetime.datetime.utcnow()
+                        total_seconds = (now - disc_at).total_seconds()
+                        if total_seconds < newest_conn.get('offline_ttl', 30):
+                            return await self._reconnect_to_party(data=data)
+
             party = self.construct_party(data['current'][0])
             await party._leave(priority=priority)
             log.debug('Left old party')
 
         await self._create_party(priority=priority)
 
-    async def fetch_user_by_display_name(self, display_name, *,
+    async def fetch_user_by_display_name(self, display_name: str, *,
                                          cache: bool = False,
                                          raw: bool = False
                                          ) -> Optional[User]:
@@ -1238,7 +1336,7 @@ class Client:
 
     fetch_profile_by_display_name = fetch_user_by_display_name
 
-    async def fetch_users_by_display_name(self, display_name, *,
+    async def fetch_users_by_display_name(self, display_name: str, *,
                                           raw: bool = False
                                           ) -> Optional[User]:
         """|coro|
@@ -1272,6 +1370,9 @@ class Client:
             A list containing all payloads found for this user.
         """
         res = await self.http.account_graphql_get_by_display_name(display_name)
+        if raw:
+            return res['account']
+
         return [User(self, account) for account in res['account']]
 
     fetch_profiles_by_display_name = fetch_users_by_display_name
@@ -1323,7 +1424,7 @@ class Client:
 
     fetch_profile = fetch_user
 
-    async def fetch_users(self, users, *,
+    async def fetch_users(self, users: Iterable[str], *,
                           cache: bool = False,
                           raw: bool = False) -> List[User]:
         """|coro|
@@ -1333,8 +1434,8 @@ class Client:
 
         Parameters
         ----------
-        users: List[:class:`str`]
-            A list/tuple containing ids/displaynames.
+        users: Iterable[:class:`str`]
+            An iterable containing ids/displaynames.
         cache: :class:`bool`
             If set to True it will try to get the users from the friends or
             user cache and fall back to an api request if not found.
@@ -1361,9 +1462,6 @@ class Client:
         List[:class:`User`]
             Users requested. Only users that are found gets returned.
         """
-        if len(users) == 0:
-            return []
-
         _users = []
         new = []
         tasks = []
@@ -1396,6 +1494,9 @@ class Client:
                         continue
                 new.append(elem)
 
+        if not _users and not new and not tasks:
+            return []
+
         if len(tasks) > 0:
             pfs = await asyncio.gather(*tasks)
             for p_data in pfs:
@@ -1411,12 +1512,12 @@ class Client:
                             break
 
         chunk_tasks = []
-        chunks = [new[i:i + 100] for i in range(0, len(new), 100)]
+        chunks = (new[i:i + 100] for i in range(0, len(new), 100))
         for chunk in chunks:
             task = self.http.account_graphql_get_multiple_by_user_id(chunk)
             chunk_tasks.append(task)
 
-        if len(chunks) > 0:
+        if len(chunk_tasks) > 0:
             d = await asyncio.gather(*chunk_tasks)
             for results in d:
                 for result in results['accounts']:
@@ -1537,7 +1638,7 @@ class Client:
             platform.value
         )
 
-        user_ids = [d['accountId'] for d in res]
+        user_ids = (d['accountId'] for d in res)
         users = await self.fetch_users(user_ids, raw=True)
         lookup = {p['id']: p for p in users}
 
@@ -1577,9 +1678,9 @@ class Client:
         """
         res = await self.http.payment_website_search_sac_by_slug(slug)
 
-        user_ids = [e['id'] for e in res]
+        user_ids = (e['id'] for e in res)
         users = await self.fetch_users(
-            list(user_ids),
+            user_ids,
             raw=True
         )
         lookup = {p['id']: p for p in users}
@@ -1611,7 +1712,7 @@ class Client:
         raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
 
         ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
-        chunks = [ids[i:i + 100] for i in range(0, len(ids), 100)]
+        chunks = (ids[i:i + 100] for i in range(0, len(ids), 100))
 
         users = {}
         tasks = [
@@ -1977,36 +2078,6 @@ class Client:
         """
         await self.http.friends_unblock(user_id)
 
-    def is_id(self, value: str) -> bool:
-        """Simple function that finds out if a :class:`str` is a valid id
-
-        Parameters
-        ----------
-        value: :class:`str`
-            The string you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if string is valid else ``False``
-        """
-        return isinstance(value, str) and len(value) > 16
-
-    def is_display_name(self, val: str) -> bool:
-        """Simple function that finds out if a :class:`str` is a valid displayname
-
-        Parameters
-        ----------
-        value: :class:`str`
-            The string you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if string is valid else ``False``
-        """
-        return isinstance(val, str) and 3 <= len(val) <= 16
-
     async def add_friend(self, user_id: str) -> None:
         """|coro|
 
@@ -2299,7 +2370,7 @@ class Client:
         handlers = self._events.get(event.lower())
         return handlers is not None and len(handlers) > 0
 
-    def _event_has_destination(self, event):
+    def _event_has_destination(self, event: str) -> bool:
         if event in self._listeners:
             return True
         elif self._event_has_handler(event):
@@ -2519,7 +2590,7 @@ class Client:
 
         res = {}
         for udata in results[1]:
-            if udata['accountId'] in res and res[udata['accountId']] is not None:
+            if udata['accountId'] in res and res[udata['accountId']] is not None:  # noqa
                 res[udata['accountId']].raw['stats'].update(udata['stats'])
                 continue
 
@@ -2883,15 +2954,12 @@ class Client:
 
         return data['entries']
 
-    async def _reconnect_to_party(self):
-        now = datetime.datetime.utcnow()
-        secs = (now - self.xmpp._last_disconnected_at).total_seconds()
-        if secs >= self.default_party_member_config.offline_ttl:
-            return await self._create_party()
+    async def _reconnect_to_party(self, data: Optional[dict] = None) -> None:
+        if data is None:
+            data = await self.http.party_lookup_user(
+                self.user.id
+            )
 
-        data = await self.http.party_lookup_user(
-            self.user.id
-        )
         if data['current']:
             party_data = data['current'][0]
             async with self._join_party_lock:
@@ -3161,8 +3229,8 @@ class Client:
                 await self._create_party(acquire=False)
                 raise
 
-    async def set_presence(self, status: str, *,
-                           away: AwayStatus = AwayStatus.ONLINE) -> None:
+    def set_presence(self, status: str, *,
+                     away: AwayStatus = AwayStatus.ONLINE) -> None:
         """|coro|
 
         Sends and sets the status. This status message will override all other
@@ -3185,10 +3253,7 @@ class Client:
 
         self.status = status
         self.away = away
-        await self.xmpp.send_presence(
-            status=status,
-            show=away.value
-        )
+        self.party.update_presence()
 
     async def send_presence(self, status: Union[str, dict], *,
                             away: AwayStatus = AwayStatus.ONLINE,
@@ -3216,6 +3281,29 @@ class Client:
             status=status,
             show=away.value,
             to=to
+        )
+
+    async def set_platform(self, platform: Platform) -> None:
+        """|coro|
+
+        Sets and updates the clients platform. This method is slow (~2-3s) as
+        changing platform requires a full authentication refresh.
+
+        Parameters
+        ----------
+        platform: :class:`Platform`
+            The platform to set.
+
+        Raises
+        ------
+        HTTPException
+            An error occurred when requesting.
+        """
+        self.platform = platform
+
+        await asyncio.gather(
+            self.auth.run_refresh(),
+            self.wait_for('muc_enter'),
         )
 
     def set_avatar(self, avatar: Avatar) -> None:
