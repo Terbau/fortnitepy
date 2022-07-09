@@ -208,24 +208,6 @@ Enumerations
     .. attribute:: SEASON_10
     .. attribute:: SEASON_11
 
-.. class:: KairosBackgroundColorPreset
-
-	An enumeration for color presets that can be used when setting the avatar background color.
-
-	.. attribute:: TEAL
-	.. attribute:: SWEET_RED
-	.. attribute:: LIGHT_ORANGE
-	.. attribute:: GREEN
-	.. attribute:: LIGHT_BLUE
-	.. attribute:: DARK_BLUE
-	.. attribute:: PINK
-	.. attribute:: RED
-	.. attribute:: GRAY
-	.. attribute:: ORANGE
-	.. attribute:: DARK_PURPLE
-	.. attribute:: LIME
-	.. attribute:: INDIGO
-
 .. class:: StatsCollectionType
 
 	An enumeration for stats collection types.

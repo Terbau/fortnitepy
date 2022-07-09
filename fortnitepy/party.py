@@ -3384,7 +3384,6 @@ class ClientParty(PartyBase, Patchable):
             }
 
         status = text or self.client.status
-        kairos_profile = self.client.avatar.to_dict()
 
         _default_status = {
             'Status': status.format(party_size=self.member_count,
@@ -3395,7 +3394,6 @@ class ClientParty(PartyBase, Patchable):
             'SessionId': '',
             'ProductName': 'Fortnite',
             'Properties': {
-                'KairosProfile_j': kairos_profile,
                 'party.joininfodata.286331153_j': join_data,
                 'FortBasicInfo_j': {
                     'homeBaseRating': 1,

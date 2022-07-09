@@ -579,12 +579,10 @@ if hasattr(aioxmpp, 'mixins'):
     def _patched_loopboundmixin_init(self, *, loop=asyncio.mixins._marker):
         pass
 
-
     _original_wait = asyncio.wait
 
-
     async def _patched_asyncio_wait(fs, *, timeout=None, return_when=asyncio.ALL_COMPLETED, loop=None):  # noqa
-        return await _original_wait(fs, timeout=timeout, return_when=return_when)
+        return await _original_wait(fs, timeout=timeout, return_when=return_when)  # noqa
 
     asyncio.mixins._LoopBoundMixin.__init__ = _patched_loopboundmixin_init
     asyncio.wait = _patched_asyncio_wait
@@ -1416,8 +1414,7 @@ class XMPPClient:
         try:
             data = json.loads(status)
 
-            # We do this to filter out kairos from launcher presences
-            ch = data.get('bIsEmbedded', False) or data.get('Status', '') != ''
+            ch = data.get('Status', '') != ''
 
             is_dict = isinstance(data.get('Properties', {}), dict)
             if (not ch or 'bIsPlaying' not in data or not is_dict):

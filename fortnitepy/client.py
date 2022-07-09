@@ -56,7 +56,7 @@ from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 from .presence import Presence
 from .auth import RefreshTokenAuth
-from .kairos import Avatar, get_random_default_avatar
+from .avatar import Avatar
 from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
 from .utils import LockEvent, MaybeLock
 
@@ -569,7 +569,6 @@ class Client:
 
         self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')  # noqa
         self.away = kwargs.get('away', AwayStatus.ONLINE)
-        self.avatar = kwargs.get('avatar', get_random_default_avatar())  # noqa
         self.platform = kwargs.get('platform', Platform.WINDOWS)
         self.net_cl = kwargs.get('net_cl', '')
         self.party_version = kwargs.get('party_version', 3)
@@ -1654,6 +1653,45 @@ class Client:
         return entries
 
     search_profiles = search_users
+
+    async def fetch_avatars(self, users: Iterable[str]) -> Dict[str, Avatar]:
+        """|coro|
+
+        Fetches the avatars of the provided user ids.
+
+        .. warning::
+            You can only fetch avatars of friends. That means that the bot has
+            to be friends with the users you are requesting the avatars of.
+
+        Parameters
+        ----------
+        users: Iterable[:class:`str`]
+            An iterable containing user ids.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        Dict[:class:`str`, :class:`Avatar`]
+            A dict containing avatars mapped to their user id.
+        """
+        chunk_tasks = []
+        chunks = (users[i:i + 100] for i in range(0, len(users), 100))
+        for chunk in chunks:
+            task = self.http.avatar_get_multiple_by_user_id(chunk)
+            chunk_tasks.append(task)
+
+        results = {}
+        if len(chunk_tasks) > 0:
+            d = await asyncio.gather(*chunk_tasks)
+            for chunk_results in d:
+                for avatar_data in chunk_results:
+                    results[avatar_data['accountId']] = Avatar(avatar_data)
+
+        return results
 
     async def search_sac_by_slug(self, slug: str) -> List[SacSearchEntryUser]:
         """|coro|
@@ -3305,17 +3343,6 @@ class Client:
             self.auth.run_refresh(),
             self.wait_for('muc_enter'),
         )
-
-    def set_avatar(self, avatar: Avatar) -> None:
-        """Sets the client's avatar and updates it for all friends.
-
-        Parameters
-        ----------
-        avatar: :class:`Avatar`
-            The avatar to set.
-        """
-        self.avatar = avatar
-        self.party.update_presence()
 
     async def fetch_lightswitch_status(self,
                                        service_id: str = 'Fortnite') -> bool:

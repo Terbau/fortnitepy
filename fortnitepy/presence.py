@@ -24,7 +24,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import json
 import re
 import datetime
 
@@ -32,7 +31,6 @@ from typing import TYPE_CHECKING
 
 from .errors import Forbidden, PartyError
 from .enums import Platform
-from .kairos import Avatar
 
 if TYPE_CHECKING:
     from .client import Client
@@ -235,10 +233,6 @@ class Presence:
         The UTC time of when the client received this presence.
     status: :class:`str`
         The friend's status.
-    in_kairos: :class:`bool`
-        Wether or not the friend is in kairos. If this is True, then quite a
-        lot of the property attributes will be None or potentially something
-        unexpected.
     playing: :class:`bool`
         Says if friend is playing.
     joinable: :class:`bool`
@@ -253,17 +247,12 @@ class Presence:
         .. warning::
 
             All attributes below this point will be ``None`` if
-            :attr:`has_properties` is ``False``. The only exception is some
-            attributes like :attr:`Presence.avatar` and
-            :attr:`Presence.party` which isn't None as long as
-            :attr:`Presence.in_kairos` is True.
+            :attr:`has_properties` is ``False``.
     party: :class:`PresenceParty`
         The friend's party.
     gameplay_stats: Optional[:class:`PresenceGameplayStats`]
         The friend's gameplay stats. Will be ``None`` if no gameplay stats
         are currently availble.
-    avatar: :class:`Avatar`
-        The avatar set in Kairos (Mobile app).
     homebase_rating: :class:`str`
         The friend's homebase rating
     lfg: :class:`bool`
@@ -285,9 +274,9 @@ class Presence:
     """
 
     __slots__ = ('client', 'available', 'away', 'friend', 'platform',
-                 'received_at', 'status', 'in_kairos', 'playing', 'joinable',
+                 'received_at', 'status', 'playing', 'joinable',
                  'has_voice_support', 'session_id',
-                 'has_properties', 'avatar', 'homebase_rating', 'lfg',
+                 'has_properties', 'homebase_rating', 'lfg',
                  'sub_game', 'in_unjoinable_match', 'playlist', 'party_size',
                  'max_party_size', 'game_session_join_key',
                  'server_player_count', 'gameplay_stats', 'party')
@@ -306,7 +295,6 @@ class Presence:
         self.received_at = datetime.datetime.utcnow()
 
         self.status = data['Status']
-        self.in_kairos = data.get('bIsEmbedded', False)
         self.playing = data['bIsPlaying']
         self.joinable = data['bIsJoinable']
         self.has_voice_support = data['bHasVoiceSupport']
@@ -317,23 +305,6 @@ class Presence:
         self.has_properties = raw_properties != {}
 
         # All values below will be "None" if properties is empty.
-        # The only expections are avatar and party which could have
-        # values as long as in_kairos is True.
-
-        kairos_p = raw_properties.get('KairosProfile_s', {})
-        if kairos_p:
-            kairos_p = json.loads(kairos_p)
-        else:
-            kairos_p = raw_properties.get('KairosProfile_j', {})
-
-        background = kairos_p.get('avatarBackground')
-        if background and not isinstance(background, list):
-            background = json.loads(background)
-
-        self.avatar = Avatar(
-            asset=kairos_p.get('avatar'),
-            background_colors=background
-        )
 
         _basic_info = raw_properties.get('FortBasicInfo_j', {})
         self.homebase_rating = _basic_info.get('homeBaseRating')

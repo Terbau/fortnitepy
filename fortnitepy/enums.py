@@ -252,21 +252,5 @@ class BattlePassStat(Enum):
     SEASON_18 = ('s18_social_bp_level', None)
 
 
-class KairosBackgroundColorPreset(Enum):
-    TEAL         = ["#8EFDE5","#1CBA9E","#034D3F"]
-    SWEET_RED    = ["#FF81AE","#D8033C","#790625"]
-    LIGHT_ORANGE = ["#FFDF00","#FBA000","#975B04"]
-    GREEN        = ["#CCF95A","#30C11B","#194D12"]
-    LIGHT_BLUE   = ["#B4F2FE","#00ACF2","#005679"]
-    DARK_BLUE    = ["#1CA2E6","#0C5498","#081E3E"]
-    PINK         = ["#FFB4D6","#FF619C","#7D3449"]
-    RED          = ["#F16712","#D8033C","#6E0404"]
-    GRAY         = ["#AEC1D3","#687B8E","#36404A"]
-    ORANGE       = ["#FFAF5D","#FF6D32","#852A05"]
-    DARK_PURPLE  = ["#E93FEB","#7B009C","#500066"]
-    LIME         = ["#DFFF73","#86CF13","#404B07"]
-    INDIGO       = ["#B35EEF","#4D1397","#2E0A5D"]
-
-
 class StatsCollectionType(Enum):
     FISH = 'collection_fish'

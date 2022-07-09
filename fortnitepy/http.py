@@ -330,6 +330,11 @@ class StatsproxyPublicService(Route):
     AUTH = 'FORTNITE_ACCESS_TOKEN'
 
 
+class AvatarService(Route):
+    BASE = 'https://avatar-service-prod.identity.live.on.epicgames.com'
+    AUTH = 'FORTNITE_ACCESS_TOKEN'
+
+
 def create_aiohttp_closed_event(session) -> asyncio.Event:
     """Work around aiohttp issue that doesn't properly close transports on exit.
 
@@ -1401,6 +1406,19 @@ class HTTPClient:
             stat=stat
         )
         return await self.get(r)
+
+    ###################################
+    #             Avatar              #
+    ###################################
+
+    async def avatar_get_multiple_by_user_id(self,
+                                             account_ids: List[str]) -> dict:
+        params = {
+            'accountIds': ','.join(account_ids)
+        }
+
+        r = AvatarService('/v1/avatar/fortnite/ids')
+        return await self.get(r, params=params)
 
     ###################################
     #             Party               #
