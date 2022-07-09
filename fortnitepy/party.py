@@ -3120,14 +3120,18 @@ class PartyBase:
         self._update_config({**self.config, **config})
 
         _update_squad_assignments = False
-        key = 'Default:RawSquadAssignments_j'
-        _assignments = data['party_state_updated'].get(key)
-        if _assignments:
-            if _assignments != self.meta.schema.get(key, ''):
-                _update_squad_assignments = True
 
-        self.meta.update(data['party_state_updated'], raw=True)
-        self.meta.remove(data['party_state_removed'])
+        if 'party_state_updated' in data:
+            key = 'Default:RawSquadAssignments_j'
+            _assignments = data['party_state_updated'].get(key)
+            if _assignments:
+                if _assignments != self.meta.schema.get(key, ''):
+                    _update_squad_assignments = True
+
+            self.meta.update(data['party_state_updated'], raw=True)
+
+        if 'party_state_removed' in data:
+            self.meta.remove(data['party_state_removed'])
 
         privacy = self.meta.get_prop('Default:PrivacySettings_j')
         c = privacy['PrivacySettings']
