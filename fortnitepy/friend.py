@@ -33,6 +33,7 @@ from .errors import (FriendOffline, InvalidOffer, PartyError, Forbidden,
                      HTTPException)
 from .presence import Presence
 from .enums import Platform
+from .avatar import Avatar
 
 if TYPE_CHECKING:
     from .client import Client
@@ -532,6 +533,23 @@ class Friend(FriendBase):
             raise
 
         return False
+
+    async def fetch_avatar(self) -> Avatar:
+        """|coro|
+
+        Fetches this friend's avatar.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        :class:`Avatar`
+            The avatar of the friend.
+        """
+        return await self.client.fetch_avatars((self.id,))
 
 
 class PendingFriendBase(FriendBase):
