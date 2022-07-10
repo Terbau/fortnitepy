@@ -1654,7 +1654,7 @@ class Client:
 
     search_profiles = search_users
 
-    async def fetch_avatars(self, users: Iterable[str]) -> Dict[str, Avatar]:
+    async def fetch_avatars(self, users: List[str]) -> Dict[str, Avatar]:
         """|coro|
 
         Fetches the avatars of the provided user ids.
@@ -1665,8 +1665,8 @@ class Client:
 
         Parameters
         ----------
-        users: Iterable[:class:`str`]
-            An iterable containing user ids.
+        users: List[:class:`str`]
+            A list containing user ids.
 
         Raises
         ------
