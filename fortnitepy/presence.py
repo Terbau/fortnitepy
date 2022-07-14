@@ -355,11 +355,7 @@ class Presence:
         else:
             self.gameplay_stats = None
 
-        key = None
-        for k in raw_properties:
-            if re.search(r'party\.joininfodata\.\d+_j', k) is not None:
-                key = k
-
+        key = "party.joininfodata.286331153_j"
         if key is None:
             self.party = None
         else:
