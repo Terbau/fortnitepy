@@ -895,14 +895,15 @@ class Client:
 
         if self._first_start:
             self.register_methods()
+
+            if dispatch_ready:
+                await self.dispatch_and_wait_event('before_start')
+
+            # Do this after before_start() in case any connectors
+            # are registered during the execution.
+            self.http.create_connection()
+
             self._first_start = False
-
-        if dispatch_ready:
-            await self.dispatch_and_wait_event('before_start')
-
-        # Do this after before_start() in case any connectors
-        # are registered during the execution.
-        self.http.create_connection()
 
         _started_while_restarting = self._restarting
         pri = self._reauth_lock.priority if _started_while_restarting else 0
