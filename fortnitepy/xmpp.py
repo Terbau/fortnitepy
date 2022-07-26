@@ -1551,8 +1551,10 @@ class XMPPClient:
             stream.soft_timeout = datetime.timedelta(minutes=3)
             stream.round_trip_time = datetime.timedelta(minutes=3)
             future.set_result(None)
-            while True:
-                await asyncio.sleep(1)
+
+            # Keep connection alive by awaiting a future that will
+            # never receive a result.
+            await self.client.loop.create_future()
 
     async def run(self) -> None:
         resource_id = (uuid.uuid4().hex).upper()

@@ -942,8 +942,7 @@ class Client:
 
         if not _started_while_restarting and self._restarting:
             async def runner():
-                while True:
-                    await asyncio.sleep(1)
+                await self.loop.create_future()
 
             self._start_runner_task = self.loop.create_task(runner())
             await waiter(self._start_runner_task)
