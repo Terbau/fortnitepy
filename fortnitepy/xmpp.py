@@ -233,12 +233,10 @@ class XMLProcessor:
 
 
 class WebsocketTransport:
-    def __init__(self, loop: asyncio.AbstractEventLoop,
-                 stream: 'WebsocketXMLStream',
+    def __init__(self, stream: 'WebsocketXMLStream',
                  client: 'Client',
                  logger: logging.Logger,
                  ws_connector: Optional[aiohttp.BaseConnector] = None) -> None:
-        self.loop = loop
         self.stream = stream
         self.client = client
         self.logger = logger
@@ -265,7 +263,7 @@ class WebsocketTransport:
             *args, **kwargs
         )
 
-        self.loop.create_task(self.reader())
+        asyncio.create_task(self.reader())
         self.stream.connection_made(self)
         self._called_lost = False
         self._attempt_reconnect = True
@@ -352,7 +350,7 @@ class WebsocketTransport:
 
     def _close_session(self) -> None:
         try:
-            return self.loop.create_task(self.session.close())
+            return asyncio.create_task(self.session.close())
         except AttributeError:
             pass
 
@@ -370,7 +368,7 @@ class WebsocketTransport:
 
         self.logger.debug('Closing websocket connection.')
 
-        task = self.loop.create_task(self.connection.close())
+        task = asyncio.create_task(self.connection.close())
         task.add_done_callback(self.on_close)
 
         self._stop_reader()
@@ -486,7 +484,6 @@ class XMPPOverWebsocketConnector(aioxmpp.connector.BaseConnector):
             ]))
 
         transport = WebsocketTransport(
-            loop,
             stream,
             self.client,
             logger,
@@ -521,7 +518,6 @@ async def _patched_main_impl(self):
         self._security_layer,
         negotiation_timeout=self.negotiation_timeout.total_seconds(),
         override_peer=override_peer,
-        loop=self._loop,
         logger=self.logger
     )
 
@@ -1583,7 +1579,6 @@ class XMPPClient:
                     ws_connector=self.ws_connector
                 )
             )],
-            loop=self.client.loop
         )
         self.xmpp_client.backoff_start = datetime.timedelta(seconds=0.1)
 

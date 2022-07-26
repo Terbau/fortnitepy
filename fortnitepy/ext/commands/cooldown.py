@@ -169,7 +169,7 @@ class _Semaphore:
 
     def __init__(self, number: int) -> None:
         self.value = number
-        self.loop = asyncio.get_event_loop()
+        self.loop = asyncio.get_running_loop()
         self._waiters = deque()
 
     def __repr__(self) -> str:

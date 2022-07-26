@@ -33,7 +33,7 @@ class MaybeLock:
     def __init__(self, lock: asyncio.Lock,
                  loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         self.lock = lock
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or asyncio.get_running_loop()
         self._cleanup = False
 
     async def _acquire(self) -> None:

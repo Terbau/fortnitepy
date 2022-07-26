@@ -400,13 +400,12 @@ class HTTPClient:
         self.headers = {}
         self.device_id = self.client.auth.device_id
         self._endpoint_events = {}
+        self.__session = None
 
         # How many refreshes (max_refresh_attempts) to attempt in
         # a time window (refresh_attempt_window) before closing.
         self.max_refresh_attempts = 3
         self.refresh_attempt_window = 20
-
-        self.create_connection()
 
     @staticmethod
     async def json_or_text(response: aiohttp.ClientResponse) -> Union[str,
@@ -448,6 +447,9 @@ class HTTPClient:
                 await asyncio.wait_for(event.wait(), timeout=2)
             except asyncio.TimeoutError:
                 pass
+
+    def connection_exists(self) -> bool:
+        return self.__session is not None
 
     def create_connection(self) -> None:
         self.__session = aiohttp.ClientSession(

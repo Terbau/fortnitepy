@@ -26,13 +26,12 @@ SOFTWARE.
 
 import datetime
 import asyncio
-import sys
-import signal
 import logging
 import time
 import re
 
 from aioxmpp import JID
+from aiohttp import BaseConnector
 from typing import (Iterable, Union, Optional, Any, Awaitable, Callable, Dict,
                     List, Tuple)
 
@@ -65,46 +64,33 @@ log = logging.getLogger(__name__)
 uuid_match_comp = re.compile(r'^[a-f0-9]{32}$')
 
 
-# all credit for this function goes to discord.py.
-def _cancel_tasks(loop: asyncio.AbstractEventLoop) -> None:
-    try:
-        task_retriever = asyncio.Task.all_tasks
-    except AttributeError:
-        task_retriever = asyncio.all_tasks
+class StartContext:
+    def __init__(self, client: 'Client', dispatch_ready: bool = True) -> None:
+        self.client = client
+        self.dispatch_ready = dispatch_ready
 
-    tasks = {t for t in task_retriever(loop=loop) if not t.done()}
+    async def start(self) -> asyncio.Task:
+        await self.client.init()
+        task = asyncio.create_task(
+            self.client._start(dispatch_ready=self.dispatch_ready)
+        )
 
-    if not tasks:
-        return
+        await self.client.wait_until_ready()
+        return task
 
-    log.info('Cleaning up after %d tasks.', len(tasks))
-    for task in tasks:
-        task.cancel()
+    async def __aenter__(self) -> asyncio.Task:
+        return await self.start()
 
-    loop.run_until_complete(
-        asyncio.gather(*tasks, return_exceptions=True)
-    )
-    log.info('All tasks finished cancelling.')
+    async def __aexit__(self, *args) -> None:
+        if not self.client._closing and not self.client._closed:
+            await self.client.close()
 
-    for task in tasks:
-        if task.cancelled():
-            continue
-        if task.exception() is not None:
-            loop.call_exception_handler({
-                'message': 'Unhandled exception during run shutdown.',
-                'exception': task.exception(),
-                'task': task
-            })
+    def __await__(self) -> None:
+        async def awaiter():
+            task = await self.start()
+            return await task
 
-
-def _cleanup_loop(loop: asyncio.AbstractEventLoop) -> None:
-    try:
-        _cancel_tasks(loop)
-        if sys.version_info >= (3, 6):
-            loop.run_until_complete(loop.shutdown_asyncgens())
-    finally:
-        log.info('Closing the event loop.')
-        loop.close()
+        return awaiter().__await__()
 
 
 async def _start_client(client: 'Client', *,
@@ -112,7 +98,7 @@ async def _start_client(client: 'Client', *,
                         after: Optional[MaybeCoro] = None,
                         error_after: Optional[MaybeCoro] = None,
                         ) -> None:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     if not isinstance(client, Client):
         raise TypeError('client must be an instance of fortnitepy.Client')
@@ -259,7 +245,7 @@ async def start_multiple(clients: List['Client'], *,
     HTTPException
         A request error occured while logging in.
     """  # noqa
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     async def waiter(client):
         _, pending = await asyncio.wait(
@@ -285,6 +271,8 @@ async def start_multiple(clients: List['Client'], *,
                 asyncio.ensure_future(all_ready_callback())
             else:
                 all_ready_callback()
+
+    await asyncio.gather(*[client.init() for client in clients])
 
     asyncio.ensure_future(all_ready_callback_runner())
 
@@ -335,7 +323,7 @@ async def close_multiple(clients: Iterable['Client']) -> None:
         An iterable of the clients you wish to close. If a client is already
         closing or closed, it will get skipped without raising an error.
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     tasks = [
         loop.create_task(client.close()) for client in clients
@@ -410,60 +398,25 @@ def run_multiple(clients: List['Client'], *,
     HTTPException
         A request error occured while logging in.
     """  # noqa
-    loop = asyncio.get_event_loop()
-    _closing = False
-    _stopped = False
-
-    def close(*args):
-        nonlocal _closing
-
-        def stopper(*argss):
-            nonlocal _stopped
-            if not _stopped:
-                loop.stop()
-                _stopped = True
-
-        if not _closing:
-            _closing = True
-            fut = asyncio.ensure_future(close_multiple(clients))
-            fut.add_done_callback(stopper)
-
-    try:
-        loop.add_signal_handler(signal.SIGINT, close)
-        loop.add_signal_handler(signal.SIGTERM, close)
-    except NotImplementedError:
-        pass
-
     async def runner():
-        await start_multiple(
-            clients,
-            gap_timeout=gap_timeout,
-            shutdown_on_error=shutdown_on_error,
-            ready_callback=ready_callback,
-            error_callback=error_callback,
-            all_ready_callback=all_ready_callback,
-            before_start=before_start,
-            before_close=before_close,
-        )
-
-    future = asyncio.ensure_future(runner())
-    future.add_done_callback(close)
+        try:
+            await start_multiple(
+                clients,
+                gap_timeout=gap_timeout,
+                shutdown_on_error=shutdown_on_error,
+                ready_callback=ready_callback,
+                error_callback=error_callback,
+                all_ready_callback=all_ready_callback,
+                before_start=before_start,
+                before_close=before_close,
+            )
+        finally:
+            await close_multiple(clients)
 
     try:
-        loop.run_forever()
+        asyncio.run(runner())
     except KeyboardInterrupt:
-
-        if not _stopped:
-            _stopped = True
-            loop.run_until_complete(close_multiple(clients))
-    finally:
-        future.remove_done_callback(close)
-
-        log.info('Cleaning up loop')
-        _cleanup_loop(loop)
-
-    if not future.cancelled():
-        return future.result()
+        pass
 
 
 class Client:
@@ -474,8 +427,6 @@ class Client:
     auth: :class:`Auth`
         The authentication method to use. You can read more about available authentication methods
         :ref:`here <authentication>`.
-    loop: Optional[:class:`asyncio.AbstractEventLoop`]
-        The event loop to use for asynchronous operations.
     connector: :class:`aiohttp.BaseConnector`
         The connector to use for connection pooling.
     ws_connector: :class:`aiohttp.BaseConnector`
@@ -553,19 +504,14 @@ class Client:
 
     Attributes
     ----------
-    loop: :class:`asyncio.AbstractEventLoop`
-        The event loop that client implements.
     user: :class:`ClientUser`
         The user the client is logged in as.
     party: :class:`ClientParty`
         The party the client is currently connected to.
     """  # noqa
 
-    def __init__(self, auth, *,
-                 loop: Optional[asyncio.AbstractEventLoop] = None,
+    def __init__(self, auth,
                  **kwargs: Any) -> None:
-
-        self.loop = loop or asyncio.get_event_loop()
 
         self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')  # noqa
         self.away = kwargs.get('away', AwayStatus.ONLINE)
@@ -590,7 +536,6 @@ class Client:
         self.event_prefix = 'event_'
 
         self.auth = auth
-        self.auth.initialize(self)
         self.http = HTTPClient(
             self,
             connector=kwargs.get('connector'),
@@ -607,6 +552,34 @@ class Client:
         self._users = {}
         self._blocked_users = {}
         self._presences = {}
+
+        self._exception_future = None
+        self._ready_event = None
+        self._closed_event = None
+        self._join_party_lock = None
+        self._internal_join_party_lock = None
+        self._reauth_lock = None
+
+        self._refresh_task = None
+        self._start_runner_task = None
+        self._closed = False
+        self._closing = False
+        self._restarting = False
+        self._first_start = True
+        self._has_async_init = False
+
+        self._join_confirmation = False
+        self._refresh_times = []
+
+        self.setup_internal()
+
+    async def _async_init(self) -> None:
+        # We must deal with loop stuff after a loop has been
+        # created by asyncio.run(). This is called at the start
+        # of start().
+
+        self.loop = asyncio.get_running_loop()
+
         self._exception_future = self.loop.create_future()
         self._ready_event = asyncio.Event()
         self._closed_event = asyncio.Event()
@@ -614,18 +587,8 @@ class Client:
         self._internal_join_party_lock = LockEvent()
         self._reauth_lock = LockEvent()
         self._reauth_lock.failed = False
-        self._refresh_task = None
-        self._start_runner_task = None
-        self._closed = False
-        self._closing = False
-        self._restarting = False
-        self._first_start = True
 
-        self._join_confirmation = False
-        self._refresh_times = []
-
-        self.setup_internal()
-
+        self.auth.initialize(self)
     @staticmethod
     def from_iso(iso: str) -> datetime.datetime:
         """Converts an iso formatted string to a
@@ -699,6 +662,40 @@ class Client:
             ``True`` if string is valid else ``False``
         """
         return isinstance(value, str) and 3 <= len(value) <= 16
+
+    def register_connectors(self,
+                            http_connector: Optional[BaseConnector] = None,
+                            ws_connector: Optional[BaseConnector] = None
+                            ) -> None:
+        """This can be used to register connectors after the client has
+        already been initialized. It must however be called before
+        :meth:`start()` has been called, or in :meth:`event_before_start()`.
+
+        .. warning::
+
+            Connectors passed will not be closed on shutdown. You must close
+            them yourself if you want a graceful shutdown.
+
+        Parameters
+        ----------
+        http_connector: :class:`aiohttp.BaseConnector`
+            The connector to use for the http session.
+        ws_connector: :class:`aiohttp.BaseConnector`
+            The connector to use for the websocket xmpp connection.
+        """
+        if http_connector is not None:
+            if self.http.connection_exists():
+                raise RuntimeError(
+                    'http_connector must be registered before startup.')
+
+            self.http.connector = http_connector
+
+        if ws_connector is not None:
+            if self.xmpp.xmpp_client is not None:
+                raise RuntimeError(
+                    'ws_connector must be registered before startup')
+
+            self.xmpp.ws_connector = ws_connector
 
     @property
     def default_party_config(self) -> DefaultPartyConfig:
@@ -815,10 +812,15 @@ class Client:
                 func = getattr(self, method_name)
                 self.add_event_handler(event, func)
 
+    async def init(self) -> None:
+        if not self._has_async_init:
+            self._has_async_init = True
+            await self._async_init()
+
     def run(self) -> None:
         """This function starts the loop and then calls :meth:`start` for you.
-        If you have passed an already running event loop to the client, you
-        should start the client with :meth:`start`.
+        If your program already has an asyncio loop setup, you should use
+        :meth:`start()` instead.
 
         .. warning::
 
@@ -832,74 +834,45 @@ class Client:
         HTTPException
             A request error occured while logging in.
         """
-        loop = self.loop
-        _stopped = False
-
-        def stopper(*args):
-            nonlocal _stopped
-
-            if not _stopped or not self._closing:
-                loop.stop()
-                _stopped = True
 
         async def runner():
-            nonlocal _stopped
-
-            try:
-                await self.start()
-            finally:
-                if not self._closing and not self._closed:
-                    await self.close()
+            async with self.start() as start_future:
+                await start_future
 
         try:
-            loop.add_signal_handler(signal.SIGINT, stopper)
-            loop.add_signal_handler(signal.SIGTERM, stopper)
-        except NotImplementedError:
-            pass
-
-        future = asyncio.ensure_future(runner())
-        future.add_done_callback(stopper)
-
-        try:
-            loop.run_forever()
+            asyncio.run(runner())
         except KeyboardInterrupt:
-            log.info('Terminating event loop.')
-            _stopped = True
-        finally:
-            future.remove_done_callback(stopper)
-            if not self._closing and not self._closed:
-                log.info('Client not logged out when terminating loop. '
-                         'Logging out now.')
-                loop.run_until_complete(self.close())
-
-            log.info('Cleaning up loop')
-            _cleanup_loop(loop)
-
-        if not future.cancelled():
-            return future.result()
-
-        # Somehow the exception from _exception_future is not always
-        # raised so we might have to raise it here.
-        try:
-            exc = self._exception_future.exception()
-        except (asyncio.CancelledError, asyncio.InvalidStateError):
+            # StartContext automatically closes for us, so we just catch
+            # the KeyboardInterrupt wihtout doing anything more here.
             pass
-        else:
-            if exc is not None:
-                raise exc
 
-    async def start(self, dispatch_ready: bool = True) -> None:
+    def start(self, dispatch_ready: bool = True) -> StartContext:
         """|coro|
 
         Starts the client and logs into the specified user.
 
+        This method can be used as a coroutine or an async context manager,
+        depending on your needs.
+
+        How to use as an async context manager: ::
+            async with client.start():
+                user = await client.fetch_user('Ninja')
+                print(user.display_name)
+
+        If you want to use it as an async context manager, but also keep the
+        client running forever, you can await the return of start like this: ::
+            async with client.start() as future:
+                user = await client.fetch_user('Ninja')
+                print(user.display_name)
+
+                await future  # Nothing after this line will run.
+
         .. warning::
 
-            This functions is blocking and everything after the line calling
-            this function will never run! If you are using this function
-            instead of :meth:`run` you should always call it after everything
-            else. When the client is ready it will dispatch
-            :meth:`event_ready`.
+            This method is blocking if you await it as a coroutine or you
+            await the return future. This means that no code coming after
+            will run until the client is closed. When the client is ready
+            it will dispatch :meth:`event_ready`.
 
         Parameters
         ----------
@@ -915,6 +888,10 @@ class Client:
         HTTPException
             A request error occured while logging in.
         """
+        return StartContext(self, dispatch_ready=dispatch_ready)
+
+    async def _start(self, dispatch_ready: bool = True) -> None:
+        await self.init()
 
         if self._first_start:
             self.register_methods()
@@ -922,6 +899,10 @@ class Client:
 
         if dispatch_ready:
             await self.dispatch_and_wait_event('before_start')
+
+        # Do this after before_start() in case any connectors
+        # are registered during the execution.
+        self.http.create_connection()
 
         _started_while_restarting = self._restarting
         pri = self._reauth_lock.priority if _started_while_restarting else 0
@@ -1067,7 +1048,10 @@ class Client:
                 self._start_runner_task.cancel()
 
         self._closing = False
-        self._set_closed()
+
+        if dispatch_close:
+            self._set_closed()
+
         log.debug('Successfully logged out')
 
     async def close(self, *,
@@ -1105,7 +1089,7 @@ class Client:
         """:class:`bool`: Whether the client is running or not."""
         return self._closed
 
-    def can_restart(self):
+    def can_restart(self) -> bool:
         return hasattr(self.auth, 'ios_refresh_token')
 
     async def restart(self) -> None:
@@ -1219,14 +1203,26 @@ class Client:
 
         Waits until the internal state of the client is ready.
         """
-        await self._ready_event.wait()
+        if self._ready_event is not None:
+            await self._ready_event.wait()
+        else:
+            raise RuntimeError(
+                'The client has not been fully initialized. Make sure '
+                'Client.init() has been called before using this method.'
+            )
 
     async def wait_until_closed(self) -> None:
         """|coro|
 
         Waits until the client is fully closed.
         """
-        await self._closed_event.wait()
+        if self._closed_event is not None:
+            await self._closed_event.wait()
+        else:
+            raise RuntimeError(
+                'The client has not been fully initialized. Make sure '
+                'Client.init() has been called before using this method.'
+            )
 
     def construct_party(self, data: dict, *,
                         cls: Optional[ClientParty] = None) -> ClientParty:
@@ -2256,7 +2252,7 @@ class Client:
                                       *args: Any,
                                       **kwargs: Any) -> None:
         coros = self._events.get(event, [])
-        tasks = [coro() for coro in coros]
+        tasks = [asyncio.create_task(coro()) for coro in coros]
         if tasks:
             await asyncio.wait(
                 tasks,
