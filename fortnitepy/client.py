@@ -427,8 +427,8 @@ class Client:
     auth: :class:`Auth`
         The authentication method to use. You can read more about available authentication methods
         :ref:`here <authentication>`.
-    connector: :class:`aiohttp.BaseConnector`
-        The connector to use for connection pooling.
+    http_connector: :class:`aiohttp.BaseConnector`
+        The connector to use for http connection pooling.
     ws_connector: :class:`aiohttp.BaseConnector`
         The connector to use for websocket connection pooling. This could be
         the same as the above connector.
@@ -538,7 +538,7 @@ class Client:
         self.auth = auth
         self.http = HTTPClient(
             self,
-            connector=kwargs.get('connector'),
+            connector=kwargs.get('http_connector'),
             retry_config=kwargs.get('http_retry_config')
         )
         self.http.add_header('Accept-Language', 'en-EN')
