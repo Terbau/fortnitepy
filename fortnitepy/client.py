@@ -239,6 +239,10 @@ async def start_multiple(clients: List['Client'], *,
     AuthException
         Raised if invalid credentials in any form was passed or some
         other misc failure.
+    ValueError
+        Two or more clients with the same authentication identifier was
+        passed. This means that you attemted to start two or more clients
+        with the same credentials.
     HTTPException
         A request error occured while logging in.
     """  # noqa
@@ -268,6 +272,18 @@ async def start_multiple(clients: List['Client'], *,
                 asyncio.ensure_future(all_ready_callback())
             else:
                 all_ready_callback()
+
+    # Do a check to see if any duplicate clients have been passed
+    identifiers = []
+    for client in clients:
+        identifier = client.auth.identifier
+        if identifier in identifiers:
+            raise ValueError(
+                'Two or more clients with the same auth identifier was passed.'
+                ' Identifier = {}'.format(repr(identifier))
+            )
+
+        identifiers.append(identifier)
 
     await asyncio.gather(*[client.init() for client in clients])
 
