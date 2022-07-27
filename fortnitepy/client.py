@@ -28,7 +28,6 @@ import datetime
 import asyncio
 import logging
 import time
-import re
 
 from aioxmpp import JID
 from aiohttp import BaseConnector
@@ -57,11 +56,9 @@ from .presence import Presence
 from .auth import RefreshTokenAuth
 from .avatar import Avatar
 from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
-from .utils import LockEvent, MaybeLock
+from .utils import LockEvent, MaybeLock, from_iso, is_display_name
 
 log = logging.getLogger(__name__)
-
-uuid_match_comp = re.compile(r'^[a-f0-9]{32}$')
 
 
 class StartContext:
@@ -589,79 +586,6 @@ class Client:
         self._reauth_lock.failed = False
 
         self.auth.initialize(self)
-    @staticmethod
-    def from_iso(iso: str) -> datetime.datetime:
-        """Converts an iso formatted string to a
-        :class:`datetime.datetime` object
-
-        Parameters
-        ----------
-        iso: :class:`str`:
-            The iso formatted string to convert to a datetime object.
-
-        Returns
-        -------
-        :class:`datetime.datetime`
-        """
-        if isinstance(iso, datetime.datetime):
-            return iso
-
-        try:
-            return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S.%fZ')
-        except ValueError:
-            return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%SZ')
-
-    @staticmethod
-    def to_iso(dt: datetime.datetime) -> str:
-        """Converts a :class:`datetime.datetime`
-        object to an iso formatted string
-
-        Parameters
-        ----------
-        dt: :class:`datetime.datetime`
-            The datetime object to convert to an iso formatted string.
-
-        Returns
-        -------
-        :class:`str`
-        """
-        iso = dt.strftime('%Y-%m-%dT%H:%M:%S.%f')
-
-        # fortnite's services expect three digit precision on millis
-        return iso[:23] + 'Z'
-
-    @staticmethod
-    def is_id(value: str) -> bool:
-        """Simple function that finds out if a :class:`str` is a valid id to
-        use with fortnite services.
-
-        Parameters
-        ----------
-        value: :class:`str`
-            The string you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if string is valid else ``False``
-        """
-        return isinstance(value, str) and bool(uuid_match_comp.match(value))
-
-    @staticmethod
-    def is_display_name(value: str) -> bool:
-        """Simple function that finds out if a :class:`str` is a valid displayname
-
-        Parameters
-        ----------
-        value: :class:`str`
-            The string you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if string is valid else ``False``
-        """
-        return isinstance(value, str) and 3 <= len(value) <= 16
 
     def register_connectors(self,
                             http_connector: Optional[BaseConnector] = None,
@@ -1247,11 +1171,11 @@ class Client:
                 if member_d is not None:
                     newest_conn = max(
                         member_data['connections'],
-                        key=lambda o: self.from_iso(o['connected_at']),
+                        key=lambda o: from_iso(o['connected_at']),
                     )
 
                     try:
-                        disc_at = self.from_iso(newest_conn['disconnected_at'])
+                        disc_at = from_iso(newest_conn['disconnected_at'])
                     except KeyError:
                         pass
                     else:
@@ -1476,7 +1400,7 @@ class Client:
             tasks.append(task)
 
         for elem in users:
-            if self.is_display_name(elem):
+            if is_display_name(elem):
                 find_by_display_name(elem)
             else:
                 if cache:
@@ -1794,7 +1718,7 @@ class Client:
                     value = None
 
                 friend._update_last_logout(
-                    self.from_iso(value) if value is not None else None
+                    from_iso(value) if value is not None else None
                 )
 
         for data in raw_summary['blocklist']:

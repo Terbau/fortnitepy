@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Optional, Any, List
 
 from .errors import AuthException, HTTPException
 from .typedefs import StrOrMaybeCoro
+from .utils import from_iso
 
 if TYPE_CHECKING:
     from .client import Client
@@ -118,7 +119,7 @@ class Auth:
     def _update_ios_data(self, data: dict) -> None:
         self.ios_access_token = data['access_token']
         self.ios_expires_in = data['expires_in']
-        self.ios_expires_at = self.client.from_iso(data["expires_at"])
+        self.ios_expires_at = from_iso(data["expires_at"])
         self.ios_token_type = data['token_type']
         self.ios_refresh_token = data['refresh_token']
         self.ios_refresh_expires = data['refresh_expires']
@@ -133,7 +134,7 @@ class Auth:
     def _update_data(self, data: dict) -> None:
         self.access_token = data['access_token']
         self.expires_in = data['expires_in']
-        self.expires_at = self.client.from_iso(data["expires_at"])
+        self.expires_at = from_iso(data["expires_at"])
         self.token_type = data['token_type']
         self.refresh_token = data['refresh_token']
         self.refresh_expires = data['refresh_expires']

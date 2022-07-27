@@ -25,8 +25,12 @@ SOFTWARE.
 """
 
 import asyncio
+import datetime
+import re
 
 from typing import Optional
+
+uuid_match_comp = re.compile(r'^[a-f0-9]{32}$')
 
 
 class MaybeLock:
@@ -75,3 +79,77 @@ class LockEvent(asyncio.Lock):
                                                if not w.cancelled()]):
             self._event.set()
             self.priority = 0
+
+
+def from_iso(iso: str) -> datetime.datetime:
+    """Converts an iso formatted string to a
+    :class:`datetime.datetime` object
+
+    Parameters
+    ----------
+    iso: :class:`str`:
+        The iso formatted string to convert to a datetime object.
+
+    Returns
+    -------
+    :class:`datetime.datetime`
+    """
+    if isinstance(iso, datetime.datetime):
+        return iso
+
+    try:
+        return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%S.%fZ')
+    except ValueError:
+        return datetime.datetime.strptime(iso, '%Y-%m-%dT%H:%M:%SZ')
+
+
+def to_iso(dt: datetime.datetime) -> str:
+    """Converts a :class:`datetime.datetime`
+    object to an iso formatted string
+
+    Parameters
+    ----------
+    dt: :class:`datetime.datetime`
+        The datetime object to convert to an iso formatted string.
+
+    Returns
+    -------
+    :class:`str`
+    """
+    iso = dt.strftime('%Y-%m-%dT%H:%M:%S.%f')
+
+    # fortnite's services expect three digit precision on millis
+    return iso[:23] + 'Z'
+
+
+def is_id(value: str) -> bool:
+    """Simple function that finds out if a :class:`str` is a valid id to
+    use with fortnite services.
+
+    Parameters
+    ----------
+    value: :class:`str`
+        The string you want to check.
+
+    Returns
+    -------
+    :class:`bool`
+        ``True`` if string is valid else ``False``
+    """
+    return isinstance(value, str) and bool(uuid_match_comp.match(value))
+
+
+def is_display_name(value: str) -> bool:
+    """Simple function that finds out if a :class:`str` is a valid displayname
+
+    Parameters
+    ----------
+    value: :class:`str`
+        The string you want to check.
+
+    Returns
+    -------
+    :class:`bool`
+        ``True`` if string is valid else ``False``
+    """
+    return isinstance(value, str) and 3 <= len(value) <= 16

@@ -44,6 +44,7 @@ from .party import (Party, PartyJoinRequest, ReceivedPartyInvitation,
                     PartyJoinConfirmation)
 from .presence import Presence
 from .enums import AwayStatus
+from .utils import to_iso, from_iso
 
 if TYPE_CHECKING:
     from .client import Client
@@ -610,7 +611,7 @@ class XMPPClient:
         return ''.join(fixed)
 
     def _create_invite(self, from_id: str, data: dict) -> dict:
-        sent_at = self.client.from_iso(data['sent'])
+        sent_at = from_iso(data['sent'])
         expires_at = sent_at + datetime.timedelta(hours=4)
 
         member = None
@@ -644,9 +645,9 @@ class XMPPClient:
             'party_id': data['id'],
             'sent_by': from_id,
             'sent_to': self.client.user.id,
-            'sent_at': self.client.to_iso(sent_at),
-            'updated_at': self.client.to_iso(sent_at),
-            'expires_at': self.client.to_iso(expires_at),
+            'sent_at': to_iso(sent_at),
+            'updated_at': to_iso(sent_at),
+            'expires_at': to_iso(expires_at),
             'status': 'SENT',
             'meta': meta
         }

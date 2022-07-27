@@ -29,6 +29,8 @@ import datetime
 
 from typing import TYPE_CHECKING, Optional, List
 
+from .utils import from_iso
+
 if TYPE_CHECKING:
     from .client import Client
 
@@ -227,7 +229,7 @@ class Store:
         self.client = client
         self._daily_purchase_hours = data['dailyPurchaseHrs']
         self._refresh_interval_hours = data['refreshIntervalHrs']
-        self._expires_at = self.client.from_iso(data['expiration'])
+        self._expires_at = from_iso(data['expiration'])
 
         self._featured_items = self._create_featured_items(
             'BRWeeklyStorefront',

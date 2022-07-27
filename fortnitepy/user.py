@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 from .enums import UserSearchPlatform, UserSearchMatchType, StatsCollectionType
 from .typedefs import DatetimeOrTimestamp
 from .errors import Forbidden
+from .utils import from_iso
 
 if TYPE_CHECKING:
     from .client import Client
@@ -455,9 +456,9 @@ class ClientUser(UserBase):
         self.name = data['name']
         self.email = data['email']
         self.failed_login_attempts = data['failedLoginAttempts']
-        self.last_failed_login = (self.client.from_iso(data['lastFailedLogin'])
+        self.last_failed_login = (from_iso(data['lastFailedLogin'])
                                   if 'lastFailedLogin' in data else None)
-        self.last_login = (self.client.from_iso(data['lastLogin'])
+        self.last_login = (from_iso(data['lastLogin'])
                            if 'lastLogin' in data else None)
 
         n_changes = data['numberOfDisplayNameChanges']

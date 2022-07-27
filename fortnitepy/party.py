@@ -41,7 +41,7 @@ from .user import User
 from .friend import Friend
 from .enums import (PartyPrivacy, PartyDiscoverability, PartyJoinability,
                     DefaultCharactersChapter2, Region, ReadyState, Platform)
-from .utils import MaybeLock
+from .utils import MaybeLock, to_iso, from_iso
 
 if TYPE_CHECKING:
     from .client import Client
@@ -1058,7 +1058,7 @@ class PartyMemberMeta(MetaBase):
             result[key] = self.set_prop(key, players_left)
         if started_at is not None:
             key = 'Default:UtcTimeStartedMatchAthena_s'
-            timestamp = self.member.client.to_iso(started_at)
+            timestamp = to_iso(started_at)
             result[key] = self.set_prop(key, timestamp)
 
         return result
@@ -1278,7 +1278,7 @@ class PartyMemberBase(User):
         self._party = party
         self._assignment_version = 0
 
-        self._joined_at = self.client.from_iso(data['joined_at'])
+        self._joined_at = from_iso(data['joined_at'])
         self.meta = PartyMemberMeta(self, meta=data.get('meta'))
         self._update(data)
 
@@ -1363,7 +1363,7 @@ class PartyMemberBase(User):
         """
         disconnected_at = self.connection.get('disconnected_at')
         if disconnected_at is not None:
-            return self.client.from_iso(disconnected_at)
+            return from_iso(disconnected_at)
 
     def is_just_chatting(self) -> bool:
         """:class:`bool`: Whether or not the member is Just Chattin' through
@@ -1599,7 +1599,7 @@ class PartyMemberBase(User):
         if not self.in_match:
             return None
 
-        return self.client.from_iso(self.meta.match_started_at)
+        return from_iso(self.meta.match_started_at)
 
     @property
     def match_players_left(self) -> int:
@@ -3468,7 +3468,7 @@ class ClientParty(PartyBase, Patchable):
             # ClientPartyMember is added at a later stage. We do this to avoid
             # ClientParty.me being None.
             default_config = self.client.default_party_member_config
-            now = self.client.to_iso(datetime.datetime.utcnow())
+            now = to_iso(datetime.datetime.utcnow())
             platform_s = self.client.platform.value
             conn_type = default_config.cls.CONN_TYPE
             external_auths = [
@@ -4088,7 +4088,7 @@ class ReceivedPartyInvitation:
         self.net_cl = net_cl
 
         self.sender = self.client.get_friend(data['sent_by'])
-        self.created_at = self.client.from_iso(data['sent_at'])
+        self.created_at = from_iso(data['sent_at'])
 
     def __repr__(self) -> str:
         return ('<ReceivedPartyInvitation party={0.party!r} '
@@ -4177,7 +4177,7 @@ class SentPartyInvitation:
 
         self.sender = sender
         self.receiver = receiver
-        self.created_at = self.client.from_iso(data['sent_at'])
+        self.created_at = from_iso(data['sent_at'])
 
     def __repr__(self) -> str:
         return ('<SentPartyInvitation party={0.party!r} sender={0.sender!r} '
@@ -4259,7 +4259,7 @@ class PartyJoinConfirmation:
         self.client = client
         self.party = party
         self.user = user
-        self.created_at = self.client.from_iso(data['sent'])
+        self.created_at = from_iso(data['sent'])
 
     def __repr__(self) -> str:
         return ('<PartyJoinConfirmation party={0.party!r} user={0.user!r} '
@@ -4364,8 +4364,8 @@ class PartyJoinRequest:
         self.client = client
         self.party = party
         self.friend = friend
-        self.created_at = self.client.from_iso(data['sent_at'])
-        self.expires_at = self.client.from_iso(data['expires_at'])
+        self.created_at = from_iso(data['sent_at'])
+        self.expires_at = from_iso(data['expires_at'])
 
     async def accept(self):
         """|coro|

@@ -34,6 +34,7 @@ from .errors import (FriendOffline, InvalidOffer, PartyError, Forbidden,
 from .presence import Presence
 from .enums import Platform
 from .avatar import Avatar
+from .utils import from_iso
 
 if TYPE_CHECKING:
     from .client import Client
@@ -52,7 +53,7 @@ class FriendBase(UserBase):
         super()._update(data)
         self._status = data['status']
         self._direction = data['direction']
-        self._created_at = self.client.from_iso(data['created'])
+        self._created_at = from_iso(data['created'])
 
     @property
     def status(self) -> str:
@@ -264,7 +265,7 @@ class Friend(FriendBase):
         presence = presences.get(self.id)
         if presence is not None:
             self._update_last_logout(
-                self.client.from_iso(presence[0]['last_online'])
+                from_iso(presence[0]['last_online'])
             )
 
         return self.last_logout
