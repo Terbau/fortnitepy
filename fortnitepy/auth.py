@@ -200,7 +200,11 @@ class Auth:
         log.debug('Killing other sessions')
 
     def refresh_loop_running(self):
-        task = self.client._refresh_task
+        try:
+            task = self.client._refresh_task
+        except AttributeError:
+            return False
+
         return task is not None and not task.cancelled()
 
     async def schedule_token_refresh(self) -> None:

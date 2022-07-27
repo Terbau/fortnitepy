@@ -957,7 +957,9 @@ class Client:
         self._users.clear()
         self._blocked_users.clear()
         self._presences.clear()
-        self._ready_event.clear()
+
+        if self._ready_event is not None:
+            self._ready_event.clear()
 
         if close_http:
             self._closed = True
@@ -973,7 +975,7 @@ class Client:
 
         self._closing = False
 
-        if dispatch_close:
+        if dispatch_close and self._closed_event is not None:
             self._set_closed()
 
         log.debug('Successfully logged out')
