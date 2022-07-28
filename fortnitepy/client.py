@@ -53,7 +53,7 @@ from .store import Store
 from .news import BattleRoyaleNewsPost
 from .playlist import Playlist
 from .presence import Presence
-from .auth import RefreshTokenAuth
+from .auth import Auth, RefreshTokenAuth
 from .avatar import Avatar
 from .typedefs import MaybeCoro, DatetimeOrTimestamp, StrOrInt
 from .utils import LockEvent, MaybeLock, from_iso, is_display_name
@@ -432,47 +432,31 @@ def run_multiple(clients: List['Client'], *,
         pass
 
 
-class Client:
-    """Represents the client connected to Fortnite and EpicGames' services.
+class BasicClient:
+    """Represents a basic stripped down version of :class:`Client`. You
+    might want to use this client if your only goal is to make simple
+    requests like user or stats fetching.
+
+    This client does **not** support the following:
+      - Parties (except :meth:`Client.fetch_party()`)
+      - Friends
+      - Anything related to XMPP (Messaging and most events)
+
+    Supported events by this client:
+      - :meth:`event_ready()`
+      - :meth:`event_before_start()`
+      - :meth:`event_before_close()`
+      - :meth:`event_restart()`
+      - :meth:`event_device_auth_generate()`
+      - :meth:`event_auth_refresh()`
 
     Parameters
     ----------
     auth: :class:`Auth`
-        The authentication method to use. You can read more about available authentication methods
-        :ref:`here <authentication>`.
+        The authentication method to use. You can read more about available
+        authentication methods :ref:`here <authentication>`.
     http_connector: :class:`aiohttp.BaseConnector`
         The connector to use for http connection pooling.
-    ws_connector: :class:`aiohttp.BaseConnector`
-        The connector to use for websocket connection pooling. This could be
-        the same as the above connector.
-    status: :class:`str`
-        The status you want the client to send with its presence to friends.
-        Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
-    away: :class:`AwayStatus`
-        The away status the client should use for its presence. Defaults to
-        :attr:`AwayStatus.ONLINE`.
-    platform: :class:`.Platform`
-        The platform you want the client to display as its source.
-        Defaults to :attr:`Platform.WINDOWS`.
-    net_cl: :class:`str`
-        The current net cl used by the current Fortnite build. Named **netCL**
-        in official logs. Defaults to an empty string which is the recommended
-        usage as of ``v0.9.0`` since you then
-        won't need to update it when a new update is pushed by Fortnite.
-    party_version: :class:`int`
-        The party version the client should use. This value determines which version
-        should be able to join the party. If a user attempts to join the clients party
-        with a different party version than the client, then an error will be visible
-        saying something by the lines of "Their party of Fortnite is older/newer than
-        yours". If you experience this error I recommend incrementing the default set
-        value by one since the library in that case most likely has yet to be updated.
-        Defaults to ``3`` (As of November 3rd 2020).
-    default_party_config: :class:`DefaultPartyConfig`
-        The party configuration used when creating parties. If not specified,
-        the client will use the default values specified in the data class.
-    default_party_member_config: :class:`DefaultPartyMemberConfig`
-        The party member configuration used when creating parties. If not specified,
-        the client will use the default values specified in the data class.
     http_retry_config: Optional[:class:`HTTPRetryConfig`]
         The config to use for http retries.
     build: :class:`str`
@@ -482,67 +466,22 @@ class Client:
         The os version string to use in the user agent.
         Defaults to ``Windows/10.0.17134.1.768.64bit`` which is valid no
         matter which platform you have set.
-    service_host: :class:`str`
-        The host used by Fortnite's XMPP services.
-    service_domain: :class:`str`
-        The domain used by Fortnite's XMPP services.
-    service_port: :class:`int`
-        The port used by Fortnite's XMPP services.
     cache_users: :class:`bool`
         Whether or not the library should cache :class:`User` objects. Disable
         this if you are running a program with lots of users as this could
         potentially take a big hit on the memory usage. Defaults to ``True``.
-    fetch_user_data_in_events: :class:`bool`
-        Whether or not user data should be fetched in event processing. Disabling
-        this might be useful for larger applications that deals with
-        possibly being rate limited on their ip. Defaults to ``True``.
-
-        .. warning::
-
-            Keep in mind that if this option is disabled, there is a big
-            chance that display names, external auths and more might be missing
-            or simply is ``None`` on objects deriving from :class:`User`. Keep in
-            mind that :attr:`User.id` always will be available. You can use
-            :meth:`User.fetch()` to update all missing attributes.
-    wait_for_member_meta_in_events: :class:`bool`
-        Whether or not the client should wait for party member meta (information
-        about outfit, backpack etc.) before dispatching events like
-        :func:`event_party_member_join()`. If this is disabled then member objects
-        in the events won't have the correct meta. Defaults to ``True``.
-    leave_party_at_shutdown: :class:`bool`
-        Whether or not the client should leave its current party at shutdown. If this
-        is set to false, then the client will attempt to reconnect to the party on a
-        startup. If :attr:`DefaultPartyMemberConfig.offline_ttl` is exceeded before
-        a reconnect is attempted, then the client will create a new party at startup.
 
     Attributes
     ----------
     user: :class:`ClientUser`
         The user the client is logged in as.
-    party: :class:`ClientParty`
-        The party the client is currently connected to.
     """  # noqa
 
-    def __init__(self, auth,
+    def __init__(self, auth: Auth,
                  **kwargs: Any) -> None:
-
-        self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')  # noqa
-        self.away = kwargs.get('away', AwayStatus.ONLINE)
-        self.platform = kwargs.get('platform', Platform.WINDOWS)
-        self.net_cl = kwargs.get('net_cl', '')
-        self.party_version = kwargs.get('party_version', 3)
-        self.party_build_id = '1:{0.party_version}:{0.net_cl}'.format(self)
-        self.default_party_config = kwargs.get('default_party_config', DefaultPartyConfig())  # noqa
-        self.default_party_member_config = kwargs.get('default_party_member_config', DefaultPartyMemberConfig())  # noqa
+        self.cache_users = kwargs.get('cache_users', True)
         self.build = kwargs.get('build', '++Fortnite+Release-14.10-CL-14288110')  # noqa
         self.os = kwargs.get('os', 'Windows/10.0.17134.1.768.64bit')
-        self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
-        self.service_domain = kwargs.get('xmpp_domain', 'xmpp-service-prod.ol.epicgames.com')  # noqa
-        self.service_port = kwargs.get('xmpp_port', 5222)
-        self.cache_users = kwargs.get('cache_users', True)
-        self.fetch_user_data_in_events = kwargs.get('fetch_user_data_in_events', True)  # noqa
-        self.wait_for_member_meta_in_events = kwargs.get('wait_for_member_meta_in_events', True)  # noqa
-        self.leave_party_at_shutdown = kwargs.get('leave_party_at_shutdown', True)  # noqa
 
         self.kill_other_sessions = True
         self.accept_eula = True
@@ -555,22 +494,15 @@ class Client:
             retry_config=kwargs.get('http_retry_config')
         )
         self.http.add_header('Accept-Language', 'en-EN')
-        self.xmpp = XMPPClient(self, ws_connector=kwargs.get('ws_connector'))
-        self.party = None
 
         self._listeners = {}
         self._events = {}
-        self._friends = {}
-        self._pending_friends = {}
         self._users = {}
-        self._blocked_users = {}
-        self._presences = {}
+        self._refresh_times = []
 
         self._exception_future = None
         self._ready_event = None
         self._closed_event = None
-        self._join_party_lock = None
-        self._internal_join_party_lock = None
         self._reauth_lock = None
 
         self._refresh_task = None
@@ -580,9 +512,6 @@ class Client:
         self._restarting = False
         self._first_start = True
         self._has_async_init = False
-
-        self._join_confirmation = False
-        self._refresh_times = []
 
         self.setup_internal()
 
@@ -596,18 +525,15 @@ class Client:
         self._exception_future = self.loop.create_future()
         self._ready_event = asyncio.Event()
         self._closed_event = asyncio.Event()
-        self._join_party_lock = LockEvent()
-        self._internal_join_party_lock = LockEvent()
         self._reauth_lock = LockEvent()
         self._reauth_lock.failed = False
 
         self.auth.initialize(self)
 
     def register_connectors(self,
-                            http_connector: Optional[BaseConnector] = None,
-                            ws_connector: Optional[BaseConnector] = None
+                            http_connector: Optional[BaseConnector] = None
                             ) -> None:
-        """This can be used to register connectors after the client has
+        """This can be used to register a http connector after the client has
         already been initialized. It must however be called before
         :meth:`start()` has been called, or in :meth:`event_before_start()`.
 
@@ -620,8 +546,6 @@ class Client:
         ----------
         http_connector: :class:`aiohttp.BaseConnector`
             The connector to use for the http session.
-        ws_connector: :class:`aiohttp.BaseConnector`
-            The connector to use for the websocket xmpp connection.
         """
         if http_connector is not None:
             if self.http.connection_exists():
@@ -629,115 +553,6 @@ class Client:
                     'http_connector must be registered before startup.')
 
             self.http.connector = http_connector
-
-        if ws_connector is not None:
-            if self.xmpp.xmpp_client is not None:
-                raise RuntimeError(
-                    'ws_connector must be registered before startup')
-
-            self.xmpp.ws_connector = ws_connector
-
-    @property
-    def default_party_config(self) -> DefaultPartyConfig:
-        return self._default_party_config
-
-    @default_party_config.setter
-    def default_party_config(self, obj: DefaultPartyConfig) -> None:
-        obj._inject_client(self)
-        self._default_party_config = obj
-
-    @property
-    def default_party_member_config(self) -> DefaultPartyMemberConfig:
-        return self._default_party_member_config
-
-    @default_party_member_config.setter
-    def default_party_member_config(self, o: DefaultPartyMemberConfig) -> None:
-        self._default_party_member_config = o
-
-    @property
-    def friends(self) -> List[Friend]:
-        """List[:class:`Friend`]: A list of the clients friends."""
-        return list(self._friends.values())
-
-    @property
-    def friend_count(self) -> int:
-        """:class:`int`: The amount of friends the bot currently has."""
-        return len(self._friends)
-
-    @property
-    def pending_friends(self) -> List[Union[IncomingPendingFriend,
-                                            OutgoingPendingFriend]]:
-        """List[Union[:class:`IncomingPendingFriend`,
-        :class:`OutgoingPendingFriend`]]: A list of all of the clients
-        pending friends.
-
-        .. note::
-
-            Pending friends can be both incoming (pending friend sent the
-            request to the bot) or outgoing (the bot sent the request to the
-            pending friend). You must check what kind of pending friend an
-            object is by their attributes ``incoming`` or ``outgoing``.
-        """  # noqa
-        return list(self._pending_friends.values())
-
-    @property
-    def pending_friend_count(self) -> int:
-        """:class:`int`: The amount of pending friends the bot currently has.
-        """
-        return len(self._pending_friends)
-
-    @property
-    def incoming_pending_friends(self) -> List[IncomingPendingFriend]:
-        """List[:class:`IncomingPendingFriend`]: A list of the clients
-        incoming pending friends.
-        """
-        return [pf for pf in self._pending_friends.values() if pf.incoming]
-
-    @property
-    def incoming_pending_friend_count(self) -> int:
-        """:class:`int`: The amount of active incoming pending friends the bot
-        currently has received."""
-        return len(self.incoming_pending_friends)
-
-    @property
-    def outgoing_pending_friends(self) -> List[OutgoingPendingFriend]:
-        """List[:class:`OutgoingPendingFriend`]: A list of the clients
-        outgoing pending friends.
-        """
-        return [pf for pf in self._pending_friends.values() if pf.outgoing]
-
-    @property
-    def outgoing_pending_friend_count(self) -> int:
-        """:class:`int`: The amount of active outgoing pending friends the bot
-        has sent."""
-        return len(self.outgoing_pending_friends)
-
-    @property
-    def blocked_users(self) -> List[BlockedUser]:
-        """List[:class:`BlockedUser`]: A list of the users client has
-        as blocked.
-        """
-        return list(self._blocked_users.values())
-
-    @property
-    def blocked_user_count(self) -> int:
-        """:class:`int`: The amount of blocked users the bot currently has
-        blocked."""
-        return len(self._blocked_users)
-
-    @property
-    def presences(self) -> List[Presence]:
-        """List[:class:`Presence`]: A list of the last presences from
-        currently online friends.
-        """
-        return list(self._presences.values())
-
-    def _check_party_confirmation(self) -> None:
-        k = 'party_member_confirm'
-        val = k in self._events and len(self._events[k]) > 0
-        if val != self._join_confirmation:
-            self._join_confirmation = val
-            self.default_party_config.update({'join_confirmation': val})
 
     def setup_internal(self) -> None:
         logger = logging.getLogger('aioxmpp')
@@ -849,7 +664,6 @@ class Client:
         pri = self._reauth_lock.priority if _started_while_restarting else 0
 
         self._closed_event.clear()
-        self._check_party_confirmation()
 
         if self._closed:
             self.http.create_connection()
@@ -887,12 +701,7 @@ class Client:
             self._start_runner_task = self.loop.create_task(runner())
             await waiter(self._start_runner_task)
 
-    async def _login(self, priority: int = 0) -> None:
-        log.debug('Running authenticating')
-        ret = await self.auth._authenticate(priority=priority)
-        if ret is False:
-            return False
-
+    async def _setup_client_user(self, priority: int = 0):
         tasks = [
             self.http.account_get_by_user_id(
                 self.auth.account_id,
@@ -912,9 +721,13 @@ class Client:
         data['extraExternalAuths'] = extra_ext_data
         self.user = ClientUser(self, data)
 
-        state_fut = asyncio.ensure_future(
-            self.refresh_caches(priority=priority)
-        )
+    async def _login(self, priority: int = 0) -> None:
+        log.debug('Running authenticating')
+        ret = await self.auth._authenticate(priority=priority)
+        if ret is False:
+            return False
+
+        await self._setup_client_user(priority=priority)
 
         if self.auth.eula_check_needed() and self.accept_eula:
             await self.auth.accept_eula(
@@ -922,32 +735,7 @@ class Client:
             )
             log.debug('EULA accepted')
 
-        await state_fut
-
-        await self.xmpp.run()
-        log.debug('Connected to XMPP')
-
-        await self.initialize_party(priority=priority)
-        log.debug('Party created')
-
-    async def _close(self, *,
-                     close_http: bool = True,
-                     dispatch_close: bool = True,
-                     priority: int = 0) -> None:
-        self._closing = True
-
-        if self.leave_party_at_shutdown:
-            try:
-                if self.party is not None:
-                    await self.party._leave(priority=priority)
-            except Exception:
-                pass
-
-        try:
-            await self.xmpp.close()
-        except Exception:
-            pass
-
+    async def _kill_tokens(self) -> None:
         async def killer(token):
             if token is None:
                 return
@@ -968,11 +756,17 @@ class Client:
             )
             await asyncio.gather(*tasks)
 
-        self._friends.clear()
-        self._pending_friends.clear()
+    def _clear_caches(self) -> None:
         self._users.clear()
-        self._blocked_users.clear()
-        self._presences.clear()
+
+    async def _close(self, *,
+                     close_http: bool = True,
+                     dispatch_close: bool = True,
+                     priority: int = 0) -> None:
+        self._closing = True
+
+        await self._kill_tokens()
+        self._clear_caches()
 
         if self._ready_event is not None:
             self._ready_event.clear()
@@ -1056,7 +850,7 @@ class Client:
             self._refresh_times.append(time.time())
             ios_refresh_token = self.auth.ios_refresh_token
 
-            asyncio.ensure_future(self.recover_events())
+            self.recover_events()
             await self._close(
                 close_http=False,
                 dispatch_close=False,
@@ -1091,38 +885,10 @@ class Client:
 
             self.dispatch_event('restart')
             self._restarting = False
+            log.debug('Successully restarted the client.')
 
-    async def recover_events(self, *,
-                             refresh_caches: bool = False,
-                             wait_for_close: bool = True) -> None:
-        if wait_for_close:
-            await self.wait_for('xmpp_session_close')
-
-        pre_friends = self.friends
-        pre_pending = self.pending_friends
-        await self.wait_for('xmpp_session_establish')
-
-        if refresh_caches:
-            await self.refresh_caches()
-
-        for friend in pre_friends:
-            if friend not in self._friends.values():
-                self.dispatch_event('friend_remove', friend)
-
-        added_friends = []
-        for friend in self._friends.values():
-            if friend not in pre_friends:
-                added_friends.append(friend)
-                self.dispatch_event('friend_add', friend)
-
-        for pending in pre_pending:
-            if (pending not in self._pending_friends.values()
-                    and pending not in added_friends):
-                self.dispatch_event('friend_request_abort', pending)
-
-        for pending in self._pending_friends.values():
-            if pending not in pre_pending:
-                self.dispatch_event('friend_request', pending)
+    def recover_events(self) -> None:
+        pass
 
     def _set_ready(self) -> None:
         self._ready_event.set()
@@ -1166,56 +932,13 @@ class Client:
                 'Client.init() has been called before using this method.'
             )
 
-    def construct_party(self, data: dict, *,
-                        cls: Optional[ClientParty] = None) -> ClientParty:
-        clazz = cls or self.default_party_config.cls
-        return clazz(self, data)
-
-    async def initialize_party(self, priority: int = 0) -> None:
-        data = await self.http.party_lookup_user(
-            self.user.id,
-            priority=priority
-        )
-        if len(data['current']) > 0:
-            if not self.leave_party_at_shutdown:
-                current = data['current'][0]
-
-                member_d = None
-                for member_data in current['members']:
-                    if member_data['account_id'] == self.auth.account_id:
-                        member_d = member_data
-                        break
-
-                if member_d is not None:
-                    newest_conn = max(
-                        member_data['connections'],
-                        key=lambda o: from_iso(o['connected_at']),
-                    )
-
-                    try:
-                        disc_at = from_iso(newest_conn['disconnected_at'])
-                    except KeyError:
-                        pass
-                    else:
-                        now = datetime.datetime.utcnow()
-                        total_seconds = (now - disc_at).total_seconds()
-                        if total_seconds < newest_conn.get('offline_ttl', 30):
-                            return await self._reconnect_to_party(data=data)
-
-            party = self.construct_party(data['current'][0])
-            await party._leave(priority=priority)
-            log.debug('Left old party')
-
-        await self._create_party(priority=priority)
-
     async def fetch_user_by_display_name(self, display_name: str, *,
                                          cache: bool = False,
                                          raw: bool = False
                                          ) -> Optional[User]:
         """|coro|
 
-        Fetches a user from the passed display name. Aliased to
-        ``fetch_profile_by_display_name()`` as well for legacy reasons.
+        Fetches a user from the passed display name.
 
         Parameters
         ----------
@@ -1271,16 +994,13 @@ class Client:
             return account
         return self.store_user(account, try_cache=cache)
 
-    fetch_profile_by_display_name = fetch_user_by_display_name
-
     async def fetch_users_by_display_name(self, display_name: str, *,
                                           raw: bool = False
                                           ) -> Optional[User]:
         """|coro|
 
         Fetches all users including external users (accounts from other
-        platforms) that matches the given the display name. Aliased to
-        ``fetch_profiles_by_display_name()`` as well for legacy reasons.
+        platforms) that matches the given the display name.
 
         .. warning::
 
@@ -1312,16 +1032,13 @@ class Client:
 
         return [User(self, account) for account in res['account']]
 
-    fetch_profiles_by_display_name = fetch_users_by_display_name
-
     async def fetch_user(self, user, *,
                          cache: bool = False,
                          raw: bool = False
                          ) -> Optional[User]:
         """|coro|
 
-        Fetches a single user by the given id/displayname. Aliased to
-        ``fetch_profile()`` as well for legacy reasons.
+        Fetches a single user by the given id/displayname.
 
         Parameters
         ----------
@@ -1359,15 +1076,12 @@ class Client:
         except IndexError:
             return None
 
-    fetch_profile = fetch_user
-
     async def fetch_users(self, users: Iterable[str], *,
                           cache: bool = False,
                           raw: bool = False) -> List[User]:
         """|coro|
 
-        Fetches multiple users at once by the given ids/displaynames. Aliased
-        to ``fetch_profiles()`` as well for legacy reasons.
+        Fetches multiple users at once by the given ids/displaynames.
 
         Parameters
         ----------
@@ -1465,15 +1179,12 @@ class Client:
                         _users.append(u)
         return _users
 
-    fetch_profiles = fetch_users
-
     async def fetch_user_by_email(self, email, *,
                                   cache: bool = False,
                                   raw: bool = False) -> Optional[User]:
         """|coro|
 
-        Fetches a single user by the email. Aliased to
-        ``fetch_profile_by_email()`` as well for legacy reasons.
+        Fetches a single user by the email.
 
         .. warning::
 
@@ -1527,15 +1238,12 @@ class Client:
         account_id = res['id']
         return await self.fetch_user(account_id, cache=cache, raw=raw)
 
-    fetch_profile_by_email = fetch_user_by_email
-
     async def search_users(self, prefix: str,
                            platform: UserSearchPlatform
                            ) -> List[UserSearchEntry]:
         """|coro|
 
         Searches after users by a prefix and returns up to 100 matches.
-        Aliased to ``search_profiles()`` as well for legacy reasons.
 
         Parameters
         ----------
@@ -1589,8 +1297,6 @@ class Client:
             entries.append(obj)
 
         return entries
-
-    search_profiles = search_users
 
     async def fetch_avatars(self, users: List[str]) -> Dict[str, Avatar]:
         """|coro|
@@ -1672,78 +1378,6 @@ class Client:
 
         return entries
 
-    async def refresh_caches(self, priority: int = 0) -> None:
-        self._friends.clear()
-        self._pending_friends.clear()
-        self._blocked_users.clear()
-
-        tasks = (
-            self.http.friends_get_all(
-                include_pending=True,
-                priority=priority
-            ),
-            self.http.friends_get_summary(priority=priority),
-            self.http.presence_get_last_online(priority=priority),
-        )
-        raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
-
-        ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
-        chunks = (ids[i:i + 100] for i in range(0, len(ids), 100))
-
-        users = {}
-        tasks = [
-            self.http.account_graphql_get_multiple_by_user_id(
-                chunk,
-                priority=priority
-            )
-            for chunk in chunks
-        ]
-        if tasks:
-            done = await asyncio.gather(*tasks)
-        else:
-            done = []
-
-        for results in done:
-            for user in results['accounts']:
-                users[user['id']] = user
-
-        for friend in raw_friends:
-            try:
-                data = users[friend['accountId']]
-            except KeyError:
-                continue
-
-            if friend['status'] == 'ACCEPTED':
-                self.store_friend({**friend, **data})
-
-            elif friend['status'] == 'PENDING':
-                if friend['direction'] == 'INBOUND':
-                    self.store_incoming_pending_friend({**friend, **data})
-                else:
-                    self.store_outgoing_pending_friend({**friend, **data})
-
-        for data in raw_summary['friends']:
-            friend = self.get_friend(data['accountId'])
-            if friend is not None:
-                friend._update_summary(data)
-
-        for user_id, data in raw_presences.items():
-            friend = self.get_friend(user_id)
-            if friend is not None:
-                try:
-                    value = data[0]['last_online']
-                except (IndexError, KeyError):
-                    value = None
-
-                friend._update_last_logout(
-                    from_iso(value) if value is not None else None
-                )
-
-        for data in raw_summary['blocklist']:
-            user = users.get(data['accountId'])
-            if user is not None:
-                self.store_blocked_user(user)
-
     def store_user(self, data: dict, *, try_cache: bool = True) -> User:
         try:
             user_id = data.get(
@@ -1774,234 +1408,7 @@ class Client:
         Optional[:class:`User`]
             The user if found, else ``None``
         """
-        user = self._users.get(user_id)
-        if user is None:
-            friend = self.get_friend(user_id)
-            if friend is not None:
-                user = User(self, friend.get_raw())
-                if self.cache_users:
-                    self._users[user.id] = user
-        return user
-
-    def store_friend(self, data: dict, *,
-                     summary: Optional[dict] = None,
-                     try_cache: bool = True) -> Friend:
-        try:
-            user_id = data.get(
-                'accountId',
-                data.get('id', data.get('account_id'))
-            )
-            if try_cache:
-                return self._friends[user_id]
-        except KeyError:
-            pass
-
-        friend = Friend(self, data)
-        if summary is not None:
-            friend._update_summary(summary)
-        self._friends[friend.id] = friend
-        return friend
-
-    def get_friend(self, user_id: str) -> Optional[Friend]:
-        """Tries to get a friend from the friend cache by the given user id.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the friend.
-
-        Returns
-        -------
-        Optional[:class:`Friend`]
-            The friend if found, else ``None``
-        """
-        return self._friends.get(user_id)
-
-    def store_incoming_pending_friend(self, data: dict, *,
-                                      try_cache: bool = True
-                                      ) -> IncomingPendingFriend:
-        try:
-            user_id = data.get(
-                'accountId',
-                data.get('id', data.get('account_id'))
-            )
-            if try_cache:
-                return self._pending_friends[user_id]
-        except KeyError:
-            pass
-
-        pending_friend = IncomingPendingFriend(self, data)
-        self._pending_friends[pending_friend.id] = pending_friend
-        return pending_friend
-
-    def store_outgoing_pending_friend(self, data: dict, *,
-                                      try_cache: bool = True
-                                      ) -> OutgoingPendingFriend:
-        try:
-            user_id = data.get(
-                'accountId',
-                data.get('id', data.get('account_id'))
-            )
-            if try_cache:
-                return self._pending_friends[user_id]
-        except KeyError:
-            pass
-
-        pending_friend = OutgoingPendingFriend(self, data)
-        self._pending_friends[pending_friend.id] = pending_friend
-        return pending_friend
-
-    def get_pending_friend(self,
-                           user_id: str
-                           ) -> Optional[Union[IncomingPendingFriend,
-                                               OutgoingPendingFriend]]:
-        """Tries to get a pending friend from the pending friend cache by the
-        given user id.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the pending friend.
-
-        Returns
-        -------
-        Optional[Union[:class:`IncomingPendingFriend`, 
-        :class:`OutgoingPendingFriend`]]
-            The pending friend if found, else ``None``
-        """  # noqa
-        return self._pending_friends.get(user_id)
-
-    def get_incoming_pending_friend(self,
-                                    user_id: str
-                                    ) -> Optional[IncomingPendingFriend]:
-        """Tries to get an incoming pending friend from the pending friends
-        cache by the given user id.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the incoming pending friend.
-
-        Returns
-        -------
-        Optional[:class:`IncomingPendingFriend`]
-            The incoming pending friend if found, else ``None``.
-        """
-        pending_friend = self.get_pending_friend(user_id)
-        if pending_friend and pending_friend.incoming:
-            return pending_friend
-
-    def get_outgoing_pending_friend(self,
-                                    user_id: str
-                                    ) -> Optional[OutgoingPendingFriend]:
-        """Tries to get an outgoing pending friend from the pending friends
-        cache by the given user id.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the outgoing pending friend.
-
-        Returns
-        -------
-        Optional[:class:`OutgoingPendingFriend`]
-            The outgoing pending friend if found, else ``None``.
-        """
-        pending_friend = self.get_pending_friend(user_id)
-        if pending_friend and pending_friend.outgoing:
-            return pending_friend
-
-    def store_blocked_user(self, data: dict, *,
-                           try_cache: bool = True) -> BlockedUser:
-        try:
-            user_id = data.get(
-                'accountId',
-                data.get('id', data.get('account_id'))
-            )
-            if try_cache:
-                return self._blocked_users[user_id]
-        except KeyError:
-            pass
-
-        blocked_user = BlockedUser(self, data)
-        self._blocked_users[blocked_user.id] = blocked_user
-        return blocked_user
-
-    def get_blocked_user(self, user_id: str) -> Optional[BlockedUser]:
-        """Tries to get a blocked user from the blocked users cache by the
-        given user id.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the blocked user.
-
-        Returns
-        -------
-        Optional[:class:`BlockedUser`]
-            The blocked user if found, else ``None``
-        """
-        return self._blocked_users.get(user_id)
-
-    def get_presence(self, user_id: str) -> Optional[Presence]:
-        """Tries to get the latest received presence from the presence cache.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the friend you want the last presence of.
-
-        Returns
-        -------
-        Optional[:class:`Presence`]
-            The presence if found, else ``None``
-        """
-        return self._presences.get(user_id)
-
-    def has_friend(self, user_id: str) -> bool:
-        """Checks if the client is friends with the given user id.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the user you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if user is friends with the client else ``False``
-        """
-        return self.get_friend(user_id) is not None
-
-    def is_pending(self, user_id: str) -> bool:
-        """Checks if the given user id is a pending friend of the client.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the user you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if user is a pending friend else ``False``
-        """
-        return self.get_pending_friend(user_id) is not None
-
-    def is_blocked(self, user_id: str) -> bool:
-        """Checks if the given user id is blocked by the client.
-
-        Parameters
-        ----------
-        user_id: :class:`str`
-            The id of the user you want to check.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if user is blocked else ``False``
-        """
-        return self.get_blocked_user(user_id) is not None
+        return self._users.get(user_id)
 
     async def fetch_blocklist(self) -> List[str]:
         """|coro|
@@ -2133,13 +1540,8 @@ class Client:
 
             raise
 
-    async def accept_friend(self, user_id: str) -> Friend:
+    async def accept_friend(self, user_id: str) -> None:
         """|coro|
-
-        .. warning::
-
-            Do not use this method to send a friend request. It will then not
-            return until the friend request has been accepted by the user.
 
         Accepts a request.
 
@@ -2162,16 +1564,8 @@ class Client:
             because of the users settings.
         HTTPException
             An error occured while requesting to accept this friend.
-
-        Returns
-        -------
-        :class:`Friend`
-            Object of the friend you just added.
         """
         await self.add_friend(user_id)
-        friend = await self.wait_for('friend_add',
-                                     check=lambda f: f.id == user_id)
-        return friend
 
     async def remove_or_decline_friend(self, user_id: str) -> None:
         """|coro|
@@ -2930,6 +2324,977 @@ class Client:
 
         return data['entries']
 
+    async def fetch_party(self, party_id: str) -> Party:
+        """|coro|
+
+        Fetches a party by its id.
+
+        Parameters
+        ----------
+        party_id: :class:`str`
+            The id of the party.
+
+        Raises
+        ------
+        Forbidden
+            You are not allowed to look up this party.
+
+        Returns
+        -------
+        Optional[:class:`Party`]
+            The party that was fetched. ``None`` if not found.
+        """
+        try:
+            data = await self.http.party_lookup(party_id)
+        except HTTPException as exc:
+            m = 'errors.com.epicgames.social.party.party_not_found'
+            if exc.message_code == m:
+                return None
+
+            m = 'errors.com.epicgames.social.party.party_query_forbidden'
+            if exc.message_code == m:
+                raise Forbidden('You are not allowed to lookup this party.')
+
+            raise
+
+        party = Party(self, data)
+        await party._update_members(members=data['members'])
+
+        return party
+
+    async def fetch_lightswitch_status(self,
+                                       service_id: str = 'Fortnite') -> bool:
+        """|coro|
+
+        Fetches the lightswitch status of an epicgames service.
+
+        Parameters
+        ----------
+        service_id: :class:`str`
+            The service id to check status for.
+
+        Raises
+        ------
+        ValueError
+            The returned data was empty. Most likely because service_id is not
+            valid.
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if service is up else ``False``
+        """
+        status = await self.http.lightswitch_get_status(service_id=service_id)
+        if len(status) == 0:
+            raise ValueError('emtpy lightswitch response')
+        return True if status[0].get('status') == 'UP' else False
+
+    async def fetch_item_shop(self) -> Store:
+        """|coro|
+
+        Fetches the current item shop.
+
+        Example: ::
+
+            # fetches all CIDs (character ids) of of the current item shop.
+            async def get_current_item_shop_cids():
+                store = await client.fetch_item_shop()
+
+                cids = []
+                for item in store.featured_items + store.daily_items:
+                    for grant in item.grants:
+                        if grant['type'] == 'AthenaCharacter':
+                            cids.append(grant['asset'])
+
+                return cids
+
+        Raises
+        ------
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`Store`
+            Object representing the data from the current item shop.
+        """
+        data = await self.http.fortnite_get_store_catalog()
+        return Store(self, data)
+
+    async def fetch_br_news(self) -> List[BattleRoyaleNewsPost]:
+        """|coro|
+
+        Fetches news for the Battle Royale gamemode.
+
+        Raises
+        ------
+        HTTPException
+            An error occured when requesting.
+
+        Returns
+        -------
+        :class:`list`
+            List[:class:`BattleRoyaleNewsPost`]
+        """
+        data = await self.http.fortnitecontent_get()
+
+        res = []
+        msg = data['battleroyalenews']['news'].get('message')
+        if msg is not None:
+            res.append(BattleRoyaleNewsPost(msg))
+        else:
+            msgs = data['battleroyalenews']['news']['messages']
+            for msg in msgs:
+                res.append(BattleRoyaleNewsPost(msg))
+        return res
+
+    async def fetch_br_playlists(self) -> List[Playlist]:
+        """|coro|
+
+        Fetches all playlists registered on Fortnite. This includes all
+        previous gamemodes that is no longer active.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        List[:class:`Playlist`]
+            List containing all playlists registered on Fortnite.
+        """
+        data = await self.http.fortnitecontent_get()
+
+        raw = data['playlistinformation']['playlist_info']['playlists']
+        playlists = []
+        for playlist in raw:
+            try:
+                p = Playlist(playlist)
+                playlists.append(p)
+            except KeyError:
+                pass
+        return playlists
+
+    async def fetch_active_ltms(self, region: Region) -> List[str]:
+        """|coro|
+
+        Fetches active LTMs for a specific region.
+
+        Parameters
+        ----------
+        region: :class:`Region`
+            The region to request active LTMs for.
+
+        Raises
+        ------
+        HTTPException
+            An error occured while requesting.
+
+        Returns
+        -------
+        List[:class:`str`]
+            List of internal playlist names. Returns an empty list of none
+            LTMs are for the specified region.
+        """
+        data = await self.http.fortnite_get_timeline()
+
+        states = data['channels']['client-matchmaking']['states']
+        region_data = states[len(states) - 1]['state']['region'].get(
+            region.value, {})
+        return region_data.get('eventFlagsForcedOn', [])
+
+    async def join_party(self, party_id: str) -> None:
+        raise NotImplementedError(
+            'BasicClient does not support party actions.'
+        )
+
+
+class Client(BasicClient):
+    """Represents the client connected to Fortnite and EpicGames' services.
+
+    Parameters
+    ----------
+    auth: :class:`Auth`
+        The authentication method to use. You can read more about available authentication methods
+        :ref:`here <authentication>`.
+    http_connector: :class:`aiohttp.BaseConnector`
+        The connector to use for http connection pooling.
+    ws_connector: :class:`aiohttp.BaseConnector`
+        The connector to use for websocket connection pooling. This could be
+        the same as the above connector.
+    status: :class:`str`
+        The status you want the client to send with its presence to friends.
+        Defaults to: ``Battle Royale Lobby - {party playercount} / {party max playercount}``
+    away: :class:`AwayStatus`
+        The away status the client should use for its presence. Defaults to
+        :attr:`AwayStatus.ONLINE`.
+    platform: :class:`.Platform`
+        The platform you want the client to display as its source.
+        Defaults to :attr:`Platform.WINDOWS`.
+    net_cl: :class:`str`
+        The current net cl used by the current Fortnite build. Named **netCL**
+        in official logs. Defaults to an empty string which is the recommended
+        usage as of ``v0.9.0`` since you then
+        won't need to update it when a new update is pushed by Fortnite.
+    party_version: :class:`int`
+        The party version the client should use. This value determines which version
+        should be able to join the party. If a user attempts to join the clients party
+        with a different party version than the client, then an error will be visible
+        saying something by the lines of "Their party of Fortnite is older/newer than
+        yours". If you experience this error I recommend incrementing the default set
+        value by one since the library in that case most likely has yet to be updated.
+        Defaults to ``3`` (As of November 3rd 2020).
+    default_party_config: :class:`DefaultPartyConfig`
+        The party configuration used when creating parties. If not specified,
+        the client will use the default values specified in the data class.
+    default_party_member_config: :class:`DefaultPartyMemberConfig`
+        The party member configuration used when creating parties. If not specified,
+        the client will use the default values specified in the data class.
+    http_retry_config: Optional[:class:`HTTPRetryConfig`]
+        The config to use for http retries.
+    build: :class:`str`
+        The build used by Fortnite.
+        Defaults to a valid but maybe outdated value.
+    os: :class:`str`
+        The os version string to use in the user agent.
+        Defaults to ``Windows/10.0.17134.1.768.64bit`` which is valid no
+        matter which platform you have set.
+    service_host: :class:`str`
+        The host used by Fortnite's XMPP services.
+    service_domain: :class:`str`
+        The domain used by Fortnite's XMPP services.
+    service_port: :class:`int`
+        The port used by Fortnite's XMPP services.
+    cache_users: :class:`bool`
+        Whether or not the library should cache :class:`User` objects. Disable
+        this if you are running a program with lots of users as this could
+        potentially take a big hit on the memory usage. Defaults to ``True``.
+    fetch_user_data_in_events: :class:`bool`
+        Whether or not user data should be fetched in event processing. Disabling
+        this might be useful for larger applications that deals with
+        possibly being rate limited on their ip. Defaults to ``True``.
+
+        .. warning::
+
+            Keep in mind that if this option is disabled, there is a big
+            chance that display names, external auths and more might be missing
+            or simply is ``None`` on objects deriving from :class:`User`. Keep in
+            mind that :attr:`User.id` always will be available. You can use
+            :meth:`User.fetch()` to update all missing attributes.
+    wait_for_member_meta_in_events: :class:`bool`
+        Whether or not the client should wait for party member meta (information
+        about outfit, backpack etc.) before dispatching events like
+        :func:`event_party_member_join()`. If this is disabled then member objects
+        in the events won't have the correct meta. Defaults to ``True``.
+    leave_party_at_shutdown: :class:`bool`
+        Whether or not the client should leave its current party at shutdown. If this
+        is set to false, then the client will attempt to reconnect to the party on a
+        startup. If :attr:`DefaultPartyMemberConfig.offline_ttl` is exceeded before
+        a reconnect is attempted, then the client will create a new party at startup.
+
+    Attributes
+    ----------
+    user: :class:`ClientUser`
+        The user the client is logged in as.
+    party: :class:`ClientParty`
+        The party the client is currently connected to.
+    """  # noqa
+
+    def __init__(self, auth: Auth,
+                 **kwargs: Any) -> None:
+        super().__init__(auth=auth, **kwargs)
+
+        self.status = kwargs.get('status', 'Battle Royale Lobby - {party_size} / {party_max_size}')  # noqa
+        self.away = kwargs.get('away', AwayStatus.ONLINE)
+        self.platform = kwargs.get('platform', Platform.WINDOWS)
+        self.net_cl = kwargs.get('net_cl', '')
+        self.party_version = kwargs.get('party_version', 3)
+        self.party_build_id = '1:{0.party_version}:{0.net_cl}'.format(self)
+        self.default_party_config = kwargs.get('default_party_config', DefaultPartyConfig())  # noqa
+        self.default_party_member_config = kwargs.get('default_party_member_config', DefaultPartyMemberConfig())  # noqa
+        self.service_host = kwargs.get('xmpp_host', 'prod.ol.epicgames.com')
+        self.service_domain = kwargs.get('xmpp_domain', 'xmpp-service-prod.ol.epicgames.com')  # noqa
+        self.service_port = kwargs.get('xmpp_port', 5222)
+        self.fetch_user_data_in_events = kwargs.get('fetch_user_data_in_events', True)  # noqa
+        self.wait_for_member_meta_in_events = kwargs.get('wait_for_member_meta_in_events', True)  # noqa
+        self.leave_party_at_shutdown = kwargs.get('leave_party_at_shutdown', True)  # noqa
+
+        self.xmpp = XMPPClient(self, ws_connector=kwargs.get('ws_connector'))
+        self.party = None
+
+        self._listeners = {}
+        self._events = {}
+        self._friends = {}
+        self._pending_friends = {}
+        self._blocked_users = {}
+        self._presences = {}
+
+        self._join_party_lock = None
+        self._internal_join_party_lock = None
+        self._join_confirmation = False
+        self._refresh_times = []
+
+        self.setup_internal()
+
+    async def _async_init(self) -> None:
+        # We must deal with loop stuff after a loop has been
+        # created by asyncio.run(). This is called at the start
+        # of start().
+
+        self.loop = asyncio.get_running_loop()
+
+        self._exception_future = self.loop.create_future()
+        self._ready_event = asyncio.Event()
+        self._closed_event = asyncio.Event()
+        self._join_party_lock = LockEvent()
+        self._internal_join_party_lock = LockEvent()
+        self._reauth_lock = LockEvent()
+        self._reauth_lock.failed = False
+
+        self.auth.initialize(self)
+
+    def register_connectors(self,
+                            http_connector: Optional[BaseConnector] = None,
+                            ws_connector: Optional[BaseConnector] = None
+                            ) -> None:
+        """This can be used to register connectors after the client has
+        already been initialized. It must however be called before
+        :meth:`start()` has been called, or in :meth:`event_before_start()`.
+
+        .. warning::
+
+            Connectors passed will not be closed on shutdown. You must close
+            them yourself if you want a graceful shutdown.
+
+        Parameters
+        ----------
+        http_connector: :class:`aiohttp.BaseConnector`
+            The connector to use for the http session.
+        ws_connector: :class:`aiohttp.BaseConnector`
+            The connector to use for the websocket xmpp connection.
+        """
+        super().register_connectors(http_connector=http_connector)
+
+        if ws_connector is not None:
+            if self.xmpp.xmpp_client is not None:
+                raise RuntimeError(
+                    'ws_connector must be registered before startup')
+
+            self.xmpp.ws_connector = ws_connector
+
+    @property
+    def default_party_config(self) -> DefaultPartyConfig:
+        return self._default_party_config
+
+    @default_party_config.setter
+    def default_party_config(self, obj: DefaultPartyConfig) -> None:
+        obj._inject_client(self)
+        self._default_party_config = obj
+
+    @property
+    def default_party_member_config(self) -> DefaultPartyMemberConfig:
+        return self._default_party_member_config
+
+    @default_party_member_config.setter
+    def default_party_member_config(self, o: DefaultPartyMemberConfig) -> None:
+        self._default_party_member_config = o
+
+    @property
+    def friends(self) -> List[Friend]:
+        """List[:class:`Friend`]: A list of the clients friends."""
+        return list(self._friends.values())
+
+    @property
+    def friend_count(self) -> int:
+        """:class:`int`: The amount of friends the bot currently has."""
+        return len(self._friends)
+
+    @property
+    def pending_friends(self) -> List[Union[IncomingPendingFriend,
+                                            OutgoingPendingFriend]]:
+        """List[Union[:class:`IncomingPendingFriend`,
+        :class:`OutgoingPendingFriend`]]: A list of all of the clients
+        pending friends.
+
+        .. note::
+
+            Pending friends can be both incoming (pending friend sent the
+            request to the bot) or outgoing (the bot sent the request to the
+            pending friend). You must check what kind of pending friend an
+            object is by their attributes ``incoming`` or ``outgoing``.
+        """  # noqa
+        return list(self._pending_friends.values())
+
+    @property
+    def pending_friend_count(self) -> int:
+        """:class:`int`: The amount of pending friends the bot currently has.
+        """
+        return len(self._pending_friends)
+
+    @property
+    def incoming_pending_friends(self) -> List[IncomingPendingFriend]:
+        """List[:class:`IncomingPendingFriend`]: A list of the clients
+        incoming pending friends.
+        """
+        return [pf for pf in self._pending_friends.values() if pf.incoming]
+
+    @property
+    def incoming_pending_friend_count(self) -> int:
+        """:class:`int`: The amount of active incoming pending friends the bot
+        currently has received."""
+        return len(self.incoming_pending_friends)
+
+    @property
+    def outgoing_pending_friends(self) -> List[OutgoingPendingFriend]:
+        """List[:class:`OutgoingPendingFriend`]: A list of the clients
+        outgoing pending friends.
+        """
+        return [pf for pf in self._pending_friends.values() if pf.outgoing]
+
+    @property
+    def outgoing_pending_friend_count(self) -> int:
+        """:class:`int`: The amount of active outgoing pending friends the bot
+        has sent."""
+        return len(self.outgoing_pending_friends)
+
+    @property
+    def blocked_users(self) -> List[BlockedUser]:
+        """List[:class:`BlockedUser`]: A list of the users client has
+        as blocked.
+        """
+        return list(self._blocked_users.values())
+
+    @property
+    def blocked_user_count(self) -> int:
+        """:class:`int`: The amount of blocked users the bot currently has
+        blocked."""
+        return len(self._blocked_users)
+
+    @property
+    def presences(self) -> List[Presence]:
+        """List[:class:`Presence`]: A list of the last presences from
+        currently online friends.
+        """
+        return list(self._presences.values())
+
+    def _check_party_confirmation(self) -> None:
+        k = 'party_member_confirm'
+        val = k in self._events and len(self._events[k]) > 0
+        if val != self._join_confirmation:
+            self._join_confirmation = val
+            self.default_party_config.update({'join_confirmation': val})
+
+    def register_methods(self) -> None:
+        super().register_methods()
+
+        self._check_party_confirmation()
+
+    async def internal_auth_refresh_handler(self):
+        try:
+            log.debug('Refreshing xmpp session')
+            await self.xmpp.close()
+            await self.xmpp.run()
+
+            await self._reconnect_to_party()
+        except AttributeError:
+            pass
+
+    async def _start(self, dispatch_ready: bool = True) -> None:
+        if self._first_start:
+            self.add_event_handler(
+                'internal_auth_refresh',
+                self.internal_auth_refresh_handler
+            )
+
+        return await super()._start(dispatch_ready=dispatch_ready)
+
+    async def _login(self, priority: int = 0) -> None:
+        res = await super()._login(priority=priority)
+        if res is not None:
+            return res
+
+        await self.refresh_caches(priority=priority)
+        log.debug('Successfully set up caches')
+
+        await self.xmpp.run()
+        log.debug('Connected to XMPP')
+
+        await self.initialize_party(priority=priority)
+        log.debug('Party created')
+
+    def _clear_caches(self) -> None:
+        super()._clear_caches()
+
+        self._friends.clear()
+        self._pending_friends.clear()
+        self._blocked_users.clear()
+        self._presences.clear()
+
+    async def _close(self, *,
+                     close_http: bool = True,
+                     dispatch_close: bool = True,
+                     priority: int = 0) -> None:
+        self._closing = True
+
+        if self.leave_party_at_shutdown:
+            try:
+                if self.party is not None:
+                    await self.party._leave(priority=priority)
+            except Exception:
+                pass
+
+        try:
+            await self.xmpp.close()
+        except Exception:
+            pass
+
+        await super()._close(
+            close_http=close_http,
+            dispatch_close=dispatch_close,
+            priority=priority,
+        )
+
+    def recover_events(self) -> asyncio.Task:
+        return asyncio.create_task(self._recover_events())
+
+    async def _recover_events(self, *,
+                              refresh_caches: bool = False,
+                              wait_for_close: bool = True) -> None:
+        if wait_for_close:
+            await self.wait_for('xmpp_session_close')
+
+        pre_friends = self.friends
+        pre_pending = self.pending_friends
+        await self.wait_for('xmpp_session_establish')
+
+        if refresh_caches:
+            await self.refresh_caches()
+
+        for friend in pre_friends:
+            if friend not in self._friends.values():
+                self.dispatch_event('friend_remove', friend)
+
+        added_friends = []
+        for friend in self._friends.values():
+            if friend not in pre_friends:
+                added_friends.append(friend)
+                self.dispatch_event('friend_add', friend)
+
+        for pending in pre_pending:
+            if (pending not in self._pending_friends.values()
+                    and pending not in added_friends):
+                self.dispatch_event('friend_request_abort', pending)
+
+        for pending in self._pending_friends.values():
+            if pending not in pre_pending:
+                self.dispatch_event('friend_request', pending)
+
+    def construct_party(self, data: dict, *,
+                        cls: Optional[ClientParty] = None) -> ClientParty:
+        clazz = cls or self.default_party_config.cls
+        return clazz(self, data)
+
+    async def initialize_party(self, priority: int = 0) -> None:
+        data = await self.http.party_lookup_user(
+            self.user.id,
+            priority=priority
+        )
+        if len(data['current']) > 0:
+            if not self.leave_party_at_shutdown:
+                current = data['current'][0]
+
+                member_d = None
+                for member_data in current['members']:
+                    if member_data['account_id'] == self.auth.account_id:
+                        member_d = member_data
+                        break
+
+                if member_d is not None:
+                    newest_conn = max(
+                        member_data['connections'],
+                        key=lambda o: from_iso(o['connected_at']),
+                    )
+
+                    try:
+                        disc_at = from_iso(newest_conn['disconnected_at'])
+                    except KeyError:
+                        pass
+                    else:
+                        now = datetime.datetime.utcnow()
+                        total_seconds = (now - disc_at).total_seconds()
+                        if total_seconds < newest_conn.get('offline_ttl', 30):
+                            return await self._reconnect_to_party(data=data)
+
+            party = self.construct_party(data['current'][0])
+            await party._leave(priority=priority)
+            log.debug('Left old party')
+
+        await self._create_party(priority=priority)
+
+    async def refresh_caches(self, priority: int = 0) -> None:
+        self._friends.clear()
+        self._pending_friends.clear()
+        self._blocked_users.clear()
+
+        tasks = (
+            self.http.friends_get_all(
+                include_pending=True,
+                priority=priority
+            ),
+            self.http.friends_get_summary(priority=priority),
+            self.http.presence_get_last_online(priority=priority),
+        )
+        raw_friends, raw_summary, raw_presences = await asyncio.gather(*tasks)
+
+        ids = [r['accountId'] for r in raw_friends + raw_summary['blocklist']]
+        chunks = (ids[i:i + 100] for i in range(0, len(ids), 100))
+
+        users = {}
+        tasks = [
+            self.http.account_graphql_get_multiple_by_user_id(
+                chunk,
+                priority=priority
+            )
+            for chunk in chunks
+        ]
+        if tasks:
+            done = await asyncio.gather(*tasks)
+        else:
+            done = []
+
+        for results in done:
+            for user in results['accounts']:
+                users[user['id']] = user
+
+        # TODO: Add method for fetching friends and other stuff
+
+        for friend in raw_friends:
+            try:
+                data = users[friend['accountId']]
+            except KeyError:
+                continue
+
+            if friend['status'] == 'ACCEPTED':
+                self.store_friend({**friend, **data})
+
+            elif friend['status'] == 'PENDING':
+                if friend['direction'] == 'INBOUND':
+                    self.store_incoming_pending_friend({**friend, **data})
+                else:
+                    self.store_outgoing_pending_friend({**friend, **data})
+
+        for data in raw_summary['friends']:
+            friend = self.get_friend(data['accountId'])
+            if friend is not None:
+                friend._update_summary(data)
+
+        for user_id, data in raw_presences.items():
+            friend = self.get_friend(user_id)
+            if friend is not None:
+                try:
+                    value = data[0]['last_online']
+                except (IndexError, KeyError):
+                    value = None
+
+                friend._update_last_logout(
+                    from_iso(value) if value is not None else None
+                )
+
+        for data in raw_summary['blocklist']:
+            user = users.get(data['accountId'])
+            if user is not None:
+                self.store_blocked_user(user)
+
+    def store_user(self, data: dict, *, try_cache: bool = True) -> User:
+        try:
+            user_id = data.get(
+                'accountId',
+                data.get('id', data.get('account_id'))
+            )
+
+            if try_cache:
+                return self._users[user_id]
+        except KeyError:
+            pass
+
+        user = User(self, data)
+        if self.cache_users:
+            self._users[user.id] = user
+        return user
+
+    def get_user(self, user_id: str) -> Optional[User]:
+        user = super().get_user(user_id)
+        if user is None:
+            friend = self.get_friend(user_id)
+            if friend is not None:
+                user = User(self, friend.get_raw())
+                if self.cache_users:
+                    self._users[user.id] = user
+        return user
+
+    def store_friend(self, data: dict, *,
+                     summary: Optional[dict] = None,
+                     try_cache: bool = True) -> Friend:
+        try:
+            user_id = data.get(
+                'accountId',
+                data.get('id', data.get('account_id'))
+            )
+            if try_cache:
+                return self._friends[user_id]
+        except KeyError:
+            pass
+
+        friend = Friend(self, data)
+        if summary is not None:
+            friend._update_summary(summary)
+        self._friends[friend.id] = friend
+        return friend
+
+    def get_friend(self, user_id: str) -> Optional[Friend]:
+        """Tries to get a friend from the friend cache by the given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the friend.
+
+        Returns
+        -------
+        Optional[:class:`Friend`]
+            The friend if found, else ``None``
+        """
+        return self._friends.get(user_id)
+
+    def store_incoming_pending_friend(self, data: dict, *,
+                                      try_cache: bool = True
+                                      ) -> IncomingPendingFriend:
+        try:
+            user_id = data.get(
+                'accountId',
+                data.get('id', data.get('account_id'))
+            )
+            if try_cache:
+                return self._pending_friends[user_id]
+        except KeyError:
+            pass
+
+        pending_friend = IncomingPendingFriend(self, data)
+        self._pending_friends[pending_friend.id] = pending_friend
+        return pending_friend
+
+    def store_outgoing_pending_friend(self, data: dict, *,
+                                      try_cache: bool = True
+                                      ) -> OutgoingPendingFriend:
+        try:
+            user_id = data.get(
+                'accountId',
+                data.get('id', data.get('account_id'))
+            )
+            if try_cache:
+                return self._pending_friends[user_id]
+        except KeyError:
+            pass
+
+        pending_friend = OutgoingPendingFriend(self, data)
+        self._pending_friends[pending_friend.id] = pending_friend
+        return pending_friend
+
+    def get_pending_friend(self,
+                           user_id: str
+                           ) -> Optional[Union[IncomingPendingFriend,
+                                               OutgoingPendingFriend]]:
+        """Tries to get a pending friend from the pending friend cache by the
+        given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the pending friend.
+
+        Returns
+        -------
+        Optional[Union[:class:`IncomingPendingFriend`, 
+        :class:`OutgoingPendingFriend`]]
+            The pending friend if found, else ``None``
+        """  # noqa
+        return self._pending_friends.get(user_id)
+
+    def get_incoming_pending_friend(self,
+                                    user_id: str
+                                    ) -> Optional[IncomingPendingFriend]:
+        """Tries to get an incoming pending friend from the pending friends
+        cache by the given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the incoming pending friend.
+
+        Returns
+        -------
+        Optional[:class:`IncomingPendingFriend`]
+            The incoming pending friend if found, else ``None``.
+        """
+        pending_friend = self.get_pending_friend(user_id)
+        if pending_friend and pending_friend.incoming:
+            return pending_friend
+
+    def get_outgoing_pending_friend(self,
+                                    user_id: str
+                                    ) -> Optional[OutgoingPendingFriend]:
+        """Tries to get an outgoing pending friend from the pending friends
+        cache by the given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the outgoing pending friend.
+
+        Returns
+        -------
+        Optional[:class:`OutgoingPendingFriend`]
+            The outgoing pending friend if found, else ``None``.
+        """
+        pending_friend = self.get_pending_friend(user_id)
+        if pending_friend and pending_friend.outgoing:
+            return pending_friend
+
+    def store_blocked_user(self, data: dict, *,
+                           try_cache: bool = True) -> BlockedUser:
+        try:
+            user_id = data.get(
+                'accountId',
+                data.get('id', data.get('account_id'))
+            )
+            if try_cache:
+                return self._blocked_users[user_id]
+        except KeyError:
+            pass
+
+        blocked_user = BlockedUser(self, data)
+        self._blocked_users[blocked_user.id] = blocked_user
+        return blocked_user
+
+    def get_blocked_user(self, user_id: str) -> Optional[BlockedUser]:
+        """Tries to get a blocked user from the blocked users cache by the
+        given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the blocked user.
+
+        Returns
+        -------
+        Optional[:class:`BlockedUser`]
+            The blocked user if found, else ``None``
+        """
+        return self._blocked_users.get(user_id)
+
+    def get_presence(self, user_id: str) -> Optional[Presence]:
+        """Tries to get the latest received presence from the presence cache.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the friend you want the last presence of.
+
+        Returns
+        -------
+        Optional[:class:`Presence`]
+            The presence if found, else ``None``
+        """
+        return self._presences.get(user_id)
+
+    def has_friend(self, user_id: str) -> bool:
+        """Checks if the client is friends with the given user id.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the user you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if user is friends with the client else ``False``
+        """
+        return self.get_friend(user_id) is not None
+
+    def is_pending(self, user_id: str) -> bool:
+        """Checks if the given user id is a pending friend of the client.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the user you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if user is a pending friend else ``False``
+        """
+        return self.get_pending_friend(user_id) is not None
+
+    def is_blocked(self, user_id: str) -> bool:
+        """Checks if the given user id is blocked by the client.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the user you want to check.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if user is blocked else ``False``
+        """
+        return self.get_blocked_user(user_id) is not None
+
+    async def accept_friend(self, user_id: str) -> Friend:
+        """|coro|
+
+        .. warning::
+
+            Do not use this method to send a friend request. It will then not
+            return until the friend request has been accepted by the user.
+
+        Accepts a request.
+
+        Parameters
+        ----------
+        user_id: :class:`str`
+            The id of the user you want to accept.
+
+        Raises
+        ------
+        NotFound
+            The specified user does not exist.
+        DuplicateFriendship
+            The client is already friends with this user.
+        FriendshipRequestAlreadySent
+            The client has already sent a friendship request that has not been
+            handled yet by the user.
+        Forbidden
+            The client is not allowed to send friendship requests to the user
+            because of the users settings.
+        HTTPException
+            An error occured while requesting to accept this friend.
+
+        Returns
+        -------
+        :class:`Friend`
+            Object of the friend you just added.
+        """
+        await super().add_friend(user_id)
+        friend = await self.wait_for('friend_add',
+                                     check=lambda f: f.id == user_id)
+        return friend
+
     async def _reconnect_to_party(self, data: Optional[dict] = None) -> None:
         if data is None:
             data = await self.http.party_lookup_user(
@@ -3044,44 +3409,6 @@ class Client:
 
     async def wait_until_party_ready(self) -> None:
         await self._join_party_lock.wait()
-
-    async def fetch_party(self, party_id: str) -> Party:
-        """|coro|
-
-        Fetches a party by its id.
-
-        Parameters
-        ----------
-        party_id: :class:`str`
-            The id of the party.
-
-        Raises
-        ------
-        Forbidden
-            You are not allowed to look up this party.
-
-        Returns
-        -------
-        Optional[:class:`Party`]
-            The party that was fetched. ``None`` if not found.
-        """
-        try:
-            data = await self.http.party_lookup(party_id)
-        except HTTPException as exc:
-            m = 'errors.com.epicgames.social.party.party_not_found'
-            if exc.message_code == m:
-                return None
-
-            m = 'errors.com.epicgames.social.party.party_query_forbidden'
-            if exc.message_code == m:
-                raise Forbidden('You are not allowed to lookup this party.')
-
-            raise
-
-        party = Party(self, data)
-        await party._update_members(members=data['members'])
-
-        return party
 
     async def _join_party(self, party_data: dict, *,
                           event: str = 'party_member_join') -> ClientParty:
@@ -3281,147 +3608,3 @@ class Client:
             self.auth.run_refresh(),
             self.wait_for('muc_enter'),
         )
-
-    async def fetch_lightswitch_status(self,
-                                       service_id: str = 'Fortnite') -> bool:
-        """|coro|
-
-        Fetches the lightswitch status of an epicgames service.
-
-        Parameters
-        ----------
-        service_id: :class:`str`
-            The service id to check status for.
-
-        Raises
-        ------
-        ValueError
-            The returned data was empty. Most likely because service_id is not
-            valid.
-        HTTPException
-            An error occured when requesting.
-
-        Returns
-        -------
-        :class:`bool`
-            ``True`` if service is up else ``False``
-        """
-        status = await self.http.lightswitch_get_status(service_id=service_id)
-        if len(status) == 0:
-            raise ValueError('emtpy lightswitch response')
-        return True if status[0].get('status') == 'UP' else False
-
-    async def fetch_item_shop(self) -> Store:
-        """|coro|
-
-        Fetches the current item shop.
-
-        Example: ::
-
-            # fetches all CIDs (character ids) of of the current item shop.
-            async def get_current_item_shop_cids():
-                store = await client.fetch_item_shop()
-
-                cids = []
-                for item in store.featured_items + store.daily_items:
-                    for grant in item.grants:
-                        if grant['type'] == 'AthenaCharacter':
-                            cids.append(grant['asset'])
-
-                return cids
-
-        Raises
-        ------
-        HTTPException
-            An error occured when requesting.
-
-        Returns
-        -------
-        :class:`Store`
-            Object representing the data from the current item shop.
-        """
-        data = await self.http.fortnite_get_store_catalog()
-        return Store(self, data)
-
-    async def fetch_br_news(self) -> List[BattleRoyaleNewsPost]:
-        """|coro|
-
-        Fetches news for the Battle Royale gamemode.
-
-        Raises
-        ------
-        HTTPException
-            An error occured when requesting.
-
-        Returns
-        -------
-        :class:`list`
-            List[:class:`BattleRoyaleNewsPost`]
-        """
-        data = await self.http.fortnitecontent_get()
-
-        res = []
-        msg = data['battleroyalenews']['news'].get('message')
-        if msg is not None:
-            res.append(BattleRoyaleNewsPost(msg))
-        else:
-            msgs = data['battleroyalenews']['news']['messages']
-            for msg in msgs:
-                res.append(BattleRoyaleNewsPost(msg))
-        return res
-
-    async def fetch_br_playlists(self) -> List[Playlist]:
-        """|coro|
-
-        Fetches all playlists registered on Fortnite. This includes all
-        previous gamemodes that is no longer active.
-
-        Raises
-        ------
-        HTTPException
-            An error occured while requesting.
-
-        Returns
-        -------
-        List[:class:`Playlist`]
-            List containing all playlists registered on Fortnite.
-        """
-        data = await self.http.fortnitecontent_get()
-
-        raw = data['playlistinformation']['playlist_info']['playlists']
-        playlists = []
-        for playlist in raw:
-            try:
-                p = Playlist(playlist)
-                playlists.append(p)
-            except KeyError:
-                pass
-        return playlists
-
-    async def fetch_active_ltms(self, region: Region) -> List[str]:
-        """|coro|
-
-        Fetches active LTMs for a specific region.
-
-        Parameters
-        ----------
-        region: :class:`Region`
-            The region to request active LTMs for.
-
-        Raises
-        ------
-        HTTPException
-            An error occured while requesting.
-
-        Returns
-        -------
-        List[:class:`str`]
-            List of internal playlist names. Returns an empty list of none
-            LTMs are for the specified region.
-        """
-        data = await self.http.fortnite_get_timeline()
-
-        states = data['channels']['client-matchmaking']['states']
-        region_data = states[len(states) - 1]['state']['region'].get(
-            region.value, {})
-        return region_data.get('eventFlagsForcedOn', [])

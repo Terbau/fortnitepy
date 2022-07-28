@@ -273,14 +273,7 @@ class Auth:
 
                 log.debug('Successfully reauthenticated.')
 
-            try:
-                log.debug('Refreshing xmpp session')
-                await self.client.xmpp.close()
-                await self.client.xmpp.run()
-
-                await self.client._reconnect_to_party()
-            except AttributeError:
-                pass
+            await self.client.dispatch_and_wait_event('internal_auth_refresh')
 
             self.refresh_i += 1
             log.debug('Sessions was successfully refreshed.')

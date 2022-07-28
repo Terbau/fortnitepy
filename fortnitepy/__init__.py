@@ -27,7 +27,7 @@ SOFTWARE.
 
 __version__ = '3.6.5'
 
-from .client import Client, run_multiple, start_multiple, close_multiple
+from .client import BasicClient, Client, run_multiple, start_multiple, close_multiple
 from .auth import (Auth, EmailAndPasswordAuth, ExchangeCodeAuth,
                    AuthorizationCodeAuth, DeviceAuth, RefreshTokenAuth,
                    AdvancedAuth)

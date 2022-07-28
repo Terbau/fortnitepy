@@ -30,13 +30,25 @@ how you can set up this auth with file storage for the preferred login which is 
 .. autoclass:: AdvancedAuth
 
 
+Clients
+-------
+
+BasicClient
+~~~~~~~~~~~
+
+.. attributetable:: BasicClient
+
+.. autoclass:: BasicClient()
+	:members:
+
 Client
-------
+~~~~~~
 
 .. attributetable:: Client
 
-.. autoclass:: Client
-    :members:
+.. autoclass:: Client()
+	:members:
+	:inherited-members:
 
 
 Utility Functions
