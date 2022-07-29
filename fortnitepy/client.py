@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 MIT License
 
@@ -1255,7 +1253,7 @@ class BasicClient:
         platform: :class:`UserSearchPlatform`
             The platform you wish to search by.
 
-            ..note::
+            .. note::
 
                 The platform is only important for prefix matches. All exact
                 matches are returned regardless of which platform is

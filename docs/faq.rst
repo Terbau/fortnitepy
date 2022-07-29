@@ -47,7 +47,7 @@ General
 -------
 
 What is async/await and how do I use it?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Asynchronous programming lets the program sort of perform multiple actions at
 once. For newcomers to python/programming in general, the `discord.py faq <https://discordpy.readthedocs.io/en/latest/faq.html#coroutines>`_

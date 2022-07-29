@@ -1105,7 +1105,7 @@ v1.2.0
 This update adds a lot of new stuff and also increases stability.
 
 [**ALL BREAKING**] Changes
-~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - :func:`event_logout()` is no longer called when the client is logged out via :meth:`Client.restart()`.
 - :meth:`PartyMember.create_variants()` is now a staticmethod.
@@ -1455,7 +1455,7 @@ Added
 - Updated net_cl and build info.
 
 Bug Fixes
-~~~~
+~~~~~~~~~
 
 - Fixed and silenced multiple noisy errors like the OpenSSL error printed on shutdown.
 - The default user-agent used internally is now correctly built by :attr:`Client.build` and :attr:`Client.os`.

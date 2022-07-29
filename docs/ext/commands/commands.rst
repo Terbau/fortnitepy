@@ -324,7 +324,7 @@ If a converter fails to convert an argument to its designated target type, the :
 raised.
 
 Fortnitepy Converters
-++++++++++++++++++++
++++++++++++++++++++++
 
 Working with :ref:`fortnite_api_models` is a fairly common thing when defining commands, as a result the library makes
 working with them easy.
