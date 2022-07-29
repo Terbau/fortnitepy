@@ -158,36 +158,41 @@ Enumerations
 	.. attribute:: NOT_READY
 	.. attribute:: SITTING_OUT
 
-
 .. class:: UserSearchPlatform
-	..attribute:: EPIC_GAMES
+
+	.. attribute:: EPIC_GAMES
 
 		This represents all platforms that use epic games as account service like PC and Mobile.
+
 	.. attribute:: PLAYSTATION
 	.. attribute:: XBOX
 	.. attribute:: STEAM
 
-
 .. class:: ProfileSearchMatchType
+
 	.. attribute:: EXACT
 
 		The prefix matched the display name perfectly.
+
 	.. attribute:: PREFIX
 
 		The prefix matched the start of the display name perfectly.
 
 .. class:: AwayStatus
+
     .. attribute:: ONLINE
 
 		User is currently active.
+
     .. attribute:: AWAY
 
 		User has set his status to away in-game
+
     .. attribute:: EXTENDED_AWAY
 
 		User is AFK. This can only be applied by the game and it is set after a specific time of no activity.
 
-.. class:: SeasonEndTimestamp
+.. class:: SeasonStartTimestamp
 
 	An enumeration of season start dates.
 
@@ -202,7 +207,7 @@ Enumerations
     .. attribute:: SEASON_9
     .. attribute:: SEASON_10
     .. attribute:: SEASON_11
-	.. attribute:: SEASON_12
+    .. attribute:: SEASON_12
 
 .. class:: SeasonEndTimestamp
 
@@ -263,8 +268,8 @@ this decorator if you are in a subclass of :class:`Client`.
 	This event is called when the client is beginning to log out. This event also exists under the name ``event_close()`` for legacy reasons.
 
 	.. warning::
-
-        This event is not called when the client logs out in :class:`Client.restart()`.
+		
+		This event is not called when the client logs out in :class:`Client.restart()`.
 
 	.. note::
 
@@ -906,7 +911,7 @@ BlockedUser
 	:inherited-members:
 
 UserSearchEntry
-~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 .. attributetable:: UserSearchEntry
 
@@ -915,7 +920,7 @@ UserSearchEntry
 	:inherited-members:
 
 SacSearchEntryUser
-~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 .. attributetable:: SacSearchEntryUser
 
@@ -933,7 +938,7 @@ Friend
 	:inherited-members:
 
 IncomingPendingFriend
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. attributetable:: IncomingPendingFriend
 
@@ -942,7 +947,7 @@ IncomingPendingFriend
 	:inherited-members:
 
 OutgoingPendingFriend
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 .. attributetable:: OutgoingPendingFriend
 
@@ -987,7 +992,7 @@ ClientPartyMember
 	:inherited-members:
 
 JustChattingClientPartyMember
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. attributetable:: JustChattingClientPartyMember
 
