@@ -250,7 +250,8 @@ async def start_multiple(clients: List['Client'], *,
 
     async def waiter(client):
         _, pending = await asyncio.wait(
-            (client.wait_until_ready(), client.wait_until_closed()),
+            (loop.create_task(client.wait_until_ready()),
+             loop.create_task(client.wait_until_closed())),
             return_when=asyncio.FIRST_COMPLETED
         )
 
