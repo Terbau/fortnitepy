@@ -95,8 +95,10 @@ async def _start_client(client: 'Client', *,
                         ) -> None:
     loop = asyncio.get_running_loop()
 
-    if not isinstance(client, Client):
-        raise TypeError('client must be an instance of fortnitepy.Client')
+    if not isinstance(client, BasicClient):
+        raise TypeError(
+            'client must be an instance derived from fortnitepy.BasicClient'
+        )
 
     async def starter():
         try:
