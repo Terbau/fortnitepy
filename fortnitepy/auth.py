@@ -48,10 +48,10 @@ class Auth:
     def __init__(self, **kwargs: Any) -> None:
         self.ios_token = kwargs.get('ios_token', 'MzQ0NmNkNzI2OTRjNGE0NDg1ZDgxYjc3YWRiYjIxNDE6OTIwOWQ0YTVlMjVhNDU3ZmI5YjA3NDg5ZDMxM2I0MWE=')  # noqa
         self.fortnite_token = kwargs.get('fortnite_token', 'ZWM2ODRiOGM2ODdmNDc5ZmFkZWEzY2IyYWQ4M2Y1YzY6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ=')  # noqa
+        self.device_id = getattr(self, 'device_id', None) or uuid.uuid4().hex
 
     def initialize(self, client: 'Client') -> None:
         self.client = client
-        self.device_id = getattr(self, 'device_id', None) or uuid.uuid4().hex
         self._refresh_event = asyncio.Event()
         self._refresh_lock = asyncio.Lock()
         self.refresh_i = 0
