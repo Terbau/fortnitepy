@@ -70,7 +70,11 @@ class StartContext:
             self.client._start(dispatch_ready=self.dispatch_ready)
         )
 
-        await self.client.wait_until_ready()
+        await asyncio.wait(
+            (asyncio.create_task(self.client.wait_until_ready()), task),
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
         return task
 
     async def __aenter__(self) -> asyncio.Task:
