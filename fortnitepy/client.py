@@ -60,7 +60,8 @@ log = logging.getLogger(__name__)
 
 
 class StartContext:
-    def __init__(self, client: 'Client', dispatch_ready: bool = True) -> None:
+    def __init__(self, client: 'BasicClient',
+                 dispatch_ready: bool = True) -> None:
         self.client = client
         self.dispatch_ready = dispatch_ready
 
@@ -92,7 +93,7 @@ class StartContext:
         return awaiter().__await__()
 
 
-async def _start_client(client: 'Client', *,
+async def _start_client(client: 'BasicClient', *,
                         shutdown_on_error: bool = True,
                         after: Optional[MaybeCoro] = None,
                         error_after: Optional[MaybeCoro] = None,
@@ -181,7 +182,7 @@ def _before_event(callback):
     return processor
 
 
-async def start_multiple(clients: List['Client'], *,
+async def start_multiple(clients: List['BasicClient'], *,
                          gap_timeout: float = 0.2,
                          shutdown_on_error: bool = True,
                          ready_callback: Optional[MaybeCoro] = None,
@@ -206,18 +207,18 @@ async def start_multiple(clients: List['Client'], *,
 
     Parameters
     ----------
-    clients: List[:class:`Client`]
+    clients: List[:class:`BasicClient`]
         A list of the clients you wish to start.
     gap_timeout: :class:`float`
         The time to sleep between starting clients. Defaults to ``0.2``.
     shutdown_on_error: :class:`bool`
         If the function should cancel all other start tasks if one of the
         tasks fails. You can catch the error by try excepting.
-    ready_callback: Optional[Union[Callable[:class:`Client`], Awaitable[:class:`Client`]]]
+    ready_callback: Optional[Union[Callable[:class:`BasicClient`], Awaitable[:class:`BasicClient`]]]
         A callable/async callback taking a single parameter ``client``. 
         The callback is called whenever a client is ready.
-    error_callback: Optional[Union[Callable[:class:`Client`, Exception], Awaitable[:class:`Client`, Exception]]]
-        A callable/async callback taking two parameters, :class:`Client`
+    error_callback: Optional[Union[Callable[:class:`BasicClient`, Exception], Awaitable[:class:`BasicClient`, Exception]]]
+        A callable/async callback taking two parameters, :class:`BasicClient`
         and an exception. The callback is called whenever a client fails
         logging in. The callback is not called if ``shutdown_on_error`` is
         ``True``.
@@ -329,15 +330,15 @@ async def start_multiple(clients: List['Client'], *,
         raise done_task.exception()
 
 
-async def close_multiple(clients: Iterable['Client']) -> None:
+async def close_multiple(clients: Iterable['BasicClient']) -> None:
     """|coro|
 
-    Closes multiple clients at the same time by calling :meth:`Client.close()`
-    on all of them.
+    Closes multiple clients at the same time by calling
+    :meth:`BasicClient.close()` on all of them.
 
     Parameters
     ----------
-    clients: Iterable[:class:`Client`]
+    clients: Iterable[:class:`BasicClient`]
         An iterable of the clients you wish to close. If a client is already
         closing or closed, it will get skipped without raising an error.
     """
@@ -350,7 +351,7 @@ async def close_multiple(clients: Iterable['Client']) -> None:
     await asyncio.gather(*tasks)
 
 
-def run_multiple(clients: List['Client'], *,
+def run_multiple(clients: List['BasicClient'], *,
                  gap_timeout: float = 0.2,
                  shutdown_on_error: bool = True,
                  ready_callback: Optional[MaybeCoro] = None,
@@ -376,18 +377,18 @@ def run_multiple(clients: List['Client'], *,
 
     Parameters
     ----------
-    clients: List[:class:`Client`]
+    clients: List[:class:`BasicClient`]
         A list of the clients you wish to start.
     gap_timeout: :class:`float`
         The time to sleep between starting clients. Defaults to ``0.2``.
     shutdown_on_error: :class:`bool`
         If the function should cancel all other start tasks if one of the
         tasks fails. You can catch the error by try excepting.
-    ready_callback: Optional[Union[Callable[:class:`Client`], Awaitable[:class:`Client`]]]
+    ready_callback: Optional[Union[Callable[:class:`BasicClient`], Awaitable[:class:`BasicClient`]]]
         A callable/async callback taking a single parameter ``client``. 
         The callback is called whenever a client is ready.
-    error_callback: Optional[Union[Callable[:class:`Client`, Exception], Awaitable[:class:`Client`, Exception]]]
-        A callable/async callback taking two parameters, :class:`Client`
+    error_callback: Optional[Union[Callable[:class:`BasicClient`, Exception], Awaitable[:class:`BasicClient`, Exception]]]
+        A callable/async callback taking two parameters, :class:`BasicClient`
         and an exception. The callback is called whenever a client fails
         logging in. The callback is not called if ``shutdown_on_error`` is
         ``True``.
@@ -443,7 +444,7 @@ class BasicClient:
     requests like user or stats fetching.
 
     This client does **not** support the following:
-      - Parties (except :meth:`Client.fetch_party()`)
+      - Parties (except :meth:`BasicClient.fetch_party()`)
       - Friends
       - Anything related to XMPP (Messaging and most events)
 
@@ -1010,7 +1011,7 @@ class BasicClient:
         .. warning::
 
             This function is not for requesting multiple users by multiple
-            display names. Use :meth:`Client.fetch_user()` for that.
+            display names. Use :meth:`BasicClient.fetch_user()` for that.
 
         Parameters
         ----------
@@ -1800,9 +1801,9 @@ class BasicClient:
 
         .. note::
 
-            You do not need to decorate events in a subclass of :class:`Client`
-            but the function names of event handlers must follow this format
-            ``event_<event>``.
+            You do not need to decorate events in a subclass of
+            :class:`BasicClient` but the function names of event handlers must
+            follow this format ``event_<event>``.
 
         Usage: ::
 

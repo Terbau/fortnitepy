@@ -38,7 +38,7 @@ from .typedefs import StrOrMaybeCoro
 from .utils import from_iso
 
 if TYPE_CHECKING:
-    from .client import Client
+    from .client import BasicClient
 
 log = logging.getLogger(__name__)
 _prompt_lock = asyncio.Lock()
@@ -50,7 +50,7 @@ class Auth:
         self.fortnite_token = kwargs.get('fortnite_token', 'ZWM2ODRiOGM2ODdmNDc5ZmFkZWEzY2IyYWQ4M2Y1YzY6ZTFmMzFjMjExZjI4NDEzMTg2MjYyZDM3YTEzZmM4NGQ=')  # noqa
         self.device_id = getattr(self, 'device_id', None) or uuid.uuid4().hex
 
-    def initialize(self, client: 'Client') -> None:
+    def initialize(self, client: 'BasicClient') -> None:
         self.client = client
         self._refresh_event = asyncio.Event()
         self._refresh_lock = asyncio.Lock()

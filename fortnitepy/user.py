@@ -32,7 +32,7 @@ from .errors import Forbidden
 from .utils import from_iso
 
 if TYPE_CHECKING:
-    from .client import Client
+    from .client import BasicClient
     from .stats import StatsV2, StatsCollection
 
 log = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class ExternalAuth:
 
     Attributes
     ----------
-    client: :class:`Client`
+    client: :class:`BasicClient`
         The client.
     type: :class:`str`:
         The type/platform of the external auth.
@@ -61,7 +61,7 @@ class ExternalAuth:
     __slots__ = ('client', 'type', 'id', 'external_id',
                  'external_display_name', 'extra_info')
 
-    def __init__(self, client: 'Client', data: dict) -> None:
+    def __init__(self, client: 'BasicClient', data: dict) -> None:
         self.client = client
         self.type = data['type']
         self.id = data['accountId']
@@ -107,7 +107,9 @@ class UserBase:
     __slots__ = ('client', '_epicgames_display_name', '_external_display_name',
                  '_id', '_external_auths')
 
-    def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
+    def __init__(self, client: 'BasicClient',
+                 data: dict,
+                 **kwargs: Any) -> None:
         self.client = client
         if data:
             self._update(data)
@@ -383,7 +385,7 @@ class ClientUser(UserBase):
 
     Attributes
     ----------
-    client: :class:`Client`
+    client: :class:`BasicClient`
         The client.
     age_group: :class:`str`
         The age group of the user.
@@ -426,7 +428,9 @@ class ClientUser(UserBase):
         The minor status of this account.
     """
 
-    def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
+    def __init__(self, client: 'BasicClient',
+                 data: dict,
+                 **kwargs: Any) -> None:
         super().__init__(client, data)
         self._update(data)
 
@@ -479,7 +483,9 @@ class User(UserBase):
 
     __slots__ = UserBase.__slots__
 
-    def __init__(self, client: 'Client', data: dict, **kwargs: Any) -> None:
+    def __init__(self, client: 'BasicClient',
+                 data: dict,
+                 **kwargs: Any) -> None:
         super().__init__(client, data)
 
     def __repr__(self) -> str:
@@ -538,7 +544,7 @@ class BlockedUser(UserBase):
 
     __slots__ = UserBase.__slots__
 
-    def __init__(self, client: 'Client', data: dict) -> None:
+    def __init__(self, client: 'BasicClient', data: dict) -> None:
         super().__init__(client, data)
 
     def __repr__(self) -> str:
@@ -568,7 +574,7 @@ class UserSearchEntry(User):
     mutual_friend_count: :class:`int`
         The amount of **epic** mutual friends the client has with the user.
     """
-    def __init__(self, client: 'Client',
+    def __init__(self, client: 'BasicClient',
                  user_data: dict,
                  search_data: dict) -> None:
         super().__init__(client, user_data)
@@ -599,7 +605,7 @@ class SacSearchEntryUser(User):
     verified: :class:`bool`
         Wether or not the creator code is verified or not.
     """
-    def __init__(self, client: 'Client',
+    def __init__(self, client: 'BasicClient',
                  user_data: dict,
                  search_data: dict) -> None:
         super().__init__(client, user_data)
