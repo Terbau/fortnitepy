@@ -6,6 +6,17 @@ Changelog
 Detailed version changes.
 
 
+v3.6.6
+------
+
+Hotpatch to add an optional fix for graphql user lookup 405 errors.
+
+Added
+~~~~~
+
+- Added kwarg `fallback_on_user_lookup_405` to Client. It defaults to `False`, but if your application notices 405 errors, you should set it to `True`.
+
+
 v3.6.5
 ------
 
