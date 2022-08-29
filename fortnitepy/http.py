@@ -405,6 +405,8 @@ class HTTPClient:
         self.max_refresh_attempts = 3
         self.refresh_attempt_window = 20
 
+        self.last_account_fetch_405 = None
+
     @staticmethod
     async def json_or_text(response: aiohttp.ClientResponse) -> Union[str,
                                                                       dict]:
@@ -1111,10 +1113,11 @@ class HTTPClient:
         return await self.get(r, **kwargs)
 
     async def account_get_multiple_by_user_id(self,
-                                              user_ids: Iterable[str]) -> list:
+                                              user_ids: Iterable[str],
+                                              **kwargs: Any) -> list:
         params = [('accountId', user_id) for user_id in user_ids]
         r = AccountPublicService('/account/api/public/account')
-        return await self.get(r, params=params)
+        return await self.get(r, params=params, **kwargs)
 
     async def account_graphql_get_multiple_by_user_id(self,
                                                       user_ids: List[str],
@@ -1189,6 +1192,28 @@ class HTTPClient:
             }
             """
         ), **kwargs)
+
+    async def account_get_multiple_by_user_id_with_fallback(self,
+                                                            user_ids: Iterable[str],  # noqa
+                                                            **kwargs: Any) -> list:  # noqa
+        """This method exists so that we can circumvent graphql 405's by
+        falling back to the regular account service lookup endpoint.
+
+        If a 405 is detected, it will use the regular account service
+        endpoint for two minutes.
+        """
+
+        if (self.last_account_fetch_405 is None
+           or time.time() - self.last_account_fetch_405 > 2*60):
+            try:
+                return await self.account_graphql_get_multiple_by_user_id(user_ids, **kwargs)  # noqa
+            except HTTPException as exc:
+                if not self.client.fallback_on_user_lookup_405 or exc.status != 405:  # noqa
+                    raise
+
+                self.last_account_fetch_405 = time.time()
+
+        return await self.account_get_multiple_by_user_id(user_ids, **kwargs)
 
     ###################################
     #          Eula Tracking          #

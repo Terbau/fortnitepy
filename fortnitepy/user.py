@@ -194,7 +194,7 @@ class UserBase:
         HTTPException
             An error occured while requesting.
         """
-        result = await self.client.http.account_graphql_get_multiple_by_user_id(  # noqa
+        result = await self.client.http.account_get_multiple_by_user_id_with_fallback(  # noqa
             (self.id,),
         )
         data = result['accounts'][0]
@@ -356,7 +356,8 @@ class UserBase:
                      for v in extra_external_auths}
 
         ext_list = []
-        for e in external_auths:
+        iterator = external_auths.values() if isinstance(external_auths, dict) else external_auths  # noqa
+        for e in iterator:
             ext = ExternalAuth(self.client, e)
             ext._update_extra_info(extra_ext.get(ext.type, {}))
             ext_list.append(ext)
