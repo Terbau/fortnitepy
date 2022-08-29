@@ -3213,7 +3213,7 @@ class PartyBase:
         user_ids = [uid for uid in user_ids if uid not in raw_users]
 
         if user_ids:
-            data = await client.http.account_graphql_get_multiple_by_user_id(
+            data = await client.http.account_get_multiple_by_user_id_with_fallback(  # noqa
                 user_ids,
                 priority=priority
             )
