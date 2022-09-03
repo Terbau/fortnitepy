@@ -208,7 +208,8 @@ class Auth:
         return task is not None and not task.cancelled()
 
     async def schedule_token_refresh(self) -> None:
-        subtracted = self.ios_expires_at - datetime.datetime.utcnow()
+        min_expires_at = min([self.ios_expires_at, self.expires_at])
+        subtracted = min_expires_at - datetime.datetime.utcnow()
         self.token_timeout = (subtracted).total_seconds() - 300
         await asyncio.sleep(self.token_timeout)
 
