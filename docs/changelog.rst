@@ -6,6 +6,18 @@ Changelog
 Detailed version changes.
 
 
+v3.6.7
+------
+
+After even more problems, v3.6.6 was reversed and graphql user lookup has been replaced by the more stable account service user lookup. This was an internal change and therefore there are no breaking changes in this patch.
+
+Bug Fixes
+~~~~~~~~~
+
+- Fixed an issue where the client would wait too long before refreshing auth sessions.
+- Fixed an issue with the parsing of party kick/leave xmpp payloads due to the payload sometimes missing some properties.
+
+
 v3.6.6
 ------
 
