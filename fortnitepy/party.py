@@ -3219,11 +3219,11 @@ class PartyBase:
         user_ids = [uid for uid in user_ids if uid not in raw_users]
 
         if user_ids:
-            data = await client.http.account_get_multiple_by_user_id_with_fallback(  # noqa
+            data = await client.http.account_get_multiple_by_user_id(
                 user_ids,
                 priority=priority
             )
-            for account_data in data['accounts']:
+            for account_data in data:
                 raw_users[account_data['id']] = account_data
 
         result = []
