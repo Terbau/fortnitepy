@@ -50,10 +50,12 @@ class ExternalAuth:
         The type/platform of the external auth.
     id: :class:`str`:
         The users universal fortnite id.
-    external_id: :class:`str`:
-        The id belonging to this user on the platform.
+    external_id: Optional[:class:`str`]
+        The id belonging to this user on the platform. This could in some
+        cases be `None`.
     external_display_name: :class:`str`
-        The display name belonging to this user on the platform.
+        The display name belonging to this user on the platform. This could
+        in some cases be `None`.
     extra_info: Dict[:class:`str`, Any]
         Extra info from the payload. Usually empty on accounts other
         than :class:`ClientUser`.
@@ -66,8 +68,13 @@ class ExternalAuth:
         self.client = client
         self.type = data['type']
         self.id = data['accountId']
-        self.external_id = data['externalAuthId']
-        self.external_display_name = data['externalDisplayName']
+
+        if 'authIds' in data:
+            self.external_id = data['authIds'][0]['id'] if data['authIds'] else None  # noqa
+        else:
+            self.external_id = data['externalAuthId']
+
+        self.external_display_name = data.get('externalDisplayName')
 
     def _update_extra_info(self, data: dict) -> None:
         to_be_removed = ('type', 'accountId', 'externalAuthId',
@@ -193,10 +200,10 @@ class UserBase:
         HTTPException
             An error occured while requesting.
         """
-        result = await self.client.http.account_get_multiple_by_user_id_with_fallback(  # noqa
+        result = await self.client.http.account_get_multiple_by_user_id(  # noqa
             (self.id,),
         )
-        data = result['accounts'][0]
+        data = result[0]
 
         self._update(data)
 

@@ -524,14 +524,6 @@ class Client:
         Whether or not the library should cache :class:`User` objects. Disable
         this if you are running a program with lots of users as this could
         potentially take a big hit on the memory usage. Defaults to ``True``.
-    fallback_on_user_lookup_405: :class:`bool`
-        Whether or not the client should fall back to using the regular account
-        service lookup endpoint for fetching users if the graphql endpoint returns
-        a 405 status code. The reason this doesn't default to `True` is because the
-        regular account service lookup endpoint doesn't return external auths
-        consistently while the graphql endpoint does. Only enable this if you
-        don't need user and user derived objects to contain external auths. Defaults
-        to `False`.
     fetch_user_data_in_events: :class:`bool`
         Whether or not user data should be fetched in event processing. Disabling
         this might be useful for larger applications that deals with
@@ -581,7 +573,6 @@ class Client:
         self.service_domain = kwargs.get('xmpp_domain', 'xmpp-service-prod.ol.epicgames.com')  # noqa
         self.service_port = kwargs.get('xmpp_port', 5222)
         self.cache_users = kwargs.get('cache_users', True)
-        self.fallback_on_user_lookup_405 = kwargs.get('fallback_on_user_lookup_405', False)  # noqa
         self.fetch_user_data_in_events = kwargs.get('fetch_user_data_in_events', True)  # noqa
         self.wait_for_member_meta_in_events = kwargs.get('wait_for_member_meta_in_events', True)  # noqa
 
@@ -1230,20 +1221,17 @@ class Client:
                 except AttributeError:
                     pass
 
-        res = await self.http.account_graphql_get_by_display_name(display_name)
-        accounts = res['account']
-        if len(accounts) == 0:
-            return None
-
-        epic_accounts = [d for d in accounts if d['displayName'] is not None]
-        if epic_accounts:
-            account = max(epic_accounts, key=lambda d: len(d['externalAuths']))
-        else:
-            account = accounts[0]
+        try:
+            data = await self.http.account_get_by_display_name(display_name)
+        except HTTPException as e:
+            error_code = 'errors.com.epicgames.account.account_not_found'
+            if e.message_code == error_code:
+                return None
+            raise
 
         if raw:
-            return account
-        return self.store_user(account, try_cache=cache)
+            return data
+        return self.store_user(data, try_cache=cache)
 
     fetch_profile_by_display_name = fetch_user_by_display_name
 
@@ -1388,7 +1376,7 @@ class Client:
                     except AttributeError:
                         pass
 
-            task = self.http.account_graphql_get_by_display_name(elem)
+            task = self.http.account_get_by_display_name(elem)
             tasks.append(task)
 
         for elem in users:
@@ -1407,30 +1395,18 @@ class Client:
 
         if len(tasks) > 0:
             pfs = await asyncio.gather(*tasks)
-            for p_data in pfs:
-                accounts = p_data['account']
-                for account_data in accounts:
-                    if account_data['displayName'] is not None:
-                        new.append(account_data['id'])
-                        break
-                else:
-                    for account_data in accounts:
-                        if account_data['displayName'] is None:
-                            new.append(account_data['id'])
-                            break
+            for account_data in pfs:
+                new.append(account_data['id'])
 
         chunk_tasks = []
         chunks = [new[i:i + 100] for i in range(0, len(new), 100)]
         for chunk in chunks:
-            task = self.http.account_get_multiple_by_user_id_with_fallback(chunk)  # noqa
+            task = self.http.account_get_multiple_by_user_id(chunk)  # noqa
             chunk_tasks.append(task)
 
         if len(chunks) > 0:
             d = await asyncio.gather(*chunk_tasks)
             for results in d:
-                if 'accounts' in results:
-                    results = results['accounts']
-
                 for result in results:
                     if raw:
                         _users.append(result)
@@ -1496,8 +1472,6 @@ class Client:
                 return None
             raise
 
-        # Request the account data through graphql since the one above returns
-        # empty external auths payload.
         account_id = res['id']
         return await self.fetch_user(account_id, cache=cache, raw=raw)
 
@@ -1627,7 +1601,7 @@ class Client:
 
         users = {}
         tasks = [
-            self.http.account_graphql_get_multiple_by_user_id(
+            self.http.account_get_multiple_by_user_id(
                 chunk,
                 priority=priority
             )
@@ -1639,7 +1613,7 @@ class Client:
             done = []
 
         for results in done:
-            for user in results['accounts']:
+            for user in results:
                 users[user['id']] = user
 
         for friend in raw_friends:
