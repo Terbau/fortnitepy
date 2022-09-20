@@ -1198,6 +1198,19 @@ class PartyMeta(MetaBase):
         key = 'Default:PlaylistData_j'
         return {key: self.set_prop(key, final)}
 
+      
+    def set_mnemonic(self, mnemonic: Optional[str] = None) -> Dict[str, Any]:
+        data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
+
+        if playlist is not None:
+            data['playlistName'] = Playlist_PlaygroundV2
+            data['mnemonic'] = mnemonic
+
+        final = {'PlaylistData': data}
+        key = 'Default:PlaylistData_j'
+        return {key: self.set_prop(key, final)}
+      
+      
     def set_custom_key(self, key: str) -> Dict[str, Any]:
         _key = 'Default:CustomMatchKey_s'
         return {_key: self.set_prop(_key, key)}
