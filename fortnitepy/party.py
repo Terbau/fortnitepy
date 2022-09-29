@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 MIT License
 
@@ -29,8 +31,8 @@ import re
 import functools
 import datetime
 
-from typing import (TYPE_CHECKING, Iterable, Optional, Any, List, Dict, Union,
-                    Tuple, Awaitable, Type)
+from typing import (TYPE_CHECKING, Optional, Any, List, Dict, Union, Tuple,
+                    Awaitable, Type)
 from collections import OrderedDict
 
 from .enums import Enum
@@ -39,7 +41,7 @@ from .user import User
 from .friend import Friend
 from .enums import (PartyPrivacy, PartyDiscoverability, PartyJoinability,
                     DefaultCharactersChapter2, Region, ReadyState, Platform)
-from .utils import MaybeLock, to_iso, from_iso
+from .utils import MaybeLock
 
 if TYPE_CHECKING:
     from .client import Client
@@ -73,12 +75,12 @@ class SquadAssignment:
         self.position = position
         self.hidden = hidden
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return ('<SquadAssignment position={0.position!r} '
                 'hidden={0.hidden!r}>'.format(self))
 
     @classmethod
-    def copy(cls, assignment: 'SquadAssignment') -> 'SquadAssignment':
+    def copy(cls, assignment):
         self = cls.__new__(cls)
 
         self.position = assignment.position
@@ -136,9 +138,6 @@ class DefaultPartyConfig:
         | How many seconds the invite should be valid for before
         automatically becoming invalid.
         | Defaults to ``14400``
-    intention_ttl: Optional[:class:`int`]
-        | How many seconds an intention should last.
-        | Defaults to ``60``
     sub_type: Optional[:class:`str`]
         | The sub type the party should use.
         | Defaults to ``'default'``
@@ -206,7 +205,7 @@ class DefaultPartyConfig:
         self.update(kwargs)
 
     @property
-    def position_priorities(self) -> List[int]:
+    def position_priorities(self):
         return self._position_priorities
 
     @position_priorities.setter
@@ -241,7 +240,6 @@ class DefaultPartyConfig:
             'discoverability': PartyDiscoverability.ALL.value,
             'max_size': 16,
             'invite_ttl_seconds': 14400,
-            'intention_ttl': 60,
             'chat_enabled': True,
             'join_confirmation': False,
             'sub_type': 'default',
@@ -554,7 +552,7 @@ class MetaBase:
         for prop, value in schema.items():
             self.set_prop(prop, value, raw=raw)
 
-    def remove(self, schema: Iterable[str]) -> None:
+    def remove(self, schema: Union[List[str], Dict[str, Any]]) -> None:
         for prop in schema:
             try:
                 del self.schema[prop]
@@ -1056,7 +1054,7 @@ class PartyMemberMeta(MetaBase):
             result[key] = self.set_prop(key, players_left)
         if started_at is not None:
             key = 'Default:UtcTimeStartedMatchAthena_s'
-            timestamp = to_iso(started_at)
+            timestamp = self.member.client.to_iso(started_at)
             result[key] = self.set_prop(key, timestamp)
 
         return result
@@ -1181,6 +1179,7 @@ class PartyMeta(MetaBase):
 
     def set_playlist(self, playlist: Optional[str] = None, *,
                      tournament: Optional[str] = None,
+                     mnemonic: Optional[str] = None,
                      event_window: Optional[str] = None,
                      region: Optional[Region] = None) -> Dict[str, Any]:
         data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
@@ -1189,6 +1188,8 @@ class PartyMeta(MetaBase):
             data['playlistName'] = playlist
         if tournament is not None:
             data['tournamentId'] = tournament
+        if mnemonic is not None:
+            data['mnemonic'] = mnemonic
         if event_window is not None:
             data['eventWindowId'] = event_window
         if region is not None:
@@ -1276,7 +1277,7 @@ class PartyMemberBase(User):
         self._party = party
         self._assignment_version = 0
 
-        self._joined_at = from_iso(data['joined_at'])
+        self._joined_at = self.client.from_iso(data['joined_at'])
         self.meta = PartyMemberMeta(self, meta=data.get('meta'))
         self._update(data)
 
@@ -1361,7 +1362,7 @@ class PartyMemberBase(User):
         """
         disconnected_at = self.connection.get('disconnected_at')
         if disconnected_at is not None:
-            return from_iso(disconnected_at)
+            return self.client.from_iso(disconnected_at)
 
     def is_just_chatting(self) -> bool:
         """:class:`bool`: Whether or not the member is Just Chattin' through
@@ -1597,7 +1598,7 @@ class PartyMemberBase(User):
         if not self.in_match:
             return None
 
-        return from_iso(self.meta.match_started_at)
+        return self.client.from_iso(self.meta.match_started_at)
 
     @property
     def match_players_left(self) -> int:
@@ -2920,7 +2921,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
-    async def clear_lobby_map_marker(self) -> None:
+    async def clear_lobby_map_marker(self):
         """|coro|
 
         Clears and hides the clients current lobby map marker.
@@ -3091,7 +3092,7 @@ class PartyBase:
         """
         return self._members.get(user_id)
 
-    def _update_squad_assignments(self, raw: dict) -> None:
+    def _update_squad_assignments(self, raw):
         results = OrderedDict()
         for data in sorted(raw, key=lambda o: o['absoluteMemberIdx']):
             member = self.get_member(data['memberId'])
@@ -3118,7 +3119,7 @@ class PartyBase:
         self._update_config({**self.config, **config})
 
         _update_squad_assignments = False
-
+        
         if 'party_state_updated' in data:
             key = 'Default:RawSquadAssignments_j'
             _assignments = data['party_state_updated'].get(key)
@@ -3170,7 +3171,7 @@ class PartyBase:
                 _assignments = json.loads(_assignments)['RawSquadAssignments']
                 self._update_squad_assignments(_assignments)
 
-    def _update_roles(self, new_leader: PartyMemberBase) -> None:
+    def _update_roles(self, new_leader):
         for member in self._members.values():
             member.update_role(None)
 
@@ -3382,6 +3383,7 @@ class ClientParty(PartyBase, Patchable):
             }
 
         status = text or self.client.status
+        kairos_profile = self.client.avatar.to_dict()
 
         _default_status = {
             'Status': status.format(party_size=self.member_count,
@@ -3392,6 +3394,7 @@ class ClientParty(PartyBase, Patchable):
             'SessionId': '',
             'ProductName': 'Fortnite',
             'Properties': {
+                'KairosProfile_j': kairos_profile,
                 'party.joininfodata.286331153_j': join_data,
                 'FortBasicInfo_j': {
                     'homeBaseRating': 1,
@@ -3415,9 +3418,9 @@ class ClientParty(PartyBase, Patchable):
         return _default_status
 
     def update_presence(self, text: Optional[str] = None) -> None:
-        if self.client.status is not False:
-            data = self.construct_presence(text=text)
+        data = self.construct_presence(text=text)
 
+        if self.client.status is not False:
             self.last_raw_status = data
             self.client.xmpp.set_presence(
                 status=self.last_raw_status,
@@ -3435,7 +3438,7 @@ class ClientParty(PartyBase, Patchable):
     def _update_revision(self, revision: int) -> None:
         self.revision = revision
 
-    def _update_roles(self, new_leader: PartyMemberBase) -> None:
+    def _update_roles(self, new_leader):
         super()._update_roles(new_leader)
 
         if new_leader.id == self.client.user.id:
@@ -3466,7 +3469,7 @@ class ClientParty(PartyBase, Patchable):
             # ClientPartyMember is added at a later stage. We do this to avoid
             # ClientParty.me being None.
             default_config = self.client.default_party_member_config
-            now = to_iso(datetime.datetime.utcnow())
+            now = self.client.to_iso(datetime.datetime.utcnow())
             platform_s = self.client.platform.value
             conn_type = default_config.cls.CONN_TYPE
             external_auths = [
@@ -3699,7 +3702,7 @@ class ClientParty(PartyBase, Patchable):
         self._squad_assignments = results
         return results
 
-    def _convert_squad_assignments(self, assignments: dict) -> List[dict]:
+    def _convert_squad_assignments(self, assignments):
         results = []
         for member, assignment in assignments.items():
             if assignment.hidden:
@@ -3849,7 +3852,7 @@ class ClientParty(PartyBase, Patchable):
 
         data = await self.client.http.party_lookup(self.id)
 
-        user_ids = (r['sent_to'] for r in data['invites'])
+        user_ids = [r['sent_to'] for r in data['invites']]
         users = await self.client.fetch_users(user_ids, cache=True)
 
         invites = []
@@ -3914,6 +3917,7 @@ class ClientParty(PartyBase, Patchable):
 
     async def set_playlist(self, playlist: Optional[str] = None,
                            tournament: Optional[str] = None,
+                           mnemonic: Optional[str] = None,
                            event_window: Optional[str] = None,
                            region: Optional[Region] = None) -> None:
         """|coro|
@@ -4086,7 +4090,7 @@ class ReceivedPartyInvitation:
         self.net_cl = net_cl
 
         self.sender = self.client.get_friend(data['sent_by'])
-        self.created_at = from_iso(data['sent_at'])
+        self.created_at = self.client.from_iso(data['sent_at'])
 
     def __repr__(self) -> str:
         return ('<ReceivedPartyInvitation party={0.party!r} '
@@ -4175,7 +4179,7 @@ class SentPartyInvitation:
 
         self.sender = sender
         self.receiver = receiver
-        self.created_at = from_iso(data['sent_at'])
+        self.created_at = self.client.from_iso(data['sent_at'])
 
     def __repr__(self) -> str:
         return ('<SentPartyInvitation party={0.party!r} sender={0.sender!r} '
@@ -4257,7 +4261,7 @@ class PartyJoinConfirmation:
         self.client = client
         self.party = party
         self.user = user
-        self.created_at = from_iso(data['sent'])
+        self.created_at = self.client.from_iso(data['sent'])
 
     def __repr__(self) -> str:
         return ('<PartyJoinConfirmation party={0.party!r} user={0.user!r} '
@@ -4362,8 +4366,8 @@ class PartyJoinRequest:
         self.client = client
         self.party = party
         self.friend = friend
-        self.created_at = from_iso(data['sent_at'])
-        self.expires_at = from_iso(data['expires_at'])
+        self.created_at = self.client.from_iso(data['sent_at'])
+        self.expires_at = self.client.from_iso(data['expires_at'])
 
     async def accept(self):
         """|coro|
