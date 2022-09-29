@@ -3967,6 +3967,7 @@ class ClientParty(PartyBase, Patchable):
 
         prop = self.meta.set_playlist(
             playlist=playlist,
+            mnemonic=mnemonic,
             tournament=tournament,
             event_window=event_window,
             region=region
