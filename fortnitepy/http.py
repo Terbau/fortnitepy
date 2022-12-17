@@ -1019,6 +1019,13 @@ class HTTPClient:
         r = AccountPublicService('/account/api/oauth/token')
         return await self.post(r, **kwargs)
 
+    async def account_put_date_of_birth_correction(self, continuation: str, date_of_birth: str, auth: str):
+        r = AccountPublicService(
+            '/account/api/public/corrections/dateOfBirth',
+        )
+
+        return await self.put(r, json={ 'continuation': continuation, 'dateOfBirth': date_of_birth }, auth=auth)
+
     async def account_generate_device_auth(self, client_id: str) -> dict:
         r = AccountPublicService(
             '/account/api/public/account/{client_id}/deviceAuth',
