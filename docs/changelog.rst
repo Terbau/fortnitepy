@@ -6,6 +6,15 @@ Changelog
 Detailed version changes.
 
 
+v3.6.8
+------
+
+Bug fixes
+~~~~~~~~~
+
+- Fixed an issue that caused accounts that had not yet registered date of birth to not be able to login.
+
+
 v3.6.7
 ------
 
