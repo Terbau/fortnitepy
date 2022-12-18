@@ -1099,6 +1099,7 @@ class PartyMeta(MetaBase):
                     'tournamentId': '',
                     'eventWindowId': '',
                     'regionId': 'EU',
+                    'mnemonic': '',
                 },
             }),
             'Default:AthenaSquadFill_b': 'true',
@@ -1141,7 +1142,8 @@ class PartyMeta(MetaBase):
         return (info['playlistName'],
                 info['tournamentId'],
                 info['eventWindowId'],
-                info['regionId'])
+                info['regionId'],
+                info.get('mnemonic', ''))
 
     @property
     def squad_fill(self) -> bool:
@@ -1182,7 +1184,8 @@ class PartyMeta(MetaBase):
     def set_playlist(self, playlist: Optional[str] = None, *,
                      tournament: Optional[str] = None,
                      event_window: Optional[str] = None,
-                     region: Optional[Region] = None) -> Dict[str, Any]:
+                     region: Optional[Region] = None,
+                     mnemonic: Optional[str] = None) -> Dict[str, Any]:
         data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
 
         if playlist is not None:
@@ -1193,6 +1196,11 @@ class PartyMeta(MetaBase):
             data['eventWindowId'] = event_window
         if region is not None:
             data['regionId'] = region
+        
+        if mnemonic is not None:
+            data['mnemonic'] = mnemonic
+        else:
+            data['mnemonic'] = ''
 
         final = {'PlaylistData': data}
         key = 'Default:PlaylistData_j'
@@ -3915,7 +3923,8 @@ class ClientParty(PartyBase, Patchable):
     async def set_playlist(self, playlist: Optional[str] = None,
                            tournament: Optional[str] = None,
                            event_window: Optional[str] = None,
-                           region: Optional[Region] = None) -> None:
+                           region: Optional[Region] = None,
+                           mnemonic: Optional[str] = None) -> None:
         """|coro|
 
         Sets the current playlist of the party.
@@ -3949,6 +3958,9 @@ class ClientParty(PartyBase, Patchable):
         region: Optional[:class:`Region`]
             The region to use.
             *Defaults to :attr:`Region.EUROPE`*
+        mnemonic: Optional[:class:`str`]
+            The creative code and version.
+            Example: `'3729-0643-9775?v=315'`
 
         Raises
         ------
@@ -3965,7 +3977,8 @@ class ClientParty(PartyBase, Patchable):
             playlist=playlist,
             tournament=tournament,
             event_window=event_window,
-            region=region
+            region=region,
+            mnemonic=mnemonic,
         )
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
