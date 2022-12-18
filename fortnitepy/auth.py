@@ -29,6 +29,7 @@ import asyncio
 import logging
 import uuid
 import time
+from random import randint
 
 from aioconsole import ainput
 from typing import TYPE_CHECKING, Optional, Any, List
@@ -181,6 +182,16 @@ class Auth:
             device_id=True,
             data=payload,
             priority=priority
+        )
+
+    async def get_ios_client_credentials(self):
+        payload = {
+            'grant_type': 'client_credentials'
+        }
+
+        return await self.client.http.account_oauth_grant(
+            auth='IOS_BASIC_TOKEN',
+            data=payload
         )
 
     async def kill_token(self, token: str) -> None:
@@ -683,6 +694,26 @@ class DeviceAuth(Auth):
             if exc.message_code == m:
                 raise AuthException(
                     'Invalid device auth details passed.',
+                    exc
+                ) from exc
+
+            if exc.message_code == 'errors.com.epicgames.oauth.corrective_action_required':
+                action = exc.raw.get('correctiveAction', None)
+                log.debug("Corrective action is required: " + action)
+                if action == 'DATE_OF_BIRTH':
+                    client_credentials = await self.get_ios_client_credentials()
+                    client_access_token = client_credentials.get('access_token')
+
+                    random_date = "{:04d}-{:02d}-{:02d}".format(randint(1990, 2002), randint(1, 12), randint(1, 28))
+
+                    await self.client.http.account_put_date_of_birth_correction(
+                        continuation=exc.raw.get('continuation'),
+                        date_of_birth=random_date,
+                        auth='bearer {0}'.format(client_access_token)
+                    )
+                    return await self.ios_authenticate(priority)
+                raise AuthException(
+                    'Required corrective action {} is not supported'.format(action),
                     exc
                 ) from exc
 
