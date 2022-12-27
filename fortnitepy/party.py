@@ -1199,12 +1199,15 @@ class PartyMeta(MetaBase):
         return {key: self.set_prop(key, final)}
 
       
-    def set_mnemonic(self, mnemonic: Optional[str] = None) -> Dict[str, Any]:
+    def set_mnemonic(self, mnemonic: Optional[str] = None,
+                    region: Optional[Region] = None) -> Dict[str, Any]:
         data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
 
-        if playlist is not None:
-            data['playlistName'] = Playlist_PlaygroundV2
+        if mnemonic is not None:
+            data['playlistName'] = "Playlist_PlaygroundV2"
             data['mnemonic'] = mnemonic
+        if region is not None:
+            data['regionId'] = region
 
         final = {'PlaylistData': data}
         key = 'Default:PlaylistData_j'
@@ -3978,6 +3981,48 @@ class ClientParty(PartyBase, Patchable):
             playlist=playlist,
             tournament=tournament,
             event_window=event_window,
+            region=region
+        )
+        if not self.edit_lock.locked():
+            return await self.patch(updated=prop)
+
+
+    async def set_mnemonic(self, mnemonic: Optional[str] = None,
+                            region: Optional[Region] = None) -> None:
+        """|coro|
+
+        Sets the current island mnemonic of the party.
+
+        Sets the party island to Brandon's 1v1 EU: ::
+
+            await party.set_mnemonic(
+                mnemonic='1111-1111-1111',
+                region=fortnitepy.Region.EUROPE
+            )
+
+
+        Parameters
+        ----------
+        mnemonic: Optional[:class:`str`]
+            The mnemonic of the island.
+            Defaults to :attr:`Region.EUROPE`
+        region: Optional[:class:`Region`]
+            The region to use.
+            *Defaults to :attr:`Region.EUROPE`*
+
+        Raises
+        ------
+        Forbidden
+            The client is not the leader of the party.
+        """
+        if self.me is not None and not self.me.leader:
+            raise Forbidden('You have to be leader for this action to work.')
+
+        if region is not None:
+            region = region.value
+
+        prop = self.meta.set_mnemonic(
+            mnemonic=mnemonic,
             region=region
         )
         if not self.edit_lock.locked():
