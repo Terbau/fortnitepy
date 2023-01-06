@@ -1180,6 +1180,7 @@ class PartyMeta(MetaBase):
         return {key: self.set_prop(key, final)}
 
     def set_playlist(self, playlist: Optional[str] = None, *,
+                     mnemonic: Optional[str] = None,
                      tournament: Optional[str] = None,
                      event_window: Optional[str] = None,
                      region: Optional[Region] = None) -> Dict[str, Any]:
@@ -1187,6 +1188,8 @@ class PartyMeta(MetaBase):
 
         if playlist is not None:
             data['playlistName'] = playlist
+        if mnemonic is not None:
+            data['linkId'] = {'mnemonic': mnemonic}
         if tournament is not None:
             data['tournamentId'] = tournament
         if event_window is not None:
@@ -3913,6 +3916,7 @@ class ClientParty(PartyBase, Patchable):
             )
 
     async def set_playlist(self, playlist: Optional[str] = None,
+                           mnemonic: Optional[str] = None,
                            tournament: Optional[str] = None,
                            event_window: Optional[str] = None,
                            region: Optional[Region] = None) -> None:
@@ -3942,6 +3946,8 @@ class ClientParty(PartyBase, Patchable):
         playlist: Optional[:class:`str`]
             The name of the playlist.
             Defaults to :attr:`Region.EUROPE`
+        mnemonic: Optional[:class:`str`]
+            The mnemonic code of island.
         tournament: Optional[:class:`str`]
             The tournament id.
         event_window: Optional[:class:`str`]
@@ -3963,6 +3969,7 @@ class ClientParty(PartyBase, Patchable):
 
         prop = self.meta.set_playlist(
             playlist=playlist,
+            mnemonic=mnemonic,
             tournament=tournament,
             event_window=event_window,
             region=region
