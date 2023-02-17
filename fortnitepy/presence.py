@@ -356,7 +356,7 @@ class Presence:
             self.gameplay_stats = None
 
         key = "party.joininfodata.286331153_j"
-        if key is None:
+        if key not in raw_properties:
             self.party = None
         else:
             self.party = PresenceParty(self.client, raw_properties[key])
