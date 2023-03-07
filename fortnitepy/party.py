@@ -1080,11 +1080,16 @@ class PartyMeta(MetaBase):
         self.schema = {
             'Default:PrimaryGameSessionId_s': '',
             'Default:PartyState_s': 'BattleRoyaleView',
-            'Default:LobbyConnectionStarted_b': 'false',
-            'Default:MatchmakingResult_s': 'NoResults',
-            'Default:MatchmakingState_s': 'NotMatchmaking',
-            'Default:SessionIsCriticalMission_b': 'false',
-            'Default:ZoneTileIndex_U': '-1',
+            'Default:CampaignInfo_j': json.dumps({
+                'CampaignInfo': {
+                    'lobbyConnectionStarted': False,
+                    'matchmakingResult': 'NoResults',
+                    'matchmakingState': 'NotMatchmaking',
+                    'sessionIsCriticalMission': False,
+                    'zoneTileIndex': -1,
+                    'theaterId': ''
+                }
+            }),
             'Default:ZoneInstanceId_s': '',
             'Default:SpectateAPartyMemberAvailable_b': 'false',
             'Default:TheaterId_s': '',
