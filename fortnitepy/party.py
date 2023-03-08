@@ -1092,7 +1092,6 @@ class PartyMeta(MetaBase):
             }),
             'Default:ZoneInstanceId_s': '',
             'Default:SpectateAPartyMemberAvailable_b': 'false',
-            'Default:TheaterId_s': '',
             'Default:TileStates_j': json.dumps({
                 'TileStates': [],
             }),
@@ -1104,6 +1103,9 @@ class PartyMeta(MetaBase):
                     'tournamentId': '',
                     'eventWindowId': '',
                     'regionId': 'EU',
+                    'linkId': {
+                        'mnemonic': 'playlist_defaultDuo',
+                    },
                 },
             }),
             'Default:AthenaSquadFill_b': 'true',
