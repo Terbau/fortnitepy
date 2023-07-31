@@ -36,7 +36,7 @@ Client
 .. attributetable:: Client
 
 .. autoclass:: Client
-    :members:
+	:members:
 
 
 Utility Functions
@@ -104,6 +104,9 @@ Enumerations
 	.. attribute:: NAWEST
 
 		The North America West region.
+	.. attribute:: NACENTRAL
+
+		The North America Central region.
 	.. attribute:: EUROPE
 
 		The Europe region.
@@ -165,13 +168,13 @@ Enumerations
 		The prefix matched the start of the display name perfectly.
 
 .. class:: AwayStatus
-    .. attribute:: ONLINE
+	.. attribute:: ONLINE
 
 		User is currently active.
-    .. attribute:: AWAY
+	.. attribute:: AWAY
 
 		User has set his status to away in-game
-    .. attribute:: EXTENDED_AWAY
+	.. attribute:: EXTENDED_AWAY
 
 		User is AFK. This can only be applied by the game and it is set after a specific time of no activity.
 
@@ -179,34 +182,34 @@ Enumerations
 
 	An enumeration of season start dates.
 
-    .. attribute:: SEASON_1
-    .. attribute:: SEASON_2
-    .. attribute:: SEASON_3
-    .. attribute:: SEASON_4
-    .. attribute:: SEASON_5
-    .. attribute:: SEASON_6
-    .. attribute:: SEASON_7
-    .. attribute:: SEASON_8
-    .. attribute:: SEASON_9
-    .. attribute:: SEASON_10
-    .. attribute:: SEASON_11
+	.. attribute:: SEASON_1
+	.. attribute:: SEASON_2
+	.. attribute:: SEASON_3
+	.. attribute:: SEASON_4
+	.. attribute:: SEASON_5
+	.. attribute:: SEASON_6
+	.. attribute:: SEASON_7
+	.. attribute:: SEASON_8
+	.. attribute:: SEASON_9
+	.. attribute:: SEASON_10
+	.. attribute:: SEASON_11
 	.. attribute:: SEASON_12
 
 .. class:: SeasonEndTimestamp
 
 	An enumeration of season end dates.
 
-    .. attribute:: SEASON_1
-    .. attribute:: SEASON_2
-    .. attribute:: SEASON_3
-    .. attribute:: SEASON_4
-    .. attribute:: SEASON_5
-    .. attribute:: SEASON_6
-    .. attribute:: SEASON_7
-    .. attribute:: SEASON_8
-    .. attribute:: SEASON_9
-    .. attribute:: SEASON_10
-    .. attribute:: SEASON_11
+	.. attribute:: SEASON_1
+	.. attribute:: SEASON_2
+	.. attribute:: SEASON_3
+	.. attribute:: SEASON_4
+	.. attribute:: SEASON_5
+	.. attribute:: SEASON_6
+	.. attribute:: SEASON_7
+	.. attribute:: SEASON_8
+	.. attribute:: SEASON_9
+	.. attribute:: SEASON_10
+	.. attribute:: SEASON_11
 
 .. class:: KairosBackgroundColorPreset
 
@@ -242,7 +245,7 @@ this decorator if you are in a subclass of :class:`Client`.
 
 .. warning::
 
-    All events must be registered as coroutines!
+	All events must be registered as coroutines!
 
 .. function:: event_ready()
 
@@ -270,7 +273,7 @@ this decorator if you are in a subclass of :class:`Client`.
 
 	.. warning::
 
-        This event is not called when the client logs out in :class:`Client.restart()`.
+		This event is not called when the client logs out in :class:`Client.restart()`.
 
 	.. note::
 
@@ -307,10 +310,10 @@ this decorator if you are in a subclass of :class:`Client`.
 
 .. function:: event_friend_message(message)
 
-    This event is called when :class:`ClientUser` receives a private message.
-    
-    :param message: Message object.
-    :type message: :class:`FriendMessage`
+	This event is called when :class:`ClientUser` receives a private message.
+
+	:param message: Message object.
+	:type message: :class:`FriendMessage`
 
 .. function:: event_party_message(message)
 	
