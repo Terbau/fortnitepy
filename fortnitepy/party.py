@@ -595,7 +595,7 @@ class PartyMemberMeta(MetaBase):
             'Default:FrontendEmote_j': json.dumps({
                 'FrontendEmote': {
                     'emoteItemDef': 'None',
-                    'emoteItemDefEncryptionKey': '',
+                    'emoteEKey': '',
                     'emoteSection': -1,
                 },
             }),
@@ -919,7 +919,7 @@ class PartyMemberMeta(MetaBase):
         if emote is not None:
             data['emoteItemDef'] = self.maybesub(emote)
         if emote_ekey is not None:
-            data['emoteItemDefEncryptionKey'] = emote_ekey
+            data['emoteEKey'] = emote_ekey
         if section is not None:
             data['emoteSection'] = section
 
@@ -2544,8 +2544,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
-            asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
-                     "Cosmetics/Dances/{0}.{0}'".format(asset))
+            asset = ("/BRCosmetics/Athena/Items/"
+                     "Cosmetics/Dances/{0}.{0}".format(asset))
 
         prop = self.meta.set_emote(
             emote=asset,
@@ -2598,8 +2598,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
-            asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
-                     "Cosmetics/Dances/Emoji/{0}.{0}'".format(asset))
+            asset = ("/BRCosmetics/Athena/Items/"
+                     "Cosmetics/Dances/Emoji/{0}.{0}".format(asset))
 
         prop = self.meta.set_emote(
             emote=asset,
