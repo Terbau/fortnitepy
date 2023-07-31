@@ -2072,7 +2072,8 @@ class Client:
 
             raise
 
-    async def accept_friend(self, user_id: str) -> Friend:
+    async def accept_friend(self, user_id: str,
+                            timeout: Optional[int] = None) -> Friend:
         """|coro|
 
         .. warning::
@@ -2086,6 +2087,10 @@ class Client:
         ----------
         user_id: :class:`str`
             The id of the user you want to accept.
+
+        timeout: :class:`int`
+            How many seconds to wait for before asyncio.TimeoutError is raised.
+            *Defaults to ``None`` which means it will wait forever.*
 
         Raises
         ------
@@ -2101,6 +2106,8 @@ class Client:
             because of the users settings.
         HTTPException
             An error occured while requesting to accept this friend.
+        asyncio.TimeoutError
+            No event was retrieved in the time you specified.
 
         Returns
         -------
@@ -2109,7 +2116,8 @@ class Client:
         """
         await self.add_friend(user_id)
         friend = await self.wait_for('friend_add',
-                                     check=lambda f: f.id == user_id)
+                                     check=lambda f: f.id == user_id,
+                                     timeout = timeout)
         return friend
 
     async def remove_or_decline_friend(self, user_id: str) -> None:
