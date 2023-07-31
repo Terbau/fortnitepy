@@ -159,7 +159,7 @@ class DefaultPartyConfig:
 
             [
                 partial(ClientParty.set_custom_key, 'myawesomekey'),
-                partial(ClientParty.set_playlist, 'Playlist_PlaygroundV2', region=fortnitepy.Region.EUROPE)
+                partial(ClientParty.set_playlist, 'Playlist_PlaygroundV2')
             ]
 
     Attributes
@@ -1096,9 +1096,9 @@ class PartyMeta(MetaBase):
                     'playlistName': 'Playlist_DefaultDuo',
                     'tournamentId': '',
                     'eventWindowId': '',
-                    'regionId': 'EU',
                 },
             }),
+            'Default:RegionId_s': 'EU',
             'Default:AthenaSquadFill_b': 'true',
             'Default:AllowJoinInProgress_b': 'false',
             'Default:LFGTime_s': '0001-01-01T00:00:00.000Z',
@@ -1138,12 +1138,15 @@ class PartyMeta(MetaBase):
 
         return (info['playlistName'],
                 info['tournamentId'],
-                info['eventWindowId'],
-                info['regionId'])
+                info['eventWindowId'])
 
     @property
     def squad_fill(self) -> bool:
         return self.get_prop('Default:AthenaSquadFill_b')
+
+    @property
+    def region(self) -> Region:
+        return Region(self.get_prop('Default:RegionId_s'))
 
     @property
     def privacy(self) -> Optional[PartyPrivacy]:
@@ -1179,8 +1182,7 @@ class PartyMeta(MetaBase):
 
     def set_playlist(self, playlist: Optional[str] = None, *,
                      tournament: Optional[str] = None,
-                     event_window: Optional[str] = None,
-                     region: Optional[Region] = None) -> Dict[str, Any]:
+                     event_window: Optional[str] = None) -> Dict[str, Any]:
         data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
 
         if playlist is not None:
@@ -1189,12 +1191,14 @@ class PartyMeta(MetaBase):
             data['tournamentId'] = tournament
         if event_window is not None:
             data['eventWindowId'] = event_window
-        if region is not None:
-            data['regionId'] = region
 
         final = {'PlaylistData': data}
         key = 'Default:PlaylistData_j'
         return {key: self.set_prop(key, final)}
+
+    def set_region(self, region: Region) -> Dict[str, Any]:
+        key = 'Default:RegionId_s'
+        return {key: self.set_prop(key, region.value)}
 
     def set_custom_key(self, key: str) -> Dict[str, Any]:
         _key = 'Default:CustomMatchKey_s'
@@ -3029,8 +3033,8 @@ class PartyBase:
 
     @property
     def playlist_info(self) -> Tuple[str]:
-        """:class:`tuple`: A tuple containing the name, tournament, event
-        window and region of the currently set playlist.
+        """:class:`tuple`: A tuple containing the name, tournament and
+        event window of the currently set playlist.
 
         Example output: ::
 
@@ -3039,7 +3043,6 @@ class PartyBase:
                 'Playlist_DefaultDuo',
                 '',
                 '',
-                'EU'
             )
 
             # output for arena trios
@@ -3047,7 +3050,6 @@ class PartyBase:
                 'Playlist_ShowdownAlt_Trios',
                 'epicgames_Arena_S10_Trios',
                 'Arena_S10_Division1_Trios',
-                'EU'
             )
         """
         return self.meta.playlist_info
@@ -3056,6 +3058,11 @@ class PartyBase:
     def squad_fill(self) -> bool:
         """:class:`bool`: ``True`` if squad fill is enabled else ``False``."""
         return self.meta.squad_fill
+
+    @property
+    def region(self) -> Region:
+        """Optional[:class:`Region`]: The region of the party."""
+        return self.meta.region
 
     @property
     def privacy(self) -> PartyPrivacy:
@@ -3602,8 +3609,7 @@ class ClientParty(PartyBase, Patchable):
         Edits multiple meta parts at once and keeps the changes for when new
         parties are created.
 
-        This example sets the custom key to ``myawesomekey`` and the playlist to Creative
-        in the Europe region.: ::
+        This example sets the custom key to ``myawesomekey`` and the playlist to Creative.: ::
 
             from functools import partial
 
@@ -3611,7 +3617,7 @@ class ClientParty(PartyBase, Patchable):
                 party = client.party
                 await party.edit_and_keep(
                     partial(party.set_custom_key, 'myawesomekey'),
-                    partial(party.set_playlist, 'Playlist_PlaygroundV2', region=fortnitepy.Region.EUROPE)
+                    partial(party.set_playlist, 'Playlist_PlaygroundV2')
                 )
 
         Parameters
@@ -3914,41 +3920,34 @@ class ClientParty(PartyBase, Patchable):
 
     async def set_playlist(self, playlist: Optional[str] = None,
                            tournament: Optional[str] = None,
-                           event_window: Optional[str] = None,
-                           region: Optional[Region] = None) -> None:
+                           event_window: Optional[str] = None) -> None:
         """|coro|
 
         Sets the current playlist of the party.
 
-        Sets the playlist to Duos EU: ::
+        Sets the playlist to Duos: ::
 
             await party.set_playlist(
-                playlist='Playlist_DefaultDuo',
-                region=fortnitepy.Region.EUROPE
+                playlist='Playlist_DefaultDuo'
             )
 
-        Sets the playlist to Arena Trios EU (Replace ``Trios`` with ``Solo``
+        Sets the playlist to Arena Trios (Replace ``Trios`` with ``Solo``
         for arena solo): ::
 
             await party.set_playlist(
                 playlist='Playlist_ShowdownAlt_Trios',
                 tournament='epicgames_Arena_S13_Trios',
-                event_window='Arena_S13_Division1_Trios',
-                region=fortnitepy.Region.EUROPE
+                event_window='Arena_S13_Division1_Trios'
             )
 
         Parameters
         ----------
         playlist: Optional[:class:`str`]
             The name of the playlist.
-            Defaults to :attr:`Region.EUROPE`
         tournament: Optional[:class:`str`]
             The tournament id.
         event_window: Optional[:class:`str`]
             The event window id.
-        region: Optional[:class:`Region`]
-            The region to use.
-            *Defaults to :attr:`Region.EUROPE`*
 
         Raises
         ------
@@ -3958,13 +3957,34 @@ class ClientParty(PartyBase, Patchable):
         if self.me is not None and not self.me.leader:
             raise Forbidden('You have to be leader for this action to work.')
 
-        if region is not None:
-            region = region.value
-
         prop = self.meta.set_playlist(
             playlist=playlist,
             tournament=tournament,
-            event_window=event_window,
+            event_window=event_window
+        )
+        if not self.edit_lock.locked():
+            return await self.patch(updated=prop)
+
+    async def set_region(self, region: Region) -> None:
+        """|coro|
+
+        Sets the region of the party.
+
+        Parameters
+        ----------
+        region: :class:`Region`
+            The region to set.
+
+        Raises
+        ------
+        Forbidden
+            The client is not the leader of the party.
+        """
+
+        if self.me is not None and not self.me.leader:
+            raise Forbidden('You have to be leader for this action to work.')
+
+        prop = self.meta.set_region(
             region=region
         )
         if not self.edit_lock.locked():

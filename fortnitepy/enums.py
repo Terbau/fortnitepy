@@ -155,6 +155,7 @@ class V2Input(Enum):
 class Region(Enum):
     NAEAST     = 'NAE'
     NAWEST     = 'NAW'
+    NACENTRAL  = 'NAC'
     EUROPE     = 'EU'
     BRAZIL     = 'BR'
     OCEANIA    = 'OCE'
