@@ -1245,6 +1245,10 @@ class HTTPClient:
         r = FortnitePublicService('/fortnite/api/calendar/v1/timeline')
         return await self.get(r)
 
+    async def fortnite_get_stw_maps(self) -> dict:
+        r = FortnitePublicService('/fortnite/api/game/v2/world/info')
+        return await self.get(r)
+
     ###################################
     #        Fortnite Content         #
     ###################################
