@@ -463,8 +463,14 @@ class ClientUser(UserBase):
 
     def _update(self, data: dict) -> None:
         super()._update(data)
-        self.name = data['name']
-        self.email = data['email']
+        if data['headless']:
+            self.name = None
+            self.email = None
+            self.last_name = None
+        else:
+            self.name = data.get('name', '')
+            self.email = data['email']
+            self.last_name = data.get('lastName', '')
         self.failed_login_attempts = data['failedLoginAttempts']
         self.last_failed_login = (from_iso(data['lastFailedLogin'])
                                   if 'lastFailedLogin' in data else None)
@@ -476,7 +482,6 @@ class ClientUser(UserBase):
         self.age_group = data['ageGroup']
         self.headless = data['headless']
         self.country = data['country']
-        self.last_name = data['lastName']
         self.preferred_language = data['preferredLanguage']
         self.can_update_display_name = data['canUpdateDisplayName']
         self.tfa_enabled = data['tfaEnabled']
