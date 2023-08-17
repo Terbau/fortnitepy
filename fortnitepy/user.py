@@ -472,9 +472,9 @@ class ClientUser(UserBase):
             self.email = data['email']
             self.last_name = data.get('lastName', '')
         self.failed_login_attempts = data['failedLoginAttempts']
-        self.last_failed_login = (self.client.from_iso(data['lastFailedLogin'])
+        self.last_failed_login = (from_iso(data['lastFailedLogin'])
                                   if 'lastFailedLogin' in data else None)
-        self.last_login = (self.client.from_iso(data['lastLogin'])
+        self.last_login = (from_iso(data['lastLogin'])
                            if 'lastLogin' in data else None)
 
         n_changes = data['numberOfDisplayNameChanges']
