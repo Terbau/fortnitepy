@@ -26,7 +26,7 @@ use :class:`AdvancedAuth`, you can take a look at the `examples folder <https://
 where it's used in all of the examples.
 
 
-Whats the best way of storing the device auth details of an account?
+What's the best way of storing the device auth details of an account?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This depends on the complexity of the bot with multiple accounts in mind. For

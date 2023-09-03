@@ -698,7 +698,7 @@ class XMPPClient:
                 pass
 
             # Send presence to the newly added friend as that is now
-            # required to do by the server (or at least thats what
+            # required to do by the server (or at least that's what
             # i suspect)
             if self.send_presence_on_add:
                 self.client.loop.create_task(self.send_presence(
@@ -1454,7 +1454,7 @@ class XMPPClient:
         self.client.dispatch_event('xmpp_session_establish')
 
         async def on_establish():
-            # Just incase the recover task hangs we don't want it
+            # Just in case the recover task hangs we don't want it
             # running forever in the background until a new close is
             # dispatched potentially fucking shit up big time.
             task = self._reconnect_recover_task

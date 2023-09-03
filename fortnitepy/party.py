@@ -99,11 +99,11 @@ class DefaultPartyConfig:
         | The party privacy that should be used.
         | Defaults to: :attr:`PartyPrivacy.PUBLIC`
     max_size: Optional[:class:`int`]
-        | The maximun party size. Valid party sizes must use a value
+        | The maximum party size. Valid party sizes must use a value
         between 1 and 16.
         | Defaults to ``16``
     chat_enabled: Optional[:class:`bool`]
-        | Wether or not the party chat should be enabled for the party.
+        | Whether or not the party chat should be enabled for the party.
         | Defaults to ``True``.
     team_change_allowed: :class:`bool`
         | Whether or not players should be able to manually swap party team
@@ -114,7 +114,7 @@ class DefaultPartyConfig:
         | The default squad assignment to use for new members. Squad assignments
         holds information about a party member's current position and visibility.
         Please note that setting a position in the default squad assignment
-        doesnt actually do anything and it will just be overridden.
+        doesn't actually do anything and it will just be overridden.
         | Defaults to ``SquadAssignment(hidden=False)``.
     position_priorities: List[int]
         | A list of exactly 16 ints all ranging from 0-15. When a new member
@@ -281,7 +281,7 @@ class DefaultPartyConfig:
 
             if coro.__qualname__ not in names:
                 # Very hacky solution but its needed to update the privacy
-                # in .config since updating privacy doesnt work as expected
+                # in .config since updating privacy doesn't work as expected
                 # when updating with an "all patch" strategy like other props.
                 if coro.__qualname__ == 'ClientParty.set_privacy':
                     self._update_privacy(elem.args)
@@ -311,7 +311,7 @@ class DefaultPartyMemberConfig:
         - :class:`ClientPartyMember` *(Default)*
         - :class:`JustChattingClientPartyMember`
     yield_leadership: :class:`bool`:
-        Wether or not the client should promote another member automatically
+        Whether or not the client should promote another member automatically
         whenever there is a chance to.
         Defaults to ``False``
     offline_ttl: :class:`int`
@@ -337,7 +337,7 @@ class DefaultPartyMemberConfig:
         The default party member object used when representing the client as a
         party member.
     yield_leadership: :class:`bool`
-        Wether or not the client promotes another member automatically
+        Whether or not the client promotes another member automatically
         whenever there is a chance to.
     offline_ttl: :class:`int`
         How long the client will stay in the party disconnected state before
@@ -1901,7 +1901,7 @@ class PartyMember(PartyMemberBase):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         me = self.party.me
         version = me._assignment_version + 1
@@ -1964,7 +1964,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         )
 
     def update_meta_config(self, data: dict, **kwargs) -> None:
-        # Incase the default party member config has been overridden, the
+        # In case the default party member config has been overridden, the
         # config used to make this obj should also be updated. This is
         # so you can still do hacky checks to see the default meta
         # properties.
@@ -2061,7 +2061,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting to leave the party.
+            An error occurred while requesting to leave the party.
 
         Returns
         -------
@@ -2120,7 +2120,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 You don't have to include the full path of the asset. The CID
                 is enough.
         key: Optional[:class:`str`]
-            The encyption key to use for this skin.
+            The encryption key to use for this skin.
         variants: Optional[:class:`list`]
             The variants to use for this outfit. Defaults to ``None`` which
             resets variants.
@@ -2150,7 +2150,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -2225,7 +2225,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 You don't have to include the full path of the asset. The CID
                 is enough.
         key: Optional[:class:`str`]
-            The encyption key to use for this backpack.
+            The encryption key to use for this backpack.
         variants: Optional[:class:`list`]
             The variants to use for this backpack. Defaults to ``None`` which
             resets variants.
@@ -2255,7 +2255,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -2317,7 +2317,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         await self.set_backpack(asset="")
 
@@ -2340,7 +2340,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 You don't have to include the full path of the asset. The ID is
                 enough.
         key: Optional[:class:`str`]
-            The encyption key to use for this pet.
+            The encryption key to use for this pet.
         variants: Optional[:class:`list`]
             The variants to use for this pet. Defaults to ``None`` which
             resets variants.
@@ -2348,7 +2348,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -2386,7 +2386,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         await self.set_backpack(asset="")
 
@@ -2409,7 +2409,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 You don't have to include the full path of the asset. The CID
                 is enough.
         key: Optional[:class:`str`]
-            The encyption key to use for this pickaxe.
+            The encryption key to use for this pickaxe.
         variants: Optional[:class:`list`]
             The variants to use for this pickaxe. Defaults to ``None`` which
             resets variants.
@@ -2417,7 +2417,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -2466,7 +2466,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 You don't have to include the full path of the asset. The ID is
                 enough.
         key: Optional[:class:`str`]
-            The encyption key to use for this contrail.
+            The encryption key to use for this contrail.
         variants: Optional[:class:`list`]
             The variants to use for this contrail. Defaults to ``None`` which
             resets variants.
@@ -2474,7 +2474,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
@@ -2512,7 +2512,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         await self.set_contrail(asset="")
 
@@ -2538,14 +2538,14 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             (default) means it will run indefinitely and you can then clear it
             with :meth:`PartyMember.clear_emote()`.
         key: Optional[:class:`str`]
-            The encyption key to use for this emote.
+            The encryption key to use for this emote.
         section: Optional[:class:`int`]
             The section.
 
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if asset != '' and '.' not in asset:
             asset = ("/BRCosmetics/Athena/Items/"
@@ -2592,14 +2592,14 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             naturally ends, not when :meth:`PartyMember.clear_emote()` is
             called.
         key: Optional[:class:`str`]
-            The encyption key to use for this emoji.
+            The encryption key to use for this emoji.
         section: Optional[:class:`int`]
             The section.
 
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if asset != '' and '.' not in asset:
             asset = ("/BRCosmetics/Athena/Items/"
@@ -2644,7 +2644,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
 
         prop = self.meta.set_emote(
@@ -2680,7 +2680,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         prop = self.meta.set_banner(
             banner_icon=icon,
@@ -2721,7 +2721,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         prop = self.meta.set_battlepass_info(
             has_purchased=has_purchased,
@@ -2755,7 +2755,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if quest is not None:
             if quest != '' and '.' not in quest:
@@ -2781,7 +2781,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         await self.set_assisted_challenge(quest="")
 
@@ -2802,7 +2802,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         ValueError
             The passed position is out of bounds.
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if position < 0 or position > 15:
             raise ValueError('The passed position is out of bounds.')
@@ -2850,7 +2850,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """  # noqa
         if not 0 <= players_left <= 255:
             raise ValueError('players_left must be an integer between 0 '
@@ -2881,7 +2881,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         prop = self.meta.set_match_state(
             location='PreLobby',
@@ -2911,7 +2911,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         prop = self.meta.set_frontend_marker(
             x=x,
@@ -2930,7 +2930,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         prop = self.meta.set_frontend_marker(
             x=0.0,
@@ -3556,7 +3556,7 @@ class ClientParty(PartyBase, Patchable):
         )
 
     def update_meta_config(self, data: dict, config: dict = {}) -> None:
-        # Incase the default party member config has been overridden, the
+        # In case the default party member config has been overridden, the
         # config used to make this obj should also be updated. This is
         # so you can still do hacky checks to see the default meta
         # properties.
@@ -3768,7 +3768,7 @@ class ClientParty(PartyBase, Patchable):
         Forbidden
             You are not the leader of the party.
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         if self.me is not None and not self.me.leader:
             raise Forbidden('You have to be leader for this action to work.')
@@ -3843,7 +3843,7 @@ class ClientParty(PartyBase, Patchable):
         Raises
         ------
         HTTPException
-            An error occured while requesting from fortnite's services.
+            An error occurred while requesting from fortnite's services.
 
         Returns
         -------
@@ -4399,6 +4399,6 @@ class PartyJoinRequest:
         PartyError
             The party is full.
         HTTPException
-            An error occured while requesting.
+            An error occurred while requesting.
         """
         return await self.party.invite(self.friend.id)

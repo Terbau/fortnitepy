@@ -1450,7 +1450,7 @@ class HTTPClient:
         )
         return await self.delete(r)
 
-    # NOTE: Depracated since fortnite v11.30. Use param sendPing=True with
+    # NOTE: Deprecated since fortnite v11.30. Use param sendPing=True with
     #       send_invite
     # NOTE: Now used for sending invites from private parties
     async def party_send_ping(self, user_id: str) -> Any:
