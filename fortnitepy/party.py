@@ -1199,13 +1199,17 @@ class PartyMeta(MetaBase):
         return {key: self.set_prop(key, final)}
 
       
-    def set_mnemonic(self, mnemonic: Optional[str] = None,
+    def set_mnemonic(self, mnemonic: Optional[str] = None, version:  Optional[int] = None,
                     region: Optional[Region] = None) -> Dict[str, Any]:
         data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
 
         if mnemonic is not None:
             data['playlistName'] = "Playlist_PlaygroundV2"
-            data['mnemonic'] = mnemonic
+            if version is None:
+                version = -1
+            else:
+                pass
+            data['linkId'] = {"mnemonic":f"{mnemonic}","version":version}
         if region is not None:
             data['regionId'] = region
 
@@ -3987,8 +3991,8 @@ class ClientParty(PartyBase, Patchable):
             return await self.patch(updated=prop)
 
 
-    async def set_mnemonic(self, mnemonic: Optional[str] = None,
-                            region: Optional[Region] = None) -> None:
+    async def set_mnemonic(self, mnemonic: Optional[str] = None, version:  Optional[int] = None,
+                    region: Optional[Region] = None) -> None:
         """|coro|
 
         Sets the current island mnemonic of the party.
@@ -3997,6 +4001,7 @@ class ClientParty(PartyBase, Patchable):
 
             await party.set_mnemonic(
                 mnemonic='1111-1111-1111',
+                version=1
                 region=fortnitepy.Region.EUROPE
             )
 
@@ -4023,6 +4028,7 @@ class ClientParty(PartyBase, Patchable):
 
         prop = self.meta.set_mnemonic(
             mnemonic=mnemonic,
+            version=version,
             region=region
         )
         if not self.edit_lock.locked():
