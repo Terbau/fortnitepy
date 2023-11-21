@@ -1135,13 +1135,11 @@ class PartyMeta(MetaBase):
 
     @property
     def playlist_info(self) -> Tuple[str]:
-        base = self.get_prop('Default:PlaylistData_j')
-        info = base['PlaylistData']
+        base = self.get_prop('Default:SelectedIsland_j')
+        info = base['SelectedIsland']['linkId']
 
-        return (info['playlistName'],
-                info['tournamentId'],
-                info['eventWindowId'],
-                info['regionId'])
+        return (info['mnemonic'],
+                info['version'])
 
     @property
     def squad_fill(self) -> bool:
