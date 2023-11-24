@@ -1180,41 +1180,32 @@ class PartyMeta(MetaBase):
         return {key: self.set_prop(key, final)}
 
     def set_playlist(self, playlist: Optional[str] = None, *,
-                     tournament: Optional[str] = None,
-                     event_window: Optional[str] = None,
                      region: Optional[Region] = None) -> Dict[str, Any]:
-        data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
+        data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
 
         if playlist is not None:
-            data['playlistName'] = playlist
-        if tournament is not None:
-            data['tournamentId'] = tournament
-        if event_window is not None:
-            data['eventWindowId'] = event_window
+            data['linkId'] = {"mnemonic":f"{playlist}","version":-1}
         if region is not None:
-            data['regionId'] = region
+            regionKey = 'Default:RegionId_s'
+            self.set_prop(regionKey, (str(region)).upper())
 
-        final = {'PlaylistData': data}
-        key = 'Default:PlaylistData_j'
+        final = {'SelectedIsland': data}
+        key = 'Default:SelectedIsland_j'
         return {key: self.set_prop(key, final)}
 
       
-    def set_mnemonic(self, mnemonic: Optional[str] = None, version:  Optional[int] = None,
+    def set_mnemonic(self, mnemonic: Optional[str] = None, version:  Optional[int] = -1,
                     region: Optional[Region] = None) -> Dict[str, Any]:
-        data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
+        data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
 
         if mnemonic is not None:
-            data['playlistName'] = "Playlist_PlaygroundV2"
-            if version is None:
-                version = -1
-            else:
-                pass
             data['linkId'] = {"mnemonic":f"{mnemonic}","version":version}
         if region is not None:
-            data['regionId'] = region
+            regionKey = 'Default:RegionId_s'
+            self.set_prop(regionKey, (str(region)).upper())
 
-        final = {'PlaylistData': data}
-        key = 'Default:PlaylistData_j'
+        final = {'SelectedIsland': data}
+        key = 'Default:SelectedIsland_j'
         return {key: self.set_prop(key, final)}
       
       
@@ -3952,8 +3943,6 @@ class ClientParty(PartyBase, Patchable):
 
             await party.set_playlist(
                 playlist='Playlist_ShowdownAlt_Trios',
-                tournament='epicgames_Arena_S13_Trios',
-                event_window='Arena_S13_Division1_Trios',
                 region=fortnitepy.Region.EUROPE
             )
 
@@ -3962,10 +3951,6 @@ class ClientParty(PartyBase, Patchable):
         playlist: Optional[:class:`str`]
             The name of the playlist.
             Defaults to :attr:`Region.EUROPE`
-        tournament: Optional[:class:`str`]
-            The tournament id.
-        event_window: Optional[:class:`str`]
-            The event window id.
         region: Optional[:class:`Region`]
             The region to use.
             *Defaults to :attr:`Region.EUROPE`*
@@ -3983,15 +3968,13 @@ class ClientParty(PartyBase, Patchable):
 
         prop = self.meta.set_playlist(
             playlist=playlist,
-            tournament=tournament,
-            event_window=event_window,
             region=region
         )
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
 
-    async def set_mnemonic(self, mnemonic: Optional[str] = None, version:  Optional[int] = None,
+    async def set_mnemonic(self, mnemonic: Optional[str] = None, version:  Optional[int] = -1,
                     region: Optional[Region] = None) -> None:
         """|coro|
 
