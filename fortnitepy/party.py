@@ -641,6 +641,7 @@ class PartyMemberMeta(MetaBase):
                     'characterDef': ("AthenaCharacterItemDefinition'/Game/"
                                      "Athena/Items/Cosmetics/Characters/"
                                      "{0}.{0}'".format(self.def_character)),
+                    "characterPrimaryAssetId":self.def_character
                     'characterEKey': '',
                     'backpackDef': 'None',
                     'backpackEKey': '',
@@ -652,6 +653,12 @@ class PartyMemberMeta(MetaBase):
                     'contrailEKey': '',
                     'scratchpad': [],
                 },
+            }),
+            'Default:CampaignHero_j': json.dumps({
+                'CampaignHero': {
+                    "heroItemInstanceId": '',
+                    "heroType": '/Game/Athena/Heroes/{0}.{0}'.format(self.def_character).replace("CID","HID"),
+                }
             }),
             'Default:AthenaCosmeticLoadoutVariants_j': json.dumps({
                 'AthenaCosmeticLoadoutVariants': {
