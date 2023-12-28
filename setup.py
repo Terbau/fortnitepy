@@ -24,13 +24,13 @@ extras_require = {
 
 setuptools.setup(
     name="fortnitepy",
-    url="https://github.com/Terbau/fortnitepy",
+    url="https://github.com/PirxcyFinal/fortnitepy",
     project_urls={
         "Documentation": "https://fortnitepy.readthedocs.io/en/latest/",
-        "Issue tracker": "https://github.com/Terbau/fortnitepy/issues",
+        "Issue tracker": "https://github.com/PirxcyFinal/fortnitepy/issues",
     },
     version=version,
-    author="Terbau",
+    author="pirxcy",
     description="Library for interacting with fortnite services",
     long_description=long_description,
     license='MIT',
