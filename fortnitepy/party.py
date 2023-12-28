@@ -472,7 +472,7 @@ class PartyMemberMeta(MetaBase):
                 'CampaignHero': {
                     'heroItemInstanceId': '',
                     'heroType': ("FortHeroType'/Game/Athena/Heroes/{0}.{0}'"
-                                 "".format(self.def_character)),
+                                 "".format(self.def_character.replace("CID","HID"))),
                 },
             }),
             'Default:MatchmakingLevel_U': '0',
@@ -508,9 +508,7 @@ class PartyMemberMeta(MetaBase):
             }),
             'Default:AthenaCosmeticLoadout_j': json.dumps({
                 'AthenaCosmeticLoadout': {
-                    'characterPrimaryAssetId': ("AthenaCharacterItemDefinition'/Game/"
-                                     "Athena/Items/Cosmetics/Characters/"
-                                     "{0}.{0}'".format(self.def_character)),
+                    'characterPrimaryAssetId': ("AthenaCharacter:{0}".format(self.def_character)),
                     'characterEKey': '',
                     'backpackDef': 'None',
                     'backpackEKey': '',
@@ -521,6 +519,24 @@ class PartyMemberMeta(MetaBase):
                     'contrailDef': 'None',
                     'contrailEKey': '',
                     'scratchpad': [],
+                    "cosmeticStats": [
+                      {
+                        "statName": "HabaneroProgression", 
+                        "statValue": 0
+                      },
+                      {
+                        "statName": "TotalVictoryCrowns", 
+                        "statValue": 0
+                      },
+                      {
+                        "statName": "TotalRoyalRoyales", 
+                        "statValue": 0
+                      },
+                      {
+                        "statName": "HasCrown", 
+                        "statValue": 0
+                      }
+                    ]
                 },
             }),
             'Default:AthenaCosmeticLoadoutVariants_j': json.dumps({
@@ -558,7 +574,7 @@ class PartyMemberMeta(MetaBase):
             'Default:VoiceConnectionId_s': '',
             'Default:SpectateAPartyMemberAvailable_b': "false",
             'Default:FeatDefinition_s': 'None',
-            'Default:VoiceChatStatus_s': 'Disabled',
+            'Default:VoiceChatStatus_s': 'Enabled',
         }
 
         if meta is not None:
