@@ -2,7 +2,7 @@
 
 [![Supported py versions](https://img.shields.io/pypi/pyversions/fortnitepy.svg)](https://pypi.org/project/fortnitepy/)
 [![Current pypi version](https://img.shields.io/pypi/v/fortnitepy.svg)](https://pypi.org/project/fortnitepy/)
-[![Donate link](https://img.shields.io/badge/paypal-donate-blue.svg)](https://www.paypal.me/terbau)
+[![Donate link (Support Original Libary Creator)](https://img.shields.io/badge/paypal-donate-blue.svg)](https://www.paypal.me/terbau)
 
 Asynchronous library for interacting with Fortnite and EpicGames' API and XMPP services.
 
@@ -19,11 +19,10 @@ https://fortnitepy.readthedocs.io/en/latest/
 
 # Installing
 ```
-# windows
-py -3 -m pip install -U fortnitepy
-
-# linux
-python3 -m pip install -U fortnitepy
+# One of these should work...
+pip install git+https://github.com/PirxcyFinal/fortnitepy/tree/master
+pip3 install git+https://github.com/PirxcyFinal/fortnitepy/tree/master
+python3 -m pip install git+https://github.com/PirxcyFinal/fortnitepy/tree/master
 ```
 
 # Basic usage
@@ -88,6 +87,8 @@ bot.run()
 
 # Credit
 Thanks to [Kysune](https://github.com/SzymonLisowiec), [iXyles](https://github.com/iXyles), [Vrekt](https://github.com/Vrekt) and [amrsatrio](https://github.com/Amrsatrio) for ideas and/or work that this library is built upon.
+
+Credits to [Terbau](https://github.com/Terbau) for originally making the libary.
 
 Also thanks to [discord.py](https://github.com/Rapptz/discord.py) for much inspiration code-wise.
 
