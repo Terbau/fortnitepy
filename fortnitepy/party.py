@@ -1931,8 +1931,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
-                asset = ("AthenaCharacterItemDefinition'/Game/Athena/Items/"
-                         "Cosmetics/Characters/{0}.{0}'".format(asset))
+                asset = ("AthenaCharacter:{0}".format(asset))
         else:
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['characterPrimaryAssetId']
@@ -2036,8 +2035,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
-                asset = ("AthenaBackpackItemDefinition'/Game/Athena/Items/"
-                         "Cosmetics/Backpacks/{0}.{0}'".format(asset))
+                asset = ("AthenaBackpack:{0}".format(asset))
         else:
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
@@ -2129,8 +2127,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
-                asset = ("AthenaPetItemDefinition'/Game/Athena/Items/"
-                         "Cosmetics/PetCarriers/{0}.{0}'".format(asset))
+                asset = ("AthenaBackpack:{0}".format(asset))
         else:
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
@@ -2198,8 +2195,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
-                asset = ("AthenaPickaxeItemDefinition'/Game/Athena/Items/"
-                         "Cosmetics/Pickaxes/{0}.{0}'".format(asset))
+                asset = ("AthenaPickaxe:{0}".format(asset))
         else:
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['pickaxeDef']
@@ -2325,8 +2321,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
-            asset = ("AthenaDanceItemDefinition'/Game/Athena/Items/"
-                     "Cosmetics/Dances/{0}.{0}'".format(asset))
+            asset = ("AthenaDance:{0}'".format(asset))
 
         prop = self.meta.set_emote(
             emote=asset,
