@@ -508,7 +508,7 @@ class PartyMemberMeta(MetaBase):
             }),
             'Default:AthenaCosmeticLoadout_j': json.dumps({
                 'AthenaCosmeticLoadout': {
-                    'characterDef': ("AthenaCharacterItemDefinition'/Game/"
+                    'characterPrimaryAssetId': ("AthenaCharacterItemDefinition'/Game/"
                                      "Athena/Items/Cosmetics/Characters/"
                                      "{0}.{0}'".format(self.def_character)),
                     'characterEKey': '',
@@ -588,7 +588,7 @@ class PartyMemberMeta(MetaBase):
     @property
     def outfit(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
-        return base['AthenaCosmeticLoadout']['characterDef']
+        return base['AthenaCosmeticLoadout']['characterPrimaryAssetId']
 
     @property
     def backpack(self) -> str:
@@ -793,7 +793,7 @@ class PartyMemberMeta(MetaBase):
         data = prop['AthenaCosmeticLoadout']
 
         if character is not None:
-            data['characterDef'] = character
+            data['characterPrimaryAssetId'] = character
         if character_ekey is not None:
             data['characterEKey'] = character_ekey
         if backpack is not None:
@@ -1919,7 +1919,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                          "Cosmetics/Characters/{0}.{0}'".format(asset))
         else:
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
-            asset = prop['AthenaCosmeticLoadout']['characterDef']
+            asset = prop['AthenaCosmeticLoadout']['characterPrimaryAssetId']
 
         if enlightenment is not None:
             if len(enlightenment) != 2:
