@@ -1,5 +1,5 @@
 import fortnitepy
-import FortniteAPIAsync
+import FortniteAPIAsync # you will need to install using pip install FortniteAPIAsync
 
 from fortnitepy.ext import commands
 
