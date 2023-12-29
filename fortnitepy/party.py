@@ -2778,8 +2778,8 @@ class PartyBase:
             }
 
         self._update_config({**self.config, **config})
-
-        self.meta.update(data['party_state_updated'], raw=True)
+        print(data)
+        self.meta.update(data.get('party_state_updated'), raw=True)
         self.meta.remove(data['party_state_removed'])
 
         privacy = self.meta.get_prop('Default:PrivacySettings_j')
