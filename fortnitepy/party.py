@@ -809,7 +809,7 @@ class PartyMemberMeta(MetaBase):
         data = prop['AthenaCosmeticLoadout']
 
         if character is not None:
-            data['characterPrimaryAssetId'] = "AthenaCharacter:"+character
+            data['characterPrimaryAssetId'] = character
         if character_ekey is not None:
             data['characterEKey'] = character_ekey
         if backpack is not None:
