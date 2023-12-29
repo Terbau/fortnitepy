@@ -500,36 +500,39 @@ class PartyMemberMeta(MetaBase):
                     'version': 0,
                 },
             }),
-            'Default:AthenaCosmeticLoadout_j': json.dumps({
-                'AthenaCosmeticLoadout': {
-                    'characterPrimaryAssetId': ("AthenaCharacter:{0}".format(self.def_character)),
-                    'characterEKey': '',
-                    'backpackDef': 'None',
-                    'backpackEKey': '',
-                    'pickaxeDef': ("/Game/Athena/Items/Cosmetics/Pickaxes/DefaultPickaxe.DefaultPickaxe"),
-                    'pickaxeEKey': '',
-                    'contrailDef': '/Game/Athena/Items/Cosmetics/Contrails/DefaultContrail.DefaultContrail',
-                    'contrailEKey': '',
-                    'scratchpad': [],
-                    "cosmeticStats": [
-                      {
-                        "statName": "HabaneroProgression", 
-                        "statValue": 0
-                      },
-                      {
-                        "statName": "TotalVictoryCrowns", 
-                        "statValue": 0
-                      },
-                      {
-                        "statName": "TotalRoyalRoyales", 
-                        "statValue": 0
-                      },
-                      {
-                        "statName": "HasCrown", 
-                        "statValue": 0
+            'Default:AthenaCosmeticLoadout_j': json.dumps(
+                    {
+                      'AthenaCosmeticLoadout': {
+                        'characterPrimaryAssetId': ("AthenaCharacter:{0}".format(self.def_character)),
+                        'characterEKey': '',
+                        'backpackDef': 'None',
+                        'backpackEKey': '',
+                        'pickaxeDef': ("/Game/Athena/Items/Cosmetics/Pickaxes/DefaultPickaxe.DefaultPickaxe"),
+                        'pickaxeEKey': '',
+                        'contrailDef': '/Game/Athena/Items/Cosmetics/Contrails/DefaultContrail.DefaultContrail',
+                        'contrailEKey': '',
+                        'scratchpad': [],
+                        "cosmeticStats": [
+                          {
+                            "statName": "HabaneroProgression", 
+                            "statValue": 0
+                          },
+                          {
+                            "statName": "TotalVictoryCrowns", 
+                            "statValue": 0
+                          },
+                          {
+                            "statName": "TotalRoyalRoyales", 
+                            "statValue": 0
+                          },
+                          {
+                            "statName": "HasCrown", 
+                            "statValue": 0
+                          }
+                        ]
                       }
-                    ]
-                }),
+                    }
+              ) 
             'Default:AthenaCosmeticLoadoutVariants_j': json.dumps({
                 'AthenaCosmeticLoadoutVariants': {
                     'vL': {},
