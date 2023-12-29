@@ -604,11 +604,6 @@ class PartyMemberMeta(MetaBase):
         return self.get_prop('Default:CurrentInputType_s')
 
     @property
-    def assisted_challenge(self) -> str:
-        base = self.get_prop('Default:AssistedChallengeInfo_j')
-        return base['AssistedChallengeInfo']['questItemDef']
-
-    @property
     def outfit(self) -> str:
         base = self.get_prop('Default:AthenaCosmeticLoadout_j')
         return base['AthenaCosmeticLoadout']['characterPrimaryAssetId']
@@ -750,20 +745,6 @@ class PartyMemberMeta(MetaBase):
         key = 'Default:FrontendEmote_j'
         return {key: self.set_prop(key, final)}
 
-    def set_assisted_challenge(self, quest: Optional[str] = None, *,
-                               completed: Optional[int] = None
-                               ) -> Dict[str, Any]:
-        prop = self.get_prop('Default:AssistedChallengeInfo_j')
-        data = prop['AssistedChallenge_j']
-
-        if quest is not None:
-            data['questItemDef'] = self.maybesub(quest)
-        if completed is not None:
-            data['objectivesCompleted'] = completed
-
-        final = {'AssistedChallengeInfo': data}
-        key = 'Default:AssistedChallengeInfo_j'
-        return {key: self.set_prop(key, final)}
 
     def set_banner(self, banner_icon: Optional[str] = None, *,
                    banner_color: Optional[str] = None,
@@ -2504,46 +2485,6 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             level=level,
             self_boost_xp=self_boost_xp,
             friend_boost_xp=friend_boost_xp
-        )
-
-        if not self.edit_lock.locked():
-            return await self.patch(updated=prop)
-
-    async def set_assisted_challenge(self, quest: Optional[str] = None, *,
-                                     num_completed: Optional[int] = None
-                                     ) -> None:
-        """|coro|
-
-        Sets the assisted challenge.
-
-        Parameters
-        ----------
-        quest: Optional[:class:`str`]
-            The quest to set.
-
-            .. note::
-
-                You don't have to include the full path of the quest. The
-                quest id is enough.
-        num_completed: Optional[:class:`int`]
-            How many quests you have completed, I think (didn't test this).
-
-        Raises
-        ------
-        HTTPException
-            An error occured while requesting.
-        """
-        if quest is not None:
-            if quest != '' and '.' not in quest:
-                quest = ("FortQuestItemDefinition'/Game/Athena/Items/"
-                         "Quests/DailyQuests/Quests/{0}.{0}'".format(quest))
-        else:
-            prop = self.meta.get_prop('Default:AssistedChallengeInfo_j')
-            quest = prop['AssistedChallengeInfo']['questItemDef']
-
-        prop = self.meta.set_assisted_challenge(
-            quest=quest,
-            completed=num_completed
         )
 
         if not self.edit_lock.locked():
