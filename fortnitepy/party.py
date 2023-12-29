@@ -39,7 +39,7 @@ from .errors import PartyError, Forbidden, HTTPException, NotFound
 from .user import User
 from .friend import Friend
 from .enums import (PartyPrivacy, PartyDiscoverability, PartyJoinability,
-                    DefaultCharactersChapter2, Region, ReadyState, Platform)
+                    DefaultCharactersChapter1, Region, ReadyState, Platform)
 from .utils import MaybeLock
 
 if TYPE_CHECKING:
@@ -465,7 +465,7 @@ class PartyMemberMeta(MetaBase):
 
         self.meta_ready_event = asyncio.Event()
 
-        self.def_character = DefaultCharactersChapter2.get_random_name()
+        self.def_character = DefaultCharactersChapter1.get_random_name()
         self.schema = {
             'Default:Location_s': 'PreLobby',
             'Default:CampaignHero_j': json.dumps({
@@ -492,12 +492,6 @@ class PartyMemberMeta(MetaBase):
             'Default:HiddenMatchmakingDelayMax_U': '0',
             'Default:ReadyInputType_s': 'Count',
             'Default:CurrentInputType_s': 'MouseAndKeyboard',
-            'Default:AssistedChallengeInfo_j': json.dumps({
-                'AssistedChallengeInfo': {
-                    'questItemDef': 'None',
-                    'objectivesCompleted': 0,
-                },
-            }),
             'Default:MemberSquadAssignmentRequest_j': json.dumps({
                 'MemberSquadAssignmentRequest': {
                     'startingAbsoluteIdx': -1,
@@ -512,11 +506,9 @@ class PartyMemberMeta(MetaBase):
                     'characterEKey': '',
                     'backpackDef': 'None',
                     'backpackEKey': '',
-                    'pickaxeDef': ("AthenaPickaxeItemDefinition'/Game/Athena/"
-                                   "Items/Cosmetics/Pickaxes/"
-                                   "DefaultPickaxe.DefaultPickaxe'"),
+                    'pickaxeDef': ("/Game/Athena/Items/Cosmetics/Pickaxes/DefaultPickaxe.DefaultPickaxe"),
                     'pickaxeEKey': '',
-                    'contrailDef': 'None',
+                    'contrailDef': '/Game/Athena/Items/Cosmetics/Contrails/DefaultContrail.DefaultContrail',
                     'contrailEKey': '',
                     'scratchpad': [],
                     "cosmeticStats": [
@@ -541,7 +533,8 @@ class PartyMemberMeta(MetaBase):
             }),
             'Default:AthenaCosmeticLoadoutVariants_j': json.dumps({
                 'AthenaCosmeticLoadoutVariants': {
-                    'vL': {}
+                    'vL': {},
+                    "fT": False
                 }
             }),
             'Default:ArbitraryCustomDataStore_j': json.dumps({
@@ -562,11 +555,25 @@ class PartyMemberMeta(MetaBase):
                     'friendBoostXp': 0,
                 },
             }),
-            'Default:Platform_j': json.dumps({
-                'Platform': {
-                    'platformStr': self.member.client.platform.value,
+            'Default:Platform_j': json.dumps(
+                {
+                  "PlatformData": {
+                    "platform": {
+                      "platformDescription": {
+                        "name": "",
+                        "platformType": "DESKTOP",
+                        "onlineSubsystem": "None",
+                        "sessionType": "",
+                        "externalAccountType": "",
+                        "crossplayPool": "DESKTOP"
+                      }
+                    },
+                    "uniqueId": "INVALID",
+                    "sessionId": ""
+                  }
                 },
-            }),
+              }
+            ),
             'Default:PlatformUniqueId_s': 'INVALID',
             'Default:PlatformSessionId_s': '',
             'Default:CrossplayPreference_s': 'OptedIn',
@@ -574,7 +581,7 @@ class PartyMemberMeta(MetaBase):
             'Default:VoiceConnectionId_s': '',
             'Default:SpectateAPartyMemberAvailable_b': "false",
             'Default:FeatDefinition_s': 'None',
-            'Default:VoiceChatStatus_s': 'Enabled',
+            'Default:VoiceChatStatus_s': 'Disabled',
         }
 
         if meta is not None:
@@ -2039,7 +2046,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
-                asset = ("AthenaBackpack:{0}".format(asset))
+                asset = ("/BRCosmetics/Athena/Items/Cosmetics/Backpacks/{0}.{0}".format(asset))
         else:
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
@@ -2131,7 +2138,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
-                asset = ("AthenaBackpack:{0}".format(asset))
+                asset = ("/BRCosmetics/Athena/Items/Cosmetics/PetCarriers/{0}.{0}".format(asset))
         else:
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['backpackDef']
@@ -2199,7 +2206,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         """
         if asset is not None:
             if asset != '' and '.' not in asset:
-                asset = ("AthenaPickaxe:{0}".format(asset))
+                asset = ("/BRCosmetics/Athena/Items/Cosmetics/Pickaxes/{0}.{0}".format(asset))
         else:
             prop = self.meta.get_prop('Default:AthenaCosmeticLoadout_j')
             asset = prop['AthenaCosmeticLoadout']['pickaxeDef']
@@ -2325,12 +2332,12 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
-            asset = ("AthenaDance:{0}'".format(asset))
+            asset = ("/BRCosmetics/Athena/Items/Cosmetics/Dances{0}.{0}".format(asset))
 
         prop = self.meta.set_emote(
             emote=asset,
             emote_ekey=key,
-            section=section
+            section=-2
         )
 
         self._cancel_clear_emote()
@@ -2778,7 +2785,6 @@ class PartyBase:
             }
 
         self._update_config({**self.config, **config})
-        print(data)
         self.meta.update(data.get('party_state_updated'), raw=True)
         self.meta.remove(data['party_state_removed'])
 
