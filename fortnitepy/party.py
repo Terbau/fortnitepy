@@ -555,24 +555,23 @@ class PartyMemberMeta(MetaBase):
                     'friendBoostXp': 0,
                 },
             }),
-            'Default:Platform_j': json.dumps(
-                {
-                  "PlatformData": {
-                    "platform": {
-                      "platformDescription": {
+            'Default:Platform_j': json.dumps({
+            "PlatformData": {
+                "platform": {
+                    "platformDescription": {
                         "name": "",
                         "platformType": "DESKTOP",
                         "onlineSubsystem": "None",
                         "sessionType": "",
                         "externalAccountType": "",
                         "crossplayPool": "DESKTOP"
-                      }
-                    },
-                    "uniqueId": "INVALID",
-                    "sessionId": ""
-                  }
+                    }
                 },
+                "uniqueId": "INVALID",
+                "sessionId": ""
               }
+            })
+
             ),
             'Default:PlatformUniqueId_s': 'INVALID',
             'Default:PlatformSessionId_s': '',
