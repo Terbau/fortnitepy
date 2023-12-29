@@ -1978,6 +1978,10 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         )
 
         if not self.edit_lock.locked():
+            try:
+              await me.patch(updated={**prop, **prop2, **prop3})
+            except:
+              pass
             return await self.patch(updated={**prop, **prop2, **prop3})
 
     async def set_backpack(self, asset: Optional[str] = None, *,
