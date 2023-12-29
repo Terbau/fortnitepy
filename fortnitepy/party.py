@@ -2332,7 +2332,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
             An error occured while requesting.
         """
         if asset != '' and '.' not in asset:
-            asset = ("/BRCosmetics/Athena/Items/Cosmetics/Dances{0}.{0}".format(asset))
+            asset = ("/BRCosmetics/Athena/Items/Cosmetics/Dances/{0}.{0}".format(asset))
 
         prop = self.meta.set_emote(
             emote=asset,
