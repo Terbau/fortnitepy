@@ -488,7 +488,6 @@ class PartyMemberMeta(MetaBase):
             }),
             'Default:NumAthenaPlayersLeft_U': '0',
             'Default:UtcTimeStartedMatchAthena_s': '0001-01-01T00:00:00.000Z',
-            'Default:GameReadiness_s': 'NotReady',
             'Default:HiddenMatchmakingDelayMax_U': '0',
             'Default:ReadyInputType_s': 'Count',
             'Default:CurrentInputType_s': 'MouseAndKeyboard',
@@ -607,7 +606,8 @@ class PartyMemberMeta(MetaBase):
 
     @property
     def ready(self) -> bool:
-        return self.get_prop('Default:GameReadiness_s')
+        base = self.get_prop('Default:LobbyState_j')
+        return base['LobbyState']['gameReadiness']
 
     @property
     def input(self) -> str:
@@ -736,7 +736,10 @@ class PartyMemberMeta(MetaBase):
         return {key: self.set_prop(key, final)}
 
     def set_readiness(self, val: str) -> Dict[str, Any]:
-        key = 'Default:GameReadiness_s'
+        key = 'Default:LobbyState_j'
+        data = (self.get_prop('Default:LobbyState_j'))['LobbyState']
+        data['gameReadiness'] = val
+        final = {'LobbyState': data}
         return {key: self.set_prop(key, val)}
 
     def set_emote(self, emote: Optional[str] = None, *,
