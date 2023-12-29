@@ -549,6 +549,16 @@ class PartyMemberMeta(MetaBase):
                     'seasonLevel': 1,
                 },
             }),
+            'Default:LobbyState_j': json.dumps({
+                'LobbyState': {
+                    'inGameReadyCheckStatus': 'None',
+                    'gameReadiness': 'NotReady',
+                    'readyInputType': "Count",
+                    "currentInputType": "MouseAndKeyboard",
+                    "hiddenMatchmakingDelayMax": 0,
+                    "hasPreloadedAthena": False
+                },
+            }),
             'Default:BattlePassInfo_j': json.dumps({
                 'BattlePassInfo': {
                     'bHasPurchasedPass': False,
