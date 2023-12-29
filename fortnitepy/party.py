@@ -1181,17 +1181,6 @@ class PartyMemberBase(User):
         return self.meta.input
 
     @property
-    def assisted_challenge(self) -> str:
-        """:class:`str`: The current assisted challenge chosen by this member.
-        ``None`` if no assisted challenge is set.
-        """
-        asset = self.meta.assisted_challenge
-        result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
-
-        if result is not None and result[1] != 'None':
-            return result.group(1)
-
-    @property
     def outfit(self) -> str:
         """:class:`str`: The CID of the outfit this user currently has
         equipped.
@@ -2489,19 +2478,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
 
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
-
-    async def clear_assisted_challenge(self) -> None:
-        """|coro|
-
-        Clears the currently set assisted challenge.
-
-        Raises
-        ------
-        HTTPException
-            An error occured while requesting.
-        """
-        await self.set_assisted_challenge(quest="")
-
+          
     async def set_in_match(self, *, players_left: int = 100,
                            started_at: datetime.timedelta = None) -> None:
         """|coro|
