@@ -572,9 +572,8 @@ class PartyMemberMeta(MetaBase):
                 "uniqueId": "INVALID",
                 "sessionId": ""
               }
-            })
-
-            ),
+            }
+                                            ),
             'Default:PlatformUniqueId_s': 'INVALID',
             'Default:PlatformSessionId_s': '',
             'Default:CrossplayPreference_s': 'OptedIn',
