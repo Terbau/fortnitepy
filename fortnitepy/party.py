@@ -532,7 +532,7 @@ class PartyMemberMeta(MetaBase):
                         ]
                       }
                     }
-              ) 
+              ),
             'Default:AthenaCosmeticLoadoutVariants_j': json.dumps({
                 'AthenaCosmeticLoadoutVariants': {
                     'vL': {},
