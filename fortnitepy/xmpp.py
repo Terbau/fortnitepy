@@ -1089,7 +1089,10 @@ class XMPPClient:
                     await party.refresh_squad_assignments()
 
         def _getattr(member, key):
-            value = getattr(member, key)
+            try:
+                value = getattr(member, key)
+            except:
+                value = None
             if callable(value):
                 value = value()
             return value
