@@ -417,7 +417,6 @@ class ClientUser(UserBase):
 
     def _update(self, data: dict) -> None:
         super()._update(data)
-        print(data)
         self.name = data.get("name")
         self.email = data.get("email")
         self.failed_login_attempts = data.get("failedLoginAttempts")
