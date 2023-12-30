@@ -3352,17 +3352,15 @@ class ClientParty(PartyBase, Patchable):
 
     async def set_playlist(self, playlist: Optional[str] = None,
                            tournament: Optional[str] = None,
-                           event_window: Optional[str] = None,
-                           region: Optional[Region] = None) -> None:
+                           event_window: Optional[str] = None) -> None:
         """|coro|
 
         Sets the current playlist of the party.
 
-        Sets the playlist to Duos EU: ::
+        Sets the playlist to Duos (Bots Only): ::
 
             await party.set_playlist(
-                playlist='Playlist_Bots_DefaultDuo',
-                region=fortnitepy.Region.EUROPE
+                playlist='Playlist_Bots_DefaultDuo'
             )
 
         Sets the playlist to Arena Trios EU (Replace ``Trios`` with ``Solo``
@@ -3371,8 +3369,7 @@ class ClientParty(PartyBase, Patchable):
             await party.set_playlist(
                 playlist='Playlist_ShowdownAlt_Trios',
                 tournament='epicgames_Arena_S13_Trios',
-                event_window='Arena_S13_Division1_Trios',
-                region=fortnitepy.Region.EUROPE
+                event_window='Arena_S13_Division1_Trios'
             )
 
         Parameters
@@ -3396,17 +3393,15 @@ class ClientParty(PartyBase, Patchable):
         if self.me is not None and not self.me.leader:
             raise Forbidden('You have to be leader for this action to work.')
 
-        if region is not None:
-            region = region.value
-
         prop = self.meta.set_playlist(
             playlist=playlist,
             tournament=tournament,
             event_window=event_window,
-            region=region
         )
-        if not self.edit_lock.locked():
-            return await self.patch(updated=prop)
+        try:
+          return await self.patch(updated=prop)
+        except:
+          return raise Forbidden('You have to be leader for this action to work.')
 
     async def set_custom_key(self, key: str) -> None:
         """|coro|
