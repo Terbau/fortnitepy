@@ -1862,7 +1862,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
         prop = self.meta.set_readiness(
             val=state.value
         )
-        print(prop)
+        print(prop,"set_ready")
         if not self.edit_lock.locked():
             return await self.patch(updated=prop)
 
