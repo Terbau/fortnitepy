@@ -913,7 +913,12 @@ class PartyMeta(MetaBase):
                     'playlistName': 'Playlist_DefaultDuo',
                     'tournamentId': '',
                     'eventWindowId': '',
-                    'regionId': 'EU',
+                    "linkId": {
+                      "mnemonic":"Playlist_DefaultDuo",
+                      "version":"-1"
+                    },
+                    "bGracefullyUpgraded": False,
+                    "matchmakingRulePreset": "RespectParties"
                 },
             }),
             'Default:AthenaSquadFill_b': 'true',
@@ -1002,6 +1007,7 @@ class PartyMeta(MetaBase):
 
         if playlist is not None:
             data['playlistName'] = playlist
+            data['linkId']['mnemonic'] = playlist
         if tournament is not None:
             data['tournamentId'] = tournament
         if event_window is not None:
