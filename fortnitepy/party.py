@@ -1004,18 +1004,16 @@ class PartyMeta(MetaBase):
                     ) -> Dict[str, Any]:
         data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
 
-        if playlist is not None:
+        if playlist:
             data['playlistName'] = playlist
             data['linkId']['mnemonic'] = playlist
-        if tournament is not None:
+        if tournament:
             data['tournamentId'] = tournament
-        if event_window is not None:
+        if event_window:
             data['eventWindowId'] = event_window
-
         final = {'PlaylistData': data}
         key = 'Default:PlaylistData_j'
         fdict = {key: self.set_prop(key, final)}
-        print(fdict)
         return fdict
 
     def set_custom_key(self, key: str) -> Dict[str, Any]:
