@@ -910,11 +910,11 @@ class PartyMeta(MetaBase):
             'Default:CustomMatchKey_s': '',
             'Default:PlaylistData_j': json.dumps({
                 'PlaylistData': {
-                    'playlistName': 'Playlist_DefaultDuo',
+                    'playlistName': 'Playlist_Bots_DefaultDuo',
                     'tournamentId': '',
                     'eventWindowId': '',
                     "linkId": {
-                      "mnemonic":"Playlist_DefaultDuo",
+                      "mnemonic":"Playlist_Bots_DefaultDuo",
                       "version":"-1"
                     },
                     "bGracefullyUpgraded": False,
@@ -2660,7 +2660,7 @@ class PartyBase:
 
             # output for default duos
             (
-                'Playlist_DefaultDuo',
+                'Playlist_Bots_DefaultDuo',
                 '',
                 '',
                 'EU'
@@ -3362,7 +3362,7 @@ class ClientParty(PartyBase, Patchable):
         Sets the playlist to Duos EU: ::
 
             await party.set_playlist(
-                playlist='Playlist_DefaultDuo',
+                playlist='Playlist_Bots_DefaultDuo',
                 region=fortnitepy.Region.EUROPE
             )
 
