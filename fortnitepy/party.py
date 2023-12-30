@@ -960,8 +960,7 @@ class PartyMeta(MetaBase):
 
         return (info['playlistName'],
                 info['tournamentId'],
-                info['eventWindowId'],
-                info['regionId'])
+                info['eventWindowId'])
 
     @property
     def squad_fill(self) -> bool:
