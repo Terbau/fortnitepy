@@ -740,7 +740,7 @@ class PartyMemberMeta(MetaBase):
         data = (self.get_prop('Default:LobbyState_j'))['LobbyState']
         data['gameReadiness'] = val
         final = {'LobbyState': data}
-        return {key: self.set_prop(key, val)}
+        return {key: self.set_prop(key, final)}
 
     def set_emote(self, emote: Optional[str] = None, *,
                   emote_ekey: Optional[str] = None,
