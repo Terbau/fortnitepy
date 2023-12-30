@@ -3401,7 +3401,7 @@ class ClientParty(PartyBase, Patchable):
         try:
           return await self.patch(updated=prop)
         except:
-          return raise Forbidden('You have to be leader for this action to work.')
+          raise Forbidden('You have to be leader for this action to work.')
 
     async def set_custom_key(self, key: str) -> None:
         """|coro|
