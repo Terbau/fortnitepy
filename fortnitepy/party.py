@@ -1014,7 +1014,9 @@ class PartyMeta(MetaBase):
 
         final = {'PlaylistData': data}
         key = 'Default:PlaylistData_j'
-        return {key: self.set_prop(key, final)}
+        fdict = {key: self.set_prop(key, final)}
+        print(fdict)
+        return fdict
 
     def set_custom_key(self, key: str) -> Dict[str, Any]:
         _key = 'Default:CustomMatchKey_s'
