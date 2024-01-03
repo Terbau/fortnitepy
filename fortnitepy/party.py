@@ -914,7 +914,7 @@ class PartyMeta(MetaBase):
                     "mnemonic":"playlist_bots_defaultsquad",
                     "version": -1
                   },
-                  "worldId":{
+                  "worldId": {
                     "iD": "",
                     "ownerId": "INVALID":,
                     "name": ""
