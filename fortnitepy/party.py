@@ -953,14 +953,6 @@ class PartyMeta(MetaBase):
 
         self.meta_ready_event.set()
 
-    @property
-    def playlist_info(self) -> Tuple[str]:
-        base = self.get_prop('Default:PlaylistData_j')
-        info = base['PlaylistData']
-
-        return (info['playlistName'],
-                info['tournamentId'],
-                info['eventWindowId'])
 
     @property
     def squad_fill(self) -> bool:
@@ -2651,31 +2643,6 @@ class PartyBase:
                 return member
 
     @property
-    def playlist_info(self) -> Tuple[str]:
-        """:class:`tuple`: A tuple containing the name, tournament, event
-        window and region of the currently set playlist.
-
-        Example output: ::
-
-            # output for default duos
-            (
-                'Playlist_Bots_DefaultDuo',
-                '',
-                '',
-                'EU'
-            )
-
-            # output for arena trios
-            (
-                'Playlist_ShowdownAlt_Trios',
-                'epicgames_Arena_S10_Trios',
-                'Arena_S10_Division1_Trios',
-                'EU'
-            )
-        """
-        return self.meta.playlist_info
-
-    @property
     def squad_fill(self) -> bool:
         """:class:`bool`: ``True`` if squad fill is enabled else ``False``."""
         return self.meta.squad_fill
@@ -2982,7 +2949,7 @@ class ClientParty(PartyBase, Patchable):
                     'numKills': 0,
                     'bFellToDeath': False,
                 },
-                'GamePlaylistName_s': self.meta.playlist_info[0],
+                'GamePlaylistName_s': "playlist_bots_defaultsquad",
                 'Event_PlayersAlive_s': '0',
                 'Event_PartySize_s': str(len(self._members)),
                 'Event_PartyMaxSize_s': str(self.max_size),
