@@ -911,7 +911,7 @@ class PartyMeta(MetaBase):
             'Default:SelectedIsland_j': json.dumps({
                 'SelectedIsland': {
                   "linkId":{
-                    "mnemonic":"playlist_bots_defaultsquad",
+                    "mnemonic":"playlist_tutorial_1",
                     "version": -1
                   },
                   "worldId": {
@@ -1013,7 +1013,7 @@ class PartyMeta(MetaBase):
         #data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
         data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
         if playlist:
-            newData['linkId']['mnemonic'] = playlist
+            data['linkId']['mnemonic'] = playlist
         final = {'SelectedIsland': data}
         key = 'Default:SelectedIsland_j'
         fdict = {key: self.set_prop(key, final)}
