@@ -908,6 +908,25 @@ class PartyMeta(MetaBase):
             }),
             'Default:MatchmakingInfoString_s': '',
             'Default:CustomMatchKey_s': '',
+            'Default:SelectedIsland_j': json.dumps({
+                'SelectedIsland': {
+                  "linkId":{
+                    "mnemonic":"playlist_bots_defaultsquad",
+                    "version": -1
+                  },
+                  "worldId":{
+                    "iD": "",
+                    "ownerId": "INVALID":,
+                    "name": ""
+                  },
+                  "sessionId": "",
+                  "joinInfo": {
+                    "islandJoinability": "CanNotBeJoinedOrWatched",
+                    "bIsWorldJoinable": 'false',
+                    "sessionKey": ""
+                  }
+                },
+            }),
             'Default:PlaylistData_j': json.dumps({
                 'PlaylistData': {
                     'playlistName': 'playlist_bots_defaultsquad',
