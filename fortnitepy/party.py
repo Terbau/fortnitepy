@@ -916,7 +916,7 @@ class PartyMeta(MetaBase):
                   },
                   "worldId": {
                     "iD": "",
-                    "ownerId": "INVALID":,
+                    "ownerId": "INVALID",
                     "name": ""
                   },
                   "sessionId": "",
