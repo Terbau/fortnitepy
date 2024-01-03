@@ -910,11 +910,11 @@ class PartyMeta(MetaBase):
             'Default:CustomMatchKey_s': '',
             'Default:PlaylistData_j': json.dumps({
                 'PlaylistData': {
-                    'playlistName': 'Playlist_Bots_DefaultDuo',
+                    'playlistName': 'playlist_bots_defaultsquad',
                     'tournamentId': '',
                     'eventWindowId': '',
                     "linkId": {
-                      "mnemonic":"Playlist_Bots_DefaultDuo",
+                      "mnemonic":"playlist_bots_defaultsquad",
                       "version":"-1"
                     },
                     "bGracefullyUpgraded": False,
@@ -940,7 +940,7 @@ class PartyMeta(MetaBase):
                     'buildId': -1,
                     'hotfixVersion': -1,
                     'regionId': '',
-                    'playlistName': 'None',
+                    'playlistName': 'playlist_bots_defaultsquad',
                     'tournamentId': '',
                     'eventWindowId': '',
                     'linkCode': '',
