@@ -49,6 +49,17 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+_party_meta_attrs = {'playlist_info': 'playlist', 'squad_fill': None,
+                     'privacy': None}
+
+_member_meta_attrs = ('ready', 'input', 'assisted_challenge', 'outfit',
+                      'backpack', 'pet', 'pickaxe', 'contrail', 'emote',
+                      'emoji', 'banner', 'battlepass_info', 'in_match',
+                      'match_players_left', 'enlightenments', 'corruption',
+                      'outfit_variants', 'backpack_variants',
+                      'pickaxe_variants', 'contrail_variants',
+                      'lobby_map_marker_is_visible',
+                      'lobby_map_marker_coordinates',)
 
 def is_RandALCat(c: str) -> bool:
     return unicodedata.bidirectional(c) in ('R', 'AL')
@@ -1022,7 +1033,7 @@ class XMPPClient:
             if callable(value):
                 value = value()
             return value
-        pre_values = {k: _getattr(party, k) for k in check.keys()}
+        pre_values = {k: _getattr(party, k) for k in _party_meta_attrs}
 
         party._update(body)
         self.client.dispatch_event('party_update', party)
@@ -1031,7 +1042,7 @@ class XMPPClient:
             value = _getattr(party, key)
             if pre_value != value:
                 self.client.dispatch_event(
-                    'party_{0}_change'.format(check[key] or key),
+                    'party_{0}_change'.format(_party_meta_attrs[key] or key),
                     party,
                     pre_value,
                     value
