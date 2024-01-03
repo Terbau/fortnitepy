@@ -1009,21 +1009,13 @@ class PartyMeta(MetaBase):
         key = 'Default:RawSquadAssignments_j'
         return {key: self.set_prop(key, final)}
 
-    def set_playlist(self, playlist: Optional[str] = None, *,
-                     tournament: Optional[str] = None,
-                     event_window: Optional[str] = None
-                    ) -> Dict[str, Any]:
-        data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
-
+    def set_playlist(self, playlist: Optional[str] = None, *) -> Dict[str, Any]:
+        #data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
+        data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
         if playlist:
-            data['playlistName'] = playlist
-            data['linkId']['mnemonic'] = playlist
-        if tournament:
-            data['tournamentId'] = tournament
-        if event_window:
-            data['eventWindowId'] = event_window
-        final = {'PlaylistData': data}
-        key = 'Default:PlaylistData_j'
+            newData['linkId']['mnemonic'] = playlist
+        final = {'SelectedIsland': data}
+        key = 'Default:SelectedIsland_j'
         fdict = {key: self.set_prop(key, final)}
         return fdict
 
@@ -3336,9 +3328,7 @@ class ClientParty(PartyBase, Patchable):
                 config=config,
             )
 
-    async def set_playlist(self, playlist: Optional[str] = None,
-                           tournament: Optional[str] = None,
-                           event_window: Optional[str] = None) -> None:
+    async def set_playlist(self, playlist: Optional[str] = None) -> None:
         """|coro|
 
         Sets the current playlist of the party.
@@ -3379,11 +3369,7 @@ class ClientParty(PartyBase, Patchable):
         if self.me is not None and not self.me.leader:
             raise Forbidden('You have to be leader for this action to work.')
 
-        prop = self.meta.set_playlist(
-            playlist=playlist,
-            tournament=tournament,
-            event_window=event_window,
-        )
+        prop = self.meta.set_playlist(playlist=playlist)
         try:
           return await self.patch(updated=prop)
         except:
