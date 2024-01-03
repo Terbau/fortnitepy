@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-_party_meta_attrs = {'playlist_info': 'playlist', 'squad_fill': None,
+_party_meta_attrs = {'squad_fill': None,
                      'privacy': None}
 
 _member_meta_attrs = ('ready', 'input', 'assisted_challenge', 'outfit',
