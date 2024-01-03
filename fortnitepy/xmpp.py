@@ -1022,9 +1022,6 @@ class XMPPClient:
             if callable(value):
                 value = value()
             return value
-
-        check = {'playlist_info': 'playlist', 'squad_fill': None,
-                 'privacy': None}
         pre_values = {k: _getattr(party, k) for k in check.keys()}
 
         party._update(body)
