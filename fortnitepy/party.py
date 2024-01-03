@@ -1009,7 +1009,7 @@ class PartyMeta(MetaBase):
         key = 'Default:RawSquadAssignments_j'
         return {key: self.set_prop(key, final)}
 
-    def set_playlist(self, playlist: Optional[str] = None, *) -> Dict[str, Any]:
+    def set_playlist(self, playlist: Optional[str] = None) -> Dict[str, Any]:
         #data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
         data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
         if playlist:
