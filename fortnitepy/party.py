@@ -1207,8 +1207,7 @@ class PartyMemberBase(User):
         asset = self.meta.outfit
         result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
 
-        if result is not None and result.group(1) != 'None':
-            return result.group(1)
+        return asset
 
     @property
     def backpack(self) -> str:
