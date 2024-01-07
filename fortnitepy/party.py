@@ -1204,9 +1204,10 @@ class PartyMemberBase(User):
         """:class:`str`: The CID of the outfit this user currently has
         equipped.
         """
-        asset = self.meta.outfit
-        result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
-
+        if self.meta.outfit:
+          asset = self.meta.outfit.split(":")[1]
+        else:
+          asset = None
         return asset
 
     @property
