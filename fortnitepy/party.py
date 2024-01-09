@@ -3360,8 +3360,6 @@ class ClientParty(PartyBase, Patchable):
         Forbidden
             The client is not the leader of the party.
         """
-        if self.me is not None and not self.me.leader:
-            raise Forbidden('You have to be leader for this action to work.')
 
         prop = self.meta.set_sessionId(id=id)
         try:
