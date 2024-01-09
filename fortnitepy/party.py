@@ -1019,6 +1019,17 @@ class PartyMeta(MetaBase):
         fdict = {key: self.set_prop(key, final)}
         return fdict
 
+    def set_sessionId(self, id: Optional[str] = None) -> Dict[str, Any]:
+        #data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
+        data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
+        if id:
+            data['sessionId'] = id
+        final = {'SelectedIsland': data}
+        key = 'Default:SelectedIsland_j'
+        fdict = {key: self.set_prop(key, final)}
+        return fdict
+    
+
     def set_custom_key(self, key: str) -> Dict[str, Any]:
         _key = 'Default:CustomMatchKey_s'
         return {_key: self.set_prop(_key, key)}
@@ -3327,6 +3338,36 @@ class ClientParty(PartyBase, Patchable):
                 deleted=deleted,
                 config=config,
             )
+
+    async def set_sessionId(self, id: Optional[str] = None) -> None:
+        """|coro|
+
+        Sets the current session ID of the party.
+
+        Sets the sessionId to "123" (Bots Only): ::
+
+            await party.set_sessionId(
+                id='123'
+            )
+            
+        Parameters
+        ----------
+        id: Optional[:class:`str`]
+            The sessionId
+
+        Raises
+        ------
+        Forbidden
+            The client is not the leader of the party.
+        """
+        if self.me is not None and not self.me.leader:
+            raise Forbidden('You have to be leader for this action to work.')
+
+        prop = self.meta.set_sessionId(id=id)
+        try:
+          return await self.patch(updated=prop)
+        except:
+          raise Forbidden('You have to be leader for this action to work.')
 
     async def set_playlist(self, playlist: Optional[str] = None) -> None:
         """|coro|
