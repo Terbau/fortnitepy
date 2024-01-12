@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2019-2020 Terbau
+Copyright (c) 2019-2020 Pirxcy
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1228,10 +1228,9 @@ class PartyMemberBase(User):
         """
         asset = self.meta.backpack
         if '/petcarriers/' not in asset.lower():
-            result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
-
-            if result is not None and result.group(1) != 'None':
-                return result.group(1)
+          return asset
+        else:
+          return None
 
     @property
     def pet(self) -> str:
@@ -1240,10 +1239,9 @@ class PartyMemberBase(User):
         """
         asset = self.meta.backpack
         if '/petcarriers/' in asset.lower():
-            result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
-
-            if result is not None and result.group(1) != 'None':
-                return result.group(1)
+          return asset
+        else:
+          return None
 
     @property
     def pickaxe(self) -> str:
@@ -1251,10 +1249,7 @@ class PartyMemberBase(User):
         has equipped.
         """
         asset = self.meta.pickaxe
-        result = re.search(r".*\.([^\'\"]*)", asset.strip("'"))
-
-        if result is not None and result.group(1) != 'None':
-            return result.group(1)
+        return asset
 
     @property
     def contrail(self) -> str:
