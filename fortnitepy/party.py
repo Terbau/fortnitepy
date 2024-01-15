@@ -422,7 +422,7 @@ class MetaBase:
         _v = self.schema.get(prop)
         if _t == 'b':
             return not (_v is None or (isinstance(_v, str)
-                        and _v.lower() == 'false'))
+                        and _v.lower() == 'False'))
         elif _t == 'j':
             return {} if _v is None else json.loads(_v)
         elif _t == 'U':
@@ -478,7 +478,7 @@ class PartyMemberMeta(MetaBase):
             'Default:MatchmakingLevel_U': '0',
             'Default:ZoneInstanceId_s': '',
             'Default:HomeBaseVersion_U': '1',
-            'Default:HasPreloadedAthena_b': 'false',
+            'Default:HasPreloadedAthena_b': 'False',
             'Default:FrontendEmote_j': json.dumps({
                 'FrontendEmote': {
                     'emoteItemDef': 'None',
@@ -558,6 +558,24 @@ class PartyMemberMeta(MetaBase):
                     "hasPreloadedAthena": False
                 },
             }),
+            'Default:PackedState_j': json.dumps({
+                'PackedState': {
+                    'subGame': 'Athena',
+                    'location': 'PreLobby',
+                    'gameMode': "None",
+                    "voiceChatStatus": "PartyVoice",
+                    "hasCompletedSTWTutorial":True,
+                    "hasPurchasedSTW":True,
+                    "platformSupportsSTW":True,
+                    "bReturnToLobbyAndReadyUp":False,
+                    "bAnyoneChangeSelectedExperience":False,
+                    "bDownloadOnDemandActive":True,
+                    "bIsPartyLFG":False,
+                    "bShouldRecordPartyChannel":False,
+                    "bReadyForTravel":False,
+                    "bIsInAllSelectExperiment":True
+                },
+            }),
             'Default:BattlePassInfo_j': json.dumps({
                 'BattlePassInfo': {
                     'bHasPurchasedPass': False,
@@ -586,9 +604,9 @@ class PartyMemberMeta(MetaBase):
             'Default:PlatformUniqueId_s': 'INVALID',
             'Default:PlatformSessionId_s': '',
             'Default:CrossplayPreference_s': 'OptedIn',
-            'Default:VoiceChatEnabled_b': 'true',
+            'Default:VoiceChatEnabled_b': 'True',
             'Default:VoiceConnectionId_s': '',
-            'Default:SpectateAPartyMemberAvailable_b': "false",
+            'Default:SpectateAPartyMemberAvailable_b': "False",
             'Default:FeatDefinition_s': 'None',
             'Default:VoiceChatStatus_s': 'Enabled',
         }
@@ -895,13 +913,13 @@ class PartyMeta(MetaBase):
         self.schema = {
             'Default:PrimaryGameSessionId_s': '',
             'Default:PartyState_s': 'BattleRoyaleView',
-            'Default:LobbyConnectionStarted_b': 'false',
+            'Default:LobbyConnectionStarted_b': 'False',
             'Default:MatchmakingResult_s': 'NoResults',
             'Default:MatchmakingState_s': 'NotMatchmaking',
-            'Default:SessionIsCriticalMission_b': 'false',
+            'Default:SessionIsCriticalMission_b': 'False',
             'Default:ZoneTileIndex_U': '-1',
             'Default:ZoneInstanceId_s': '',
-            'Default:SpectateAPartyMemberAvailable_b': 'false',
+            'Default:SpectateAPartyMemberAvailable_b': 'False',
             'Default:TheaterId_s': '',
             'Default:TileStates_j': json.dumps({
                 'TileStates': [],
@@ -922,7 +940,7 @@ class PartyMeta(MetaBase):
                   "sessionId": "",
                   "joinInfo": {
                     "islandJoinability": "CanNotBeJoinedOrWatched",
-                    "bIsWorldJoinable": 'false',
+                    "bIsWorldJoinable": 'False',
                     "sessionKey": ""
                   }
                 },
@@ -940,10 +958,10 @@ class PartyMeta(MetaBase):
                     "matchmakingRulePreset": "RespectParties"
                 },
             }),
-            'Default:AthenaSquadFill_b': 'true',
-            'Default:AllowJoinInProgress_b': 'false',
+            'Default:AthenaSquadFill_b': 'True',
+            'Default:AllowJoinInProgress_b': 'False',
             'Default:LFGTime_s': '0001-01-01T00:00:00.000Z',
-            'Default:PartyIsJoinedInProgress_b': 'false',
+            'Default:PartyIsJoinedInProgress_b': 'False',
             'Default:GameSessionKey_s': '',
             'Default:RawSquadAssignments_j': json.dumps({
                 'RawSquadAssignments': []
