@@ -572,7 +572,7 @@ class PartyMemberMeta(MetaBase):
                     "bDownloadOnDemandActive":True,
                     "bIsPartyLFG":False,
                     "bShouldRecordPartyChannel":False,
-                    "bReadyForTravel":False,
+                    "bReadyForTravel":True,
                     "bIsInAllSelectExperiment":True
                 },
             }),
