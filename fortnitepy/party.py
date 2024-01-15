@@ -569,7 +569,7 @@ class PartyMemberMeta(MetaBase):
                     "platformSupportsSTW":True,
                     "bReturnToLobbyAndReadyUp":False,
                     "bAnyoneChangeSelectedExperience":False,
-                    "bDownloadOnDemandActive":True,
+                    "bDownloadOnDemandActive":False,
                     "bIsPartyLFG":False,
                     "bShouldRecordPartyChannel":False,
                     "bReadyForTravel":True,
