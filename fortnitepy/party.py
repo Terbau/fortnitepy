@@ -563,7 +563,7 @@ class PartyMemberMeta(MetaBase):
                     'subGame': 'Athena',
                     'location': 'PreLobby',
                     'gameMode': "None",
-                    "voiceChatStatus": "PartyVoice",
+                    "voiceChatStatus": "Enabled",
                     "hasCompletedSTWTutorial":True,
                     "hasPurchasedSTW":True,
                     "platformSupportsSTW":True,
