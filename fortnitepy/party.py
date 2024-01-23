@@ -558,6 +558,7 @@ class PartyMemberMeta(MetaBase):
                     "hasPreloadedAthena": False
                 },
             }),
+            'VoiceChat:implementation_s': 'EOSVoiceChat',
             'Default:PackedState_j': json.dumps({
                 'PackedState': {
                     'subGame': 'Athena',
