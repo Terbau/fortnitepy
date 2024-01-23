@@ -558,7 +558,7 @@ class PartyMemberMeta(MetaBase):
                     "hasPreloadedAthena": False
                 },
             }),
-            'VoiceChat:implementation_s': 'EOSVoiceChat',
+            'VoiceChat:implementation_s': 'VivoxVoiceChat',
             'Default:PackedState_j': json.dumps({
                 'PackedState': {
                     'subGame': 'Athena',
@@ -925,7 +925,7 @@ class PartyMeta(MetaBase):
             'Default:TileStates_j': json.dumps({
                 'TileStates': [],
             }),
-            'VoiceChat:implementation_s': 'EOSVoiceChat',
+            'VoiceChat:implementation_s': 'VivoxVoiceChat',
             'Default:MatchmakingInfoString_s': '',
             'Default:CustomMatchKey_s': '',
             'Default:SelectedIsland_j': json.dumps({
