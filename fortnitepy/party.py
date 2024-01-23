@@ -925,6 +925,7 @@ class PartyMeta(MetaBase):
             'Default:TileStates_j': json.dumps({
                 'TileStates': [],
             }),
+            'VoiceChat:implementation_s': 'EOSVoiceChat',
             'Default:MatchmakingInfoString_s': '',
             'Default:CustomMatchKey_s': '',
             'Default:SelectedIsland_j': json.dumps({
@@ -1029,7 +1030,6 @@ class PartyMeta(MetaBase):
         return {key: self.set_prop(key, final)}
 
     def set_playlist(self, playlist: Optional[str] = None) -> Dict[str, Any]:
-        #data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
         data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
         if playlist:
             data['linkId']['mnemonic'] = playlist
@@ -1039,7 +1039,6 @@ class PartyMeta(MetaBase):
         return fdict
 
     def set_sessionId(self, id: Optional[str] = None) -> Dict[str, Any]:
-        #data = (self.get_prop('Default:PlaylistData_j'))['PlaylistData']
         data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
         if id:
             data['sessionId'] = id
