@@ -820,6 +820,18 @@ class PartyMemberMeta(MetaBase):
         key = 'Default:BattlePassInfo_j'
         return {key: self.set_prop(key, final)}
 
+    def suggest_playlist_dict(
+      self,
+      playlist: Optiional[str] = None
+    ):
+      data = (self.meta.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
+      if playlist:
+          data['mnemonic'] = playlist
+      final = {'SuggestedLink': data}
+      key = 'Default:SuggestedLink_j'
+      fdict = {key: self.set_prop(key, final)}
+      return fdict
+
     def set_cosmetic_loadout(self, *,
                              character: Optional[str] = None,
                              character_ekey: Optional[str] = None,
@@ -1047,16 +1059,6 @@ class PartyMeta(MetaBase):
             data['linkId']['mnemonic'] = playlist
         final = {'SelectedIsland': data}
         key = 'Default:SelectedIsland_j'
-        fdict = {key: self.set_prop(key, final)}
-        return fdict
-        
-
-    def suggest_playlist(self, playlist: Optional[str] = None) -> Dict[str, Any]:
-        data = (self.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
-        if playlist:
-            data['mnemonic'] = playlist
-        final = {'SuggestedLink': data}
-        key = 'Default:SuggestedLink_j'
         fdict = {key: self.set_prop(key, final)}
         return fdict
 
@@ -2032,13 +2034,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
       """
         Add docstring later ig
       """
-      data = (self.meta.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
-      if playlist:
-          data['mnemonic'] = playlist
-      final = {'SuggestedLink': data}
-      key = 'Default:SuggestedLink_j'
-      fdict = {key: self.set_prop(key, final)}
-      return await self.patch(fdict)
+      prop = self.meta.suggest_playlist_dict(playlist=playlist)
+      return await self.patch(prop)
 
     async def set_backpack(self, asset: Optional[str] = None, *,
                            key: Optional[str] = None,
