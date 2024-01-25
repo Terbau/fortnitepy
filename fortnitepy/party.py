@@ -2025,9 +2025,12 @@ class ClientPartyMember(PartyMemberBase, Patchable):
               pass
             return await self.patch(updated={**prop, **prop2, **prop3})
 
-    async def def suggest_playlist(self, playlist: Optional[str] = None) -> Dict[str, Any]:
+    async def suggest_playlist(
+      self, 
+      playlist: Optional[str] = None
+    ) -> Dict[str, Any]:
       """
-      Add docstring later ig
+        Add docstring later ig
       """
       data = (self.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
       if playlist:
@@ -2035,7 +2038,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
       final = {'SuggestedLink': data}
       key = 'Default:SuggestedLink_j'
       fdict = {key: self.set_prop(key, final)}
-return await self.patch(fdict)
+      return await self.patch(fdict)
 
     async def set_backpack(self, asset: Optional[str] = None, *,
                            key: Optional[str] = None,
