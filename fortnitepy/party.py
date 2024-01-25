@@ -499,6 +499,12 @@ class PartyMemberMeta(MetaBase):
                     'version': 0,
                 },
             }),
+            "Default:SuggestedLink_j": json.dumps({
+              "SuggestedLink": {
+               "mnemonic": "",
+               "version": -1
+               }
+            }),
             'Default:AthenaCosmeticLoadout_j': json.dumps(
                     {
                       'AthenaCosmeticLoadout': {
@@ -2019,6 +2025,18 @@ class ClientPartyMember(PartyMemberBase, Patchable):
               pass
             return await self.patch(updated={**prop, **prop2, **prop3})
 
+    async def def suggest_playlist(self, playlist: Optional[str] = None) -> Dict[str, Any]:
+      """
+      Add docstring later ig
+      """
+      data = (self.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
+      if playlist:
+          data['mnemonic'] = playlist
+      final = {'SuggestedLink': data}
+      key = 'Default:SuggestedLink_j'
+      fdict = {key: self.set_prop(key, final)}
+return await self.patch(fdict)
+
     async def set_backpack(self, asset: Optional[str] = None, *,
                            key: Optional[str] = None,
                            variants: Optional[List[Dict[str, str]]] = None,
@@ -3438,7 +3456,7 @@ class ClientParty(PartyBase, Patchable):
         """
 
         if not self.me.leader:
-            prop = self.meta.suggest_playlist(playlist=playlist)
+            raise Forbidden("You have to be leader for this action to work.")
         else:
             prop = self.meta.set_playlist(playlist=playlist)
         try:
