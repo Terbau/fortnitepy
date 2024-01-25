@@ -1119,14 +1119,14 @@ class XMPPClient:
                                                    
         if updatedState.get("Default:SuggestedLink_j") and party.me.leader:
             SuggestedLink = json.loads(updatedState['Default:SuggestedLink_j'])
-            playlist = SuggestedLink.get("mnemonic")
+            playlist = SuggestedLink['SuggestedLink'].get("mnemonic")
             data = (self.client.party.meta.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
             if playlist:
                 data['linkId']['mnemonic'] = playlist
                 final = {'SelectedIsland': data}
                 key = 'Default:SelectedIsland_j'
-                fdict = {key: self.set_prop(key, final)}
-                await party.me.patch(updated=fdict)
+                fdict = {key: self.client.party.meta.set_prop(key, final)}
+                await self.client.party.patch(updated=fdict)
             
         if party._default_config.team_change_allowed or not party.me.leader:
             req_j = body['member_state_updated'].get(
