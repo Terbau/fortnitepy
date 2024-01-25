@@ -2032,7 +2032,7 @@ class ClientPartyMember(PartyMemberBase, Patchable):
       """
         Add docstring later ig
       """
-      data = (self.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
+      data = (self.me.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
       if playlist:
           data['mnemonic'] = playlist
       final = {'SuggestedLink': data}
