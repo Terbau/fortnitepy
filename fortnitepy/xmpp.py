@@ -1120,7 +1120,7 @@ class XMPPClient:
         if updatedState.get("Default:SuggestedLink_j") and party.me.leader:
             SuggestedLink = json.loads(updatedState['Default:SuggestedLink_j'])
             playlist = SuggestedLink.get("mnemonic")
-            data = (self.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
+            data = (party.get_prop('Default:SelectedIsland_j'))['SelectedIsland']
             if playlist:
                 data['linkId']['mnemonic'] = playlist
                 final = {'SelectedIsland': data}
