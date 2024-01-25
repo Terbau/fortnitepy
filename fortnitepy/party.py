@@ -3438,7 +3438,7 @@ class ClientParty(PartyBase, Patchable):
         """
 
         if not self.me.leader:
-            self.meta.suggest_playlist(playlist=playlist)
+            prop = self.meta.suggest_playlist(playlist=playlist)
         else:
             prop = self.meta.set_playlist(playlist=playlist)
         try:
