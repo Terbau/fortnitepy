@@ -1120,7 +1120,7 @@ class XMPPClient:
         if updatedState.get("Default:SuggestedLink_j") and party.me.leader:
             SuggestedLink = json.loads(updatedState['Default:SuggestedLink_j'])
             print(SuggestedLink)
-            await party.set_playlist(SuggestedLink.get("mnemonic", ""))
+            await self.client.party.set_playlist(SuggestedLink.get("mnemonic", ""))
             
         if party._default_config.team_change_allowed or not party.me.leader:
             req_j = body['member_state_updated'].get(
