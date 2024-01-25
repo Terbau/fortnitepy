@@ -824,7 +824,7 @@ class PartyMemberMeta(MetaBase):
       self,
       playlist: Optional[str] = None
     ):
-      data = (self.meta.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
+      data = (self.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
       if playlist:
           data['mnemonic'] = playlist
       final = {'SuggestedLink': data}
