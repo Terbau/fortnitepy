@@ -947,6 +947,12 @@ class PartyMeta(MetaBase):
                   }
                 },
             }),
+            'Default:SuggestedLink_j': json.dumps({
+              "SuggestedLink": {
+                "mnemonic": "playlist_trios",
+                "version": -1
+              }
+            }),
             'Default:PlaylistData_j': json.dumps({
                 'PlaylistData': {
                     'playlistName': 'playlist_bots_defaultsquad',
@@ -1035,6 +1041,16 @@ class PartyMeta(MetaBase):
             data['linkId']['mnemonic'] = playlist
         final = {'SelectedIsland': data}
         key = 'Default:SelectedIsland_j'
+        fdict = {key: self.set_prop(key, final)}
+        return fdict
+        
+
+    def suggest_playlist(self, playlist: Optional[str] = None) -> Dict[str, Any]:
+        data = (self.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
+        if playlist:
+            data['mnemonic'] = playlist
+        final = {'SuggestedLink': data}
+        key = 'Default:SuggestedLink_j'
         fdict = {key: self.set_prop(key, final)}
         return fdict
 
@@ -3420,7 +3436,11 @@ class ClientParty(PartyBase, Patchable):
         Forbidden
             The client is not the leader of the party.
         """
-        prop = self.meta.set_playlist(playlist=playlist)
+
+        if not self.me.leader:
+            self.meta.suggest_playlist(playlist=playlist)
+        else:
+            prop = self.meta.set_playlist(playlist=playlist)
         try:
           return await self.patch(updated=prop)
         except:
