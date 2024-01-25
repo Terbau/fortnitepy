@@ -822,7 +822,7 @@ class PartyMemberMeta(MetaBase):
 
     def suggest_playlist_dict(
       self,
-      playlist: Optiional[str] = None
+      playlist: Optional[str] = None
     ):
       data = (self.meta.get_prop('Default:SuggestedLink_j'))['SuggestedLink']
       if playlist:
