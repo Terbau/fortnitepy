@@ -965,12 +965,6 @@ class PartyMeta(MetaBase):
                   }
                 },
             }),
-            'Default:SuggestedLink_j': json.dumps({
-              "SuggestedLink": {
-                "mnemonic": "playlist_trios",
-                "version": -1
-              }
-            }),
             'Default:PlaylistData_j': json.dumps({
                 'PlaylistData': {
                     'playlistName': 'playlist_bots_defaultsquad',
