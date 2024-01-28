@@ -932,6 +932,12 @@ class PartyMeta(MetaBase):
         }
 
         self.schema = {
+            "Default:SuggestedLink_j": json.dumps({
+              "SuggestedLink": {
+               "mnemonic": "",
+               "version": -1
+               }
+            })
             'Default:PrimaryGameSessionId_s': '',
             'Default:PartyState_s': 'BattleRoyaleView',
             'Default:LobbyConnectionStarted_b': 'False',
@@ -945,13 +951,13 @@ class PartyMeta(MetaBase):
             'Default:TileStates_j': json.dumps({
                 'TileStates': [],
             }),
-            'VoiceChat:implementation_s': 'EOSVoiceChat',
+            'VoiceChat:implementation_s': 'VivoxVoiceChat',
             'Default:MatchmakingInfoString_s': '',
             'Default:CustomMatchKey_s': '',
             'Default:SelectedIsland_j': json.dumps({
                 'SelectedIsland': {
                   "linkId":{
-                    "mnemonic":"playlist_tutorial_1",
+                    "mnemonic":"playlist_defaultsquad",
                     "version": -1
                   },
                   "worldId": {
@@ -969,7 +975,7 @@ class PartyMeta(MetaBase):
             }),
             'Default:PlaylistData_j': json.dumps({
                 'PlaylistData': {
-                    'playlistName': 'playlist_bots_defaultsquad',
+                    'playlistName': 'playlist_defaultsquad',
                     'tournamentId': '',
                     'eventWindowId': '',
                     "linkId": {
@@ -980,7 +986,7 @@ class PartyMeta(MetaBase):
                     "matchmakingRulePreset": "RespectParties"
                 },
             }),
-            'Default:AthenaSquadFill_b': 'True',
+            'Default:AthenaSquadFill_b': 'False',
             'Default:AllowJoinInProgress_b': 'False',
             'Default:LFGTime_s': '0001-01-01T00:00:00.000Z',
             'Default:PartyIsJoinedInProgress_b': 'False',
@@ -994,18 +1000,20 @@ class PartyMeta(MetaBase):
             'Default:PlatformSessions_j': json.dumps({
                 'PlatformSessions': [],
             }),
+            'Default:RegionId_s': 'EU',
             'Default:PartyMatchmakingInfo_j': json.dumps({
                 'PartyMatchmakingInfo': {
                     'buildId': -1,
                     'hotfixVersion': -1,
                     'regionId': '',
-                    'playlistName': 'playlist_bots_defaultsquad',
+                    'playlistName': 'playlist_defaultsquad',
                     'tournamentId': '',
                     'eventWindowId': '',
                     'linkCode': '',
                 }
             }),
         }
+
 
         if meta is not None:
             self.update(meta, raw=True)
