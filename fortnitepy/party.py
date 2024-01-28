@@ -1865,6 +1865,8 @@ class ClientPartyMember(PartyMemberBase, Patchable):
                 m = 'errors.com.epicgames.social.party.party_not_found'
                 if exc.message_code != m:
                     raise
+            except:
+              pass
 
         asyncio.ensure_future(patcher())
 
