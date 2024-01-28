@@ -467,157 +467,80 @@ class PartyMemberMeta(MetaBase):
 
         self.def_character = DefaultCharactersChapter1.get_random_name()
         self.schema = {
-            'Default:Location_s': 'PreLobby',
-            'Default:CampaignHero_j': json.dumps({
-                'CampaignHero': {
-                    'heroItemInstanceId': '',
-                    'heroType': ("FortHeroType'/Game/Athena/Heroes/{0}.{0}'"
-                                 "".format(self.def_character.replace("CID","HID"))),
-                },
-            }),
-            'Default:MatchmakingLevel_U': '0',
+            'Default:PrimaryGameSessionId_s': '',
+            'Default:PartyState_s': 'BattleRoyaleView',
+            'Default:LobbyConnectionStarted_b': 'False',
+            'Default:MatchmakingResult_s': 'NoResults',
+            'Default:MatchmakingState_s': 'NotMatchmaking',
+            'Default:SessionIsCriticalMission_b': 'False',
+            'Default:ZoneTileIndex_U': '-1',
             'Default:ZoneInstanceId_s': '',
-            'Default:HomeBaseVersion_U': '1',
-            'Default:HasPreloadedAthena_b': 'False',
-            'Default:FrontendEmote_j': json.dumps({
-                'FrontendEmote': {
-                    'emoteItemDef': 'None',
-                    'emoteItemDefEncryptionKey': '',
-                    'emoteSection': -1,
+            'Default:SpectateAPartyMemberAvailable_b': 'False',
+            'Default:TheaterId_s': '',
+            'Default:TileStates_j': json.dumps({
+                'TileStates': [],
+            }),
+            'VoiceChat:implementation_s': 'VivoxVoiceChat',
+            'Default:MatchmakingInfoString_s': '',
+            'Default:CustomMatchKey_s': '',
+            'Default:SelectedIsland_j': json.dumps({
+                'SelectedIsland': {
+                  "linkId":{
+                    "mnemonic":"playlist_defaultsquad",
+                    "version": -1
+                  },
+                  "worldId": {
+                    "iD": "",
+                    "ownerId": "INVALID",
+                    "name": ""
+                  },
+                  "sessionId": "",
+                  "joinInfo": {
+                    "islandJoinability": "CanNotBeJoinedOrWatched",
+                    "bIsWorldJoinable": 'False',
+                    "sessionKey": ""
+                  }
                 },
             }),
-            'Default:NumAthenaPlayersLeft_U': '0',
-            'Default:UtcTimeStartedMatchAthena_s': '0001-01-01T00:00:00.000Z',
-            'Default:HiddenMatchmakingDelayMax_U': '0',
-            'Default:ReadyInputType_s': 'Count',
-            'Default:CurrentInputType_s': 'MouseAndKeyboard',
-            'Default:MemberSquadAssignmentRequest_j': json.dumps({
-                'MemberSquadAssignmentRequest': {
-                    'startingAbsoluteIdx': -1,
-                    'targetAbsoluteIdx': -1,
-                    'swapTargetMemberId': 'INVALID',
-                    'version': 0,
+            'Default:PlaylistData_j': json.dumps({
+                'PlaylistData': {
+                    'playlistName': 'playlist_defaultsquad',
+                    'tournamentId': '',
+                    'eventWindowId': '',
+                    "linkId": {
+                      "mnemonic":"playlist_bots_defaultsquad",
+                      "version":"-1"
+                    },
+                    "bGracefullyUpgraded": False,
+                    "matchmakingRulePreset": "RespectParties"
                 },
             }),
-            "Default:SuggestedLink_j": json.dumps({
-              "SuggestedLink": {
-               "mnemonic": "",
-               "version": -1
-               }
+            'Default:AthenaSquadFill_b': 'False',
+            'Default:AllowJoinInProgress_b': 'False',
+            'Default:LFGTime_s': '0001-01-01T00:00:00.000Z',
+            'Default:PartyIsJoinedInProgress_b': 'False',
+            'Default:GameSessionKey_s': '',
+            'Default:RawSquadAssignments_j': json.dumps({
+                'RawSquadAssignments': []
             }),
-            'Default:AthenaCosmeticLoadout_j': json.dumps(
-                    {
-                      'AthenaCosmeticLoadout': {
-                        'characterPrimaryAssetId': ("AthenaCharacter:{0}".format(self.def_character)),
-                        'characterEKey': '',
-                        'backpackDef': 'None',
-                        'backpackEKey': '',
-                        'pickaxeDef': ("AthenaPickaxeItemDefinition'/Game/Athena/"
-                                   "Items/Cosmetics/Pickaxes/"
-                                   "DefaultPickaxe.DefaultPickaxe'"),
-                        'pickaxeEKey': '',
-                        'contrailDef': 'None',
-                        'contrailEKey': '',
-                        'scratchpad': [],
-                        "cosmeticStats": [
-                          {
-                            "statName": "HabaneroProgression", 
-                            "statValue": 0
-                          },
-                          {
-                            "statName": "TotalVictoryCrowns", 
-                            "statValue": 0
-                          },
-                          {
-                            "statName": "TotalRoyalRoyales", 
-                            "statValue": 0
-                          },
-                          {
-                            "statName": "HasCrown", 
-                            "statValue": 0
-                          }
-                        ]
-                      }
-                    }
-              ),
-            'Default:AthenaCosmeticLoadoutVariants_j': json.dumps({
-                'AthenaCosmeticLoadoutVariants': {
-                    'vL': {},
-                    "fT": False
+            'Default:PrivacySettings_j': json.dumps({
+                'PrivacySettings': privacy_settings,
+            }),
+            'Default:PlatformSessions_j': json.dumps({
+                'PlatformSessions': [],
+            }),
+            'Default:RegionId_s': 'EU',
+            'Default:PartyMatchmakingInfo_j': json.dumps({
+                'PartyMatchmakingInfo': {
+                    'buildId': -1,
+                    'hotfixVersion': -1,
+                    'regionId': '',
+                    'playlistName': 'playlist_defaultsquad',
+                    'tournamentId': '',
+                    'eventWindowId': '',
+                    'linkCode': '',
                 }
             }),
-            'Default:ArbitraryCustomDataStore_j': json.dumps({
-                'ArbitraryCustomDataStore': []
-            }),
-            'Default:AthenaBannerInfo_j': json.dumps({
-                'AthenaBannerInfo': {
-                    'bannerIconId': 'standardbanner15',
-                    'bannerColorId': 'defaultcolor15',
-                    'seasonLevel': 1,
-                },
-            }),
-            'Default:LobbyState_j': json.dumps({
-                'LobbyState': {
-                    'inGameReadyCheckStatus': 'None',
-                    'gameReadiness': 'NotReady',
-                    'readyInputType': "Count",
-                    "currentInputType": "MouseAndKeyboard",
-                    "hiddenMatchmakingDelayMax": 0,
-                    "hasPreloadedAthena": False
-                },
-            }),
-            'VoiceChat:implementation_s': 'EOSVoiceChat',
-            'Default:PackedState_j': json.dumps({
-                'PackedState': {
-                    'subGame': 'Athena',
-                    'location': 'PreLobby',
-                    'gameMode': "None",
-                    "voiceChatStatus": "EOSVoiceChat",
-                    "hasCompletedSTWTutorial":True,
-                    "hasPurchasedSTW":True,
-                    "platformSupportsSTW":True,
-                    "bReturnToLobbyAndReadyUp":False,
-                    "bAnyoneChangeSelectedExperience":True,
-                    "bDownloadOnDemandActive":False,
-                    "bIsPartyLFG":False,
-                    "bShouldRecordPartyChannel":False,
-                    "bReadyForTravel":False,
-                    "bIsInAllSelectExperiment":False
-                },
-            }),
-            'Default:BattlePassInfo_j': json.dumps({
-                'BattlePassInfo': {
-                    'bHasPurchasedPass': False,
-                    'passLevel': 1,
-                    'selfBoostXp': 0,
-                    'friendBoostXp': 0,
-                },
-            }),
-            'Default:Platform_j': json.dumps({
-            "PlatformData": {
-                "platform": {
-                    "platformDescription": {
-                        "name": "",
-                        "platformType": "DESKTOP",
-                        "onlineSubsystem": "None",
-                        "sessionType": "",
-                        "externalAccountType": "",
-                        "crossplayPool": "DESKTOP"
-                    }
-                },
-                "uniqueId": "INVALID",
-                "sessionId": ""
-              }
-            }
-                                            ),
-            'Default:PlatformUniqueId_s': 'INVALID',
-            'Default:PlatformSessionId_s': '',
-            'Default:CrossplayPreference_s': 'OptedIn',
-            'Default:VoiceChatEnabled_b': 'True',
-            'Default:VoiceConnectionId_s': '',
-            'Default:SpectateAPartyMemberAvailable_b': "False",
-            'Default:FeatDefinition_s': 'None',
-            'Default:VoiceChatStatus_s': 'EOSVoiceChat',
         }
 
         if meta is not None:
