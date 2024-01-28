@@ -937,7 +937,7 @@ class PartyMeta(MetaBase):
                "mnemonic": "",
                "version": -1
                }
-            })
+            }),
             'Default:PrimaryGameSessionId_s': '',
             'Default:PartyState_s': 'BattleRoyaleView',
             'Default:LobbyConnectionStarted_b': 'False',
