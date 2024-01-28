@@ -561,7 +561,7 @@ class PartyMemberMeta(MetaBase):
                     'readyInputType': "Count",
                     "currentInputType": "MouseAndKeyboard",
                     "hiddenMatchmakingDelayMax": 0,
-                    "hasPreloadedAthena": False
+                    "hasPreloadedAthena": True
                 },
             }),
             'VoiceChat:implementation_s': 'EOSVoiceChat',
@@ -570,17 +570,17 @@ class PartyMemberMeta(MetaBase):
                     'subGame': 'Athena',
                     'location': 'PreLobby',
                     'gameMode': "None",
-                    "voiceChatStatus": "EOSVoiceChat",
+                    "voiceChatStatus": "Enabled",
                     "hasCompletedSTWTutorial":True,
                     "hasPurchasedSTW":True,
                     "platformSupportsSTW":True,
                     "bReturnToLobbyAndReadyUp":False,
                     "bAnyoneChangeSelectedExperience":True,
                     "bDownloadOnDemandActive":False,
-                    "bIsPartyLFG":False,
+                    "bIsPartyLFG":True,
                     "bShouldRecordPartyChannel":False,
                     "bReadyForTravel":False,
-                    "bIsInAllSelectExperiment":False
+                    "bIsInAllSelectExperiment":True
                 },
             }),
             'Default:BattlePassInfo_j': json.dumps({
@@ -615,7 +615,7 @@ class PartyMemberMeta(MetaBase):
             'Default:VoiceConnectionId_s': '',
             'Default:SpectateAPartyMemberAvailable_b': "False",
             'Default:FeatDefinition_s': 'None',
-            'Default:VoiceChatStatus_s': 'Enabled',
+            'Default:VoiceChatStatus_s': '',
         }
 
         if meta is not None:
