@@ -580,7 +580,7 @@ class PartyMemberMeta(MetaBase):
                     "bIsPartyLFG":False,
                     "bShouldRecordPartyChannel":False,
                     "bReadyForTravel":False,
-                    "bIsInAllSelectExperiment":True
+                    "bIsInAllSelectExperiment":False
                 },
             }),
             'Default:BattlePassInfo_j': json.dumps({
@@ -943,7 +943,7 @@ class PartyMeta(MetaBase):
             'Default:TileStates_j': json.dumps({
                 'TileStates': [],
             }),
-            'VoiceChat:implementation_s': 'VivoxVoiceChat',
+            'VoiceChat:implementation_s': 'EOSVoiceChat',
             'Default:MatchmakingInfoString_s': '',
             'Default:CustomMatchKey_s': '',
             'Default:SelectedIsland_j': json.dumps({
