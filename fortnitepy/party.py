@@ -615,7 +615,7 @@ class PartyMemberMeta(MetaBase):
             'Default:VoiceConnectionId_s': '',
             'Default:SpectateAPartyMemberAvailable_b': "False",
             'Default:FeatDefinition_s': 'None',
-            'Default:VoiceChatStatus_s': 'Enabled',
+            'Default:VoiceChatStatus_s': 'EOSVoiceChat',
         }
 
         if meta is not None:
