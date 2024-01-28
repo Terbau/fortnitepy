@@ -483,6 +483,12 @@ class PartyMemberMeta(MetaBase):
             'VoiceChat:implementation_s': 'VivoxVoiceChat',
             'Default:MatchmakingInfoString_s': '',
             'Default:CustomMatchKey_s': '',
+            "Default:SuggestedLink_j": json.dumps({
+              "SuggestedLink": {
+               "mnemonic": "",
+               "version": -1
+               }
+            })
             'Default:SelectedIsland_j': json.dumps({
                 'SelectedIsland': {
                   "linkId":{
