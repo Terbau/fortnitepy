@@ -478,7 +478,7 @@ class PartyMemberMeta(MetaBase):
             'Default:MatchmakingLevel_U': '0',
             'Default:ZoneInstanceId_s': '',
             'Default:HomeBaseVersion_U': '1',
-            'Default:HasPreloadedAthena_b': 'False',
+            'Default:HasPreloadedAthena_b': 'True',
             'Default:FrontendEmote_j': json.dumps({
                 'FrontendEmote': {
                     'emoteItemDef': 'None',
@@ -512,9 +512,7 @@ class PartyMemberMeta(MetaBase):
                         'characterEKey': '',
                         'backpackDef': 'None',
                         'backpackEKey': '',
-                        'pickaxeDef': ("AthenaPickaxeItemDefinition'/Game/Athena/"
-                                   "Items/Cosmetics/Pickaxes/"
-                                   "DefaultPickaxe.DefaultPickaxe'"),
+                        'pickaxeDef': "None",
                         'pickaxeEKey': '',
                         'contrailDef': 'None',
                         'contrailEKey': '',
@@ -617,7 +615,7 @@ class PartyMemberMeta(MetaBase):
             'Default:VoiceConnectionId_s': '',
             'Default:SpectateAPartyMemberAvailable_b': "False",
             'Default:FeatDefinition_s': 'None',
-            'Default:VoiceChatStatus_s': 'EOSVoiceChat',
+            'Default:VoiceChatStatus_s': 'Enabled',
         }
 
         if meta is not None:
@@ -932,12 +930,6 @@ class PartyMeta(MetaBase):
         }
 
         self.schema = {
-            "Default:SuggestedLink_j": json.dumps({
-              "SuggestedLink": {
-               "mnemonic": "",
-               "version": -1
-               }
-            }),
             'Default:PrimaryGameSessionId_s': '',
             'Default:PartyState_s': 'BattleRoyaleView',
             'Default:LobbyConnectionStarted_b': 'False',
@@ -951,7 +943,7 @@ class PartyMeta(MetaBase):
             'Default:TileStates_j': json.dumps({
                 'TileStates': [],
             }),
-            'VoiceChat:implementation_s': 'VivoxVoiceChat',
+            'VoiceChat:implementation_s': 'EOSVoiceChat',
             'Default:MatchmakingInfoString_s': '',
             'Default:CustomMatchKey_s': '',
             'Default:SelectedIsland_j': json.dumps({
