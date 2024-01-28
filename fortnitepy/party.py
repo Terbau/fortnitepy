@@ -512,9 +512,11 @@ class PartyMemberMeta(MetaBase):
                         'characterEKey': '',
                         'backpackDef': 'None',
                         'backpackEKey': '',
-                        'pickaxeDef': ("/Game/Athena/Items/Cosmetics/Pickaxes/DefaultPickaxe.DefaultPickaxe"),
+                        'pickaxeDef': ("AthenaPickaxeItemDefinition'/Game/Athena/"
+                                   "Items/Cosmetics/Pickaxes/"
+                                   "DefaultPickaxe.DefaultPickaxe'"),
                         'pickaxeEKey': '',
-                        'contrailDef': '/Game/Athena/Items/Cosmetics/Contrails/DefaultContrail.DefaultContrail',
+                        'contrailDef': 'None',
                         'contrailEKey': '',
                         'scratchpad': [],
                         "cosmeticStats": [
@@ -575,7 +577,7 @@ class PartyMemberMeta(MetaBase):
                     "hasPurchasedSTW":True,
                     "platformSupportsSTW":True,
                     "bReturnToLobbyAndReadyUp":False,
-                    "bAnyoneChangeSelectedExperience":False,
+                    "bAnyoneChangeSelectedExperience":True,
                     "bDownloadOnDemandActive":False,
                     "bIsPartyLFG":False,
                     "bShouldRecordPartyChannel":False,
