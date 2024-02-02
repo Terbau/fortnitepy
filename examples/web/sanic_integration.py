@@ -48,7 +48,7 @@ bot = commands.Bot(
     )
 )
 
-sanic_app = sanic.Sanic(__name__)
+app = sanic.Sanic("bot")
 server = None
 
 
@@ -56,8 +56,41 @@ server = None
 async def event_device_auth_generate(details, email):
     store_device_auth_details(email, details)
 
-@sanic_app.route('/friends', methods=['GET'])
-async def get_friends_handler(request):
+@app.route('/members')
+async def get_partymembers_handler(request):
+    """
+    Handles the HTTP GET request to retrieve party members.
+    
+    Parameters:
+    - request: The request object containing HTTP request data.
+    
+    Returns:
+    - A JSON response containing a list of party member IDs.
+    
+    Notes:
+    - This function assumes the existence of the Sanic application ('app') and the 'bot' object with a 'party' attribute,
+      representing the party system.
+    - The function fetches member IDs from the 'bot.party.members' attribute and returns them as a JSON response.
+    """
+    members = [member.id for member in bot.party.members]
+    return sanic.response.json(members)
+
+@app.route('/friends', methods=['GET'])
+    async def get_friends_handler(request):
+    """
+    Handles the HTTP GET request to retrieve friends.
+    
+    Parameters:
+    - request: The request object containing HTTP request data.
+    
+    Returns:
+    - A JSON response containing a list of friend IDs.
+    
+    Notes:
+    - This function assumes the existence of the Sanic application ('app') and the 'bot' object with a 'friends' attribute,
+      representing the friends system.
+    - The function fetches friend IDs from the 'bot.friends' attribute and returns them as a JSON response.
+    """
     friends = [friend.id for friend in bot.friends]
     return sanic.response.json(friends)
 
@@ -71,7 +104,7 @@ async def event_ready():
     print(bot.user.id)
     print('----------------')
 
-    coro = sanic_app.create_server(
+    coro = app.create_server(
         host='0.0.0.0',
         port=8000,
         return_asyncio_server=True,
@@ -82,7 +115,7 @@ async def event_ready():
 async def event_before_close():
     global server
 
-    if server is not None:
+    if server:
         await server.close()
 
 @bot.event
