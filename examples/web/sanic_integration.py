@@ -75,7 +75,7 @@ async def get_partymembers_handler(request):
     members = [member.id for member in bot.party.members]
     return sanic.response.json(members)
 
-@app.route('/friends', methods=['GET'])
+@app.route('/friends')
     async def get_friends_handler(request):
     """
     Handles the HTTP GET request to retrieve friends.
