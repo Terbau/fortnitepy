@@ -2,3 +2,4 @@ aiohttp>=3.3
 aioxmpp>=0.10.4
 aioconsole>=0.1.15
 pytz
+sphinxcontrib-trio
