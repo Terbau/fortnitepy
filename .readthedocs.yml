@@ -11,8 +11,6 @@ formats:
    - epub
 
 python:
-  version: "3.7"
-  pip_install: true
   install:
     - requirements: docs/requirements.txt
   extra_requirements:
