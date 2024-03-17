@@ -99,7 +99,7 @@ class Auth:
 
     async def get_eula_version(self, **kwargs: Any) -> int:
         data = await self.client.http.eulatracking_get_data(**kwargs)
-        return data['version'] if isinstance(data, dict) else 0
+        return data.get('version') if isinstance(data, dict) else 0
 
     async def accept_eula(self, **kwargs: Any) -> None:
         version = await self.get_eula_version(**kwargs)
@@ -116,34 +116,34 @@ class Auth:
                     raise
 
     def _update_ios_data(self, data: dict) -> None:
-        self.ios_access_token = data['access_token']
-        self.ios_expires_in = data['expires_in']
-        self.ios_expires_at = self.client.from_iso(data["expires_at"])
-        self.ios_token_type = data['token_type']
-        self.ios_refresh_token = data['refresh_token']
-        self.ios_refresh_expires = data['refresh_expires']
-        self.ios_refresh_expires_at = data['refresh_expires_at']
-        self.ios_account_id = data['account_id']
-        self.ios_client_id = data['client_id']
-        self.ios_internal_client = data['internal_client']
-        self.ios_client_service = data['client_service']
-        self.ios_app = data['app']
-        self.ios_in_app_id = data['in_app_id']
+        self.ios_access_token = data.get('access_token')
+        self.ios_expires_in = data.get('expires_in')
+        self.ios_expires_at = self.client.from_iso(data.get("expires_at"))
+        self.ios_token_type = data.get('token_type')
+        self.ios_refresh_token = data.get('refresh_token')
+        self.ios_refresh_expires = data.get('refresh_expires')
+        self.ios_refresh_expires_at = data.get('refresh_expires_at')
+        self.ios_account_id = data.get('account_id')
+        self.ios_client_id = data.get('client_id')
+        self.ios_internal_client = data.get('internal_client')
+        self.ios_client_service = data.get('client_service')
+        self.ios_app = data.get('app')
+        self.ios_in_app_id = data.get('in_app_id')
 
     def _update_data(self, data: dict) -> None:
-        self.access_token = data['access_token']
-        self.expires_in = data['expires_in']
-        self.expires_at = self.client.from_iso(data["expires_at"])
-        self.token_type = data['token_type']
-        self.refresh_token = data['refresh_token']
-        self.refresh_expires = data['refresh_expires']
-        self.refresh_expires_at = data['refresh_expires_at']
-        self.account_id = data['account_id']
-        self.client_id = data['client_id']
-        self.internal_client = data['internal_client']
-        self.client_service = data['client_service']
-        self.app = data['app']
-        self.in_app_id = data['in_app_id']
+        self.access_token = data.get('access_token')
+        self.expires_in = data.get('expires_in')
+        self.expires_at = self.client.from_iso(data.get("expires_at"))
+        self.token_type = data.get('token_type')
+        self.refresh_token = data.get('refresh_token')
+        self.refresh_expires = data.get('refresh_expires')
+        self.refresh_expires_at = data.get('refresh_expires_at')
+        self.account_id = data.get('account_id')
+        self.client_id = data.get('client_id')
+        self.internal_client = data.get('internal_client')
+        self.client_service = data.get('client_service')
+        self.app = data.get('app')
+        self.in_app_id = data.get('in_app_id')
 
     async def grant_refresh_token(self, refresh_token: str, auth_token: str, *,
                                   priority: int = 0) -> dict:
@@ -166,7 +166,7 @@ class Auth:
             auth=auth,
             priority=priority
         )
-        return data['code']
+        return data.get("code")
 
     async def exchange_code_for_session(self, token: str, code: str, *,
                                         priority: int = 0) -> dict:
@@ -380,7 +380,11 @@ class EmailAndPasswordAuth(Auth):
 
     async def fetch_xsrf_token(self) -> str:
         response = await self.client.http.epicgames_get_csrf()
-        return response.cookies['XSRF-TOKEN'].value
+        xsrf = response.cookies.get("XSRF-TOKEN")
+        if xsrf:
+            return xsrf.value
+        else:
+            return None
 
     async def ios_authenticate(self) -> dict:
         log.info('Fetching valid xsrf token.')
@@ -447,7 +451,7 @@ class EmailAndPasswordAuth(Auth):
         log.info('Exchanging code.')
         data = await self.exchange_code_for_session(
             self.ios_token,
-            data['code']
+            data.get("code")
         )
         return data
 
@@ -1051,7 +1055,7 @@ class AdvancedAuth(Auth):
             for auth in auths:
                 tasks.append(self.client.loop.create_task(
                     self.delete_device_auth(
-                        auth['deviceId']
+                        auth.get('deviceId')
                     )
                 ))
 
@@ -1060,9 +1064,9 @@ class AdvancedAuth(Auth):
 
         data = await self.generate_device_auth()
         details = {
-            'device_id': data['deviceId'],
-            'account_id': data['accountId'],
-            'secret': data['secret'],
+            'device_id': data.get('deviceId'),
+            'account_id': data.get('accountId'),
+            'secret': data.get('secret'),
         }
         self.__dict__.update(details)
 
@@ -1074,7 +1078,7 @@ class AdvancedAuth(Auth):
         self.client.dispatch_event(
             'device_auth_generate',
             details,
-            account_data['email']
+            account_data.get('email')
         )
 
         return data
