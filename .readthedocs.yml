@@ -13,5 +13,3 @@ formats:
 python:
   install:
     - requirements: docs/requirements.txt
-  extra_requirements:
-    - docs
